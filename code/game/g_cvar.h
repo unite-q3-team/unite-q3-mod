@@ -72,6 +72,9 @@ G_CVAR( g_listEntity, "g_listEntity", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_unlagged, "g_unlagged", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_predictPVS, "g_predictPVS", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+// should ve print "Kill:" and "Item:" strings into console
+G_CVAR( dbg_events, "dbg_events", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 #ifdef MISSIONPACK
 G_CVAR( g_obeliskHealth, "g_obeliskHealth", "2500", 0, 0, qfalse, qfalse )
 G_CVAR( g_obeliskRegenPeriod, "g_obeliskRegenPeriod", "1", 0, 0, qfalse, qfalse )

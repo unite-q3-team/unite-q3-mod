@@ -483,8 +483,9 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	if ( !BG_CanItemBeGrabbed( g_gametype.integer, &ent->s, &other->client->ps ) ) {
 		return;
 	}
-
-	G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
+	
+	if (dbg_events.integer)
+		G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
 
 	predict = other->client->pers.predictItemPickup;
 
