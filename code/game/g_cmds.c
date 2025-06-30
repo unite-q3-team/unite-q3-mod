@@ -1804,12 +1804,28 @@ ClientCommand
 void ClientCommand( int clientNum ) {
 	gentity_t *ent;
 	char	cmd[MAX_TOKEN_CHARS];
+	char 	args[MAX_STRING_CHARS];
+	int 	i;
 
 	ent = g_entities + clientNum;
 	if ( !ent->client )
 		return;
 
+	args[0] = '\0';
+
+    for ( i = 0; i < trap_Argc(); i++ ) {
+        trap_Argv( i, cmd, sizeof( cmd ) );
+        if ( i > 0 ) {
+            Q_strcat( args, sizeof( args ), " " );
+        }
+        Q_strcat( args, sizeof( args ), cmd );
+    }
+		
 	trap_Argv( 0, cmd, sizeof( cmd ) );
+
+	if (!(Q_stricmp (cmd, "say") == 0 || Q_stricmp (cmd, "say_team") == 0 || Q_stricmp (cmd, "tell") == 0)) {
+		G_LogPrintf( "@  %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
+	}
 
 	if ( ent->client->pers.connected != CON_CONNECTED ) {
 		if ( ent->client->pers.connected == CON_CONNECTING && g_gametype.integer >= GT_TEAM ) {
@@ -1914,5 +1930,6 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "ftest") == 0)
 		Cmd_Test_f( ent );
 	else
+		Com_Printf("@ ^ unknown command\n");
 		trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
 }
