@@ -1,55 +1,17 @@
-# Prerequisites
-*.d
+build/linux/build*
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+build/linux-qvm/vm*
+build/linux-qvm/*.pk3
 
-# Linker output
-*.ilk
-*.map
-*.exp
+build/win32-msvc/.vs
+build/win32-msvc/Backup
+build/win32-msvc/Win32
+build/win32-msvc/Win64
+build/win32-msvc/baseq3e.sln
+build/win32-msvc/*.vcxproj
+build/win32-msvc/*.vcxproj.filters
+build/win32-msvc/*.htm
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-# debug information files
-*.dwo
+build/win32-qvm/vm*
+build/win32-qvm/*.pk3
+build/win32-qvm/*.pk3.tmp
