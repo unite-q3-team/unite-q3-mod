@@ -756,7 +756,10 @@ static void Cmd_Team_f( gentity_t *ent ) {
 	}
 
 	if ( ent->client->switchTeamTime > level.time ) {
-		trap_SendServerCommand( ent-g_entities, "print \"May not switch teams more than once per 5 seconds.\n\"" );
+		char msg_str[128];
+		float cdtime = (ent->client->switchTeamTime - level.time) / 1000.f;
+		// Com_sprintf(msg_str, sizeof(msg_str), );
+		trap_SendServerCommand( ent-g_entities, va("print \"^1! ^3Wait ^1%.1f ^3seconds before changing team.\n\"", cdtime));
 		return;
 	}
 
@@ -769,7 +772,10 @@ static void Cmd_Team_f( gentity_t *ent ) {
 	trap_Argv( 1, s, sizeof( s ) );
 
 	if ( SetTeam( ent, s ) ) {
-		ent->client->switchTeamTime = level.time + 5000;
+		if (g_teamChangeCooldown.integer <= 0)
+			trap_Cvar_Set("sv_floodProtect_time", "5000");
+
+		ent->client->switchTeamTime = level.time + g_teamChangeCooldown.integer;
 	}
 }
 
@@ -1795,6 +1801,28 @@ static void Cmd_Test_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
 }
 
+static void Cmd_Plrlist_f( gentity_t *ent ) {
+	// trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
+    char buffer[1024]; // Буфер для вывода списка
+    int i;
+    gclient_t *cl;
+
+	buffer[0] = '\0';
+	Q_strcat(buffer, sizeof(buffer), va(" ^3Map^1: ^2%s\n\n^3 ID ^1: ^3Players\n", g_mapname.string));
+	// 71 dots
+	Q_strcat(buffer, sizeof(buffer), "^1----------------------------------------------------------------------\n");
+
+    for (i = 0; i < level.maxclients; i++) {
+        cl = &level.clients[i];
+        if (cl->pers.connected == CON_CONNECTED) { // Проверка, что клиент подключен
+            Q_strcat(buffer, sizeof(buffer), va("^7  %d ^1:^7 %s^7\n", i, cl->pers.netname));
+        }
+    }
+
+	// buffer[strlen(buffer) - 2] = '\0'; // Удаляем последние ", "
+	trap_SendServerCommand(ent - g_entities, va("print \"Connected players: \n\n%s\n\"", buffer));
+}
+
 
 /*
 =================
@@ -1929,7 +1957,11 @@ void ClientCommand( int clientNum ) {
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)
 		Cmd_Test_f( ent );
-	else
+	else if (Q_stricmp (cmd, "playerlist") == 0 || Q_stricmp (cmd, "players") == 0)
+		Cmd_Plrlist_f( ent );
+	else{
 		Com_Printf("@ ^ unknown command\n");
 		trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
+	}
+
 }

@@ -999,24 +999,41 @@ va
 
 does a varargs printf into a temp buffer, so I don't need to have
 varargs versions of all text functions.
-FIXME: make this buffer size safe someday
+--F-I-X-M-E-: make this buffer size safe someday--
 ============
 */
+// char * QDECL va( const char *format, ... ) 
+// {
+// 	va_list		argptr;
+// 	static char		string[2][32000];	// in case va is called by nested functions
+// 	static int		index = 0;
+// 	char	*buf;
+
+// 	buf = string[ index ];
+// 	index ^= 1;
+
+// 	va_start( argptr, format );
+// 	Q_vsprintf( buf, format, argptr );
+// 	va_end( argptr );
+
+// 	return buf;
+// }
 char * QDECL va( const char *format, ... ) 
 {
-	va_list		argptr;
-	static char		string[2][32000];	// in case va is called by nested functions
-	static int		index = 0;
-	char	*buf;
+    va_list		argptr;
+    static char		string[2][32000];	// in case va is called by nested functions
+    static int		index = 0;
+    char	*buf;
 
-	buf = string[ index ];
-	index ^= 1;
+    buf = string[ index ];
+    index ^= 1;
 
-	va_start( argptr, format );
-	Q_vsprintf( buf, format, argptr );
-	va_end( argptr );
+    va_start( argptr, format );
+	// Q_vsprintf( buf, format, argptr );
+    Q_vsnprintf( buf, sizeof(string[0]), format, argptr ); // <-- safe
+    va_end( argptr );
 
-	return buf;
+    return buf;
 }
 
 

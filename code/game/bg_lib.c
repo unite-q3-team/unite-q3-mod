@@ -52,6 +52,10 @@ static void	 swapfunc(char *, char *, int, int);
 #define min(a, b)	((a) < (b) ? a : b)
 #endif
 
+#ifndef max
+#define max(a, b) 	((a) > (b) ? a : b)
+#endif
+
 /*
  * Qsort routine from Bentley & McIlroy's "Engineering a Sort Function".
  */
@@ -1313,7 +1317,6 @@ static void AddFloat( char **buf_p, float fval, int width, int prec, int reduce 
 	}
 }
 
-
 static void AddString( char **buf_p, const char *string, int width, int prec ) {
 	int		size;
 	char	*buf;
@@ -1350,6 +1353,168 @@ static void AddString( char **buf_p, const char *string, int width, int prec ) {
 	*buf_p = buf;
 }
 
+static int AddIntSafe(char **buf_p, int space_left, int val, int width, int flags) {
+    char	text[32];
+    int		digits = 0;
+    int		signedVal = val;
+    int		len = 0;
+    char	*buf = *buf_p;
+
+    if (flags & REDUCE && val == 0) {
+        return 0;
+    }
+
+    if (val < 0) {
+        val = -val;
+    }
+
+    do {
+        text[digits++] = '0' + val % 10;
+        val /= 10;
+    } while (val);
+
+    if (signedVal < 0) {
+        text[digits++] = '-';
+    }
+
+    len = digits;
+
+    // Вычисляем ширину
+    if (!(flags & LADJUST)) {
+        while (digits < width && space_left > 0) {
+            *buf++ = (flags & ZEROPAD) ? '0' : ' ';
+            width--;
+            space_left--;
+        }
+    }
+
+    while (digits-- > 0 && space_left > 0) {
+        *buf++ = text[digits];
+        space_left--;
+    }
+
+    if (flags & LADJUST) {
+        while (width-- > 0 && space_left > 0) {
+            *buf++ = (flags & ZEROPAD) ? '0' : ' ';
+            space_left--;
+        }
+    }
+
+    *buf_p = buf;
+    return len + (width > len ? width - len : 0);
+}
+
+static int AddFloatSafe(char **buf_p, int space_left, double fval, int width, int prec, int reduce) {
+    char	text[32];
+    int		digits = 0;
+    double	signedVal = fval;
+    int		val;
+    int		total_len = 0;
+    char	*buf = *buf_p;
+	int 	digit;
+    int 	pad;
+    int 	i;
+    double 	fraction;
+
+    if (reduce && fval == 0.0) {
+        return 0;
+    }
+
+    // Обработка знака
+    if (fval < 0) {
+        fval = -fval;
+    }
+
+    val = (int)fval;
+    do {
+        text[digits++] = '0' + (val % 10);
+        val /= 10;
+    } while (val);
+
+    if (signedVal < 0) {
+        text[digits++] = '-';
+    }
+
+    if (prec < 0) {
+        prec = 6;
+    }
+
+    total_len = digits + ((prec > 0) ? (prec + 1) : 0);
+
+    // Заполнение слева
+    if (!(width < total_len)) {
+        pad = width - prec - 1;
+        while (digits < pad && space_left > 0) {
+            *buf++ = ' ';
+            space_left--;
+        }
+    }
+
+    while (digits-- > 0 && space_left > 0) {
+        *buf++ = text[digits];
+        space_left--;
+    }
+	
+
+    if (prec > 0 && space_left > 1) {
+        fraction = fval - (int)fval;
+        *buf++ = '.';
+        space_left--;
+
+        for (i = 0; i < prec && space_left > 0; i++) {
+            fraction *= 10;
+            digit = (int)fraction;
+            *buf++ = '0' + digit;
+            fraction -= digit;
+            space_left--;
+        }
+    }
+
+    *buf_p = buf;
+    return total_len;
+}
+
+static int AddStringSafe(char **buf_p, int space_left, const char *string, int width, int prec) {
+    int size = 0;
+    const char *s;
+    char *buf = *buf_p;
+	int i = 0;
+	int pad;
+
+    if (!string) {
+        string = "(null)";
+        prec = -1;
+    }
+
+    // Определяем длину строки
+    s = string;
+    if (prec >= 0) {
+        while (size < prec && s[size]) {
+            size++;
+        }
+    } else {
+        while (s[size]) {
+            size++;
+        }
+    }
+
+    // Пробелы слева
+    pad = width - size;
+    if (pad > 0 && space_left > 0) {
+        int to_pad = (pad < space_left) ? pad : space_left;
+        memset(buf, ' ', to_pad);
+        buf += to_pad;
+        space_left -= to_pad;
+    }
+
+    // Копируем строку
+    for (i = 0; i < size && space_left > 0; i++, space_left--) {
+        *buf++ = *string++;
+    }
+
+    *buf_p = buf;
+    return size + max(0, width - size); // Возвращаем общую длину
+}
 
 /*
 Q_vsprintf
@@ -1459,6 +1624,174 @@ reswitch:
 
 	*buf_p = '\0';
 	return buf_p - buffer;
+}
+
+/*
+==================
+Q_vsnprintf
+
+Safer version of Q_vsprintf that limits the size written to the buffer.
+Returns: number of chars that would have been written (not including '\0'),
+         regardless of space in buffer (like standard vsnprintf).
+==================
+*/
+int Q_vsnprintf( char *buffer, int size, const char *fmt, va_list ap ) {
+    char	*buf_p;
+    char	ch;
+    int		flags;
+    int		width;
+    int		prec;
+    int		n;
+    int		count = 0; // how many chars we would have written total
+    int		space_left; // remaining space in buffer
+
+    if (size <= 0)
+        return 0;
+
+    buf_p = buffer;
+    space_left = size;
+
+    while (qtrue) {
+        // run through the format string until we hit a '%' or '\0'
+        for ( /*ch = *fmt */; (ch = *fmt) != '\0' && ch != '%'; fmt++ ) {
+            count++;
+            if (space_left > 1) {
+                *buf_p++ = ch;
+                space_left--;
+            }
+        }
+        if (ch == '\0') {
+            break;
+        }
+
+        // skip over the '%'
+        fmt++;
+
+        // reset formatting state
+        flags = 0;
+        width = 0;
+        prec = -1;
+
+rflag:
+        ch = *fmt; fmt++;
+reswitch:
+        switch (ch) {
+        case '-':
+            flags |= LADJUST;
+            goto rflag;
+        case '.':
+            if (*fmt == '*') {
+                fmt++;
+                n = va_arg(ap, int);
+                prec = n < 0 ? -1 : n;
+                goto rflag;
+            } else {
+                n = 0;
+                while (is_digit((ch = *fmt++))) {
+                    n = 10 * n + (ch - '0');
+                }
+                prec = n < 0 ? -1 : n;
+                goto reswitch;
+            }
+        case '0':
+            flags |= ZEROPAD;
+            goto rflag;
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            n = 0;
+            do {
+                n = 10 * n + (ch - '0');
+                ch = *fmt; fmt++;
+            } while (is_digit(ch));
+            width = n;
+            goto reswitch;
+        case '*':
+            width = va_arg(ap, int);
+            goto rflag;
+        case 'c':
+            {
+                char c = (char)va_arg(ap, int);
+                count++;
+                if (space_left > 1) {
+                    *buf_p++ = c;
+                    space_left--;
+                }
+            }
+            break;
+        case 'd':
+        case 'i':
+            {
+                int val = va_arg(ap, int);
+                int len = AddIntSafe(&buf_p, space_left, val, width, flags);
+                count += len;
+                if (len >= 0 && len < space_left) {
+                    space_left -= len;
+                } else {
+                    space_left = 0;
+                }
+            }
+            break;
+        case 'f':
+            {
+                double val = va_arg(ap, double);
+                int len = AddFloatSafe(&buf_p, space_left, val, width, prec, flags & REDUCE);
+                count += len;
+                if (len >= 0 && len < space_left) {
+                    space_left -= len;
+                } else {
+                    space_left = 0;
+                }
+            }
+            break;
+        case 's':
+            {
+                char *str = va_arg(ap, char *);
+                int max = prec == -1 ? 99999 : prec;
+                int len = 0;
+                const char *s = str;
+                while (s && *s && len < max) { s++; len++; }
+                count += len;
+                if (space_left > 1) {
+                    int copy_len = (len < space_left - 1) ? len : space_left - 1;
+                    Q_strncpyz(buf_p, str, copy_len + 1);
+                    buf_p += copy_len;
+                    space_left -= copy_len;
+                }
+            }
+            break;
+        case '%':
+            count++;
+            if (space_left > 1) {
+                *buf_p++ = '%';
+                space_left--;
+            }
+            break;
+        case 'R':
+            flags |= REDUCE;
+            goto rflag;
+        default:
+            // unknown format, just copy it
+            count++;
+            if (space_left > 1) {
+                *buf_p++ = ch;
+                space_left--;
+            }
+            break;
+        }
+    }
+
+    if (size > 0) {
+        *buf_p = '\0';
+    }
+
+    return count;
 }
 
 
