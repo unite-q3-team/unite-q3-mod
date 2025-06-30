@@ -734,6 +734,10 @@ void ClientThink_real( gentity_t *ent ) {
 	int			msec;
 	usercmd_t	*ucmd;
 
+	int fixed = pmove_fixed.integer || sv_pmove_fixed.integer;
+	int pmsec = sv_pmove_fixed.integer ? sv_pmove_msec.integer : pmove_msec.integer;
+
+
 	client = ent->client;
 
 	// don't think if the client is not yet connected (and thus not yet spawned in)
@@ -776,8 +780,17 @@ void ClientThink_real( gentity_t *ent ) {
 		trap_Cvar_Update( &pmove_msec );
 	}
 
-	if ( pmove_fixed.integer ) {
-		ucmd->serverTime = ((ucmd->serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
+		if ( sv_pmove_msec.integer < 8 ) {
+		trap_Cvar_Set( "sv_pmove_msec", "8" );
+		trap_Cvar_Update( &sv_pmove_msec );
+	} else if ( sv_pmove_msec.integer > 33 ) {
+		trap_Cvar_Set( "sv_pmove_msec", "33" );
+		trap_Cvar_Update( &sv_pmove_msec );
+	}
+
+
+	if ( fixed ) {
+		ucmd->serverTime = ((ucmd->serverTime + pmsec - 1) / pmsec) * pmsec;		// ucmd->serverTime = ((ucmd->serverTime + pmove_msec.integer-1) / pmove_msec.integer) * pmove_msec.integer;
 		//if (ucmd->serverTime - client->ps.commandTime <= 0)
 		//	return;
 	}
@@ -897,8 +910,9 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pointcontents = trap_PointContents;
 	pm.debugLevel = g_debugMove.integer;
 
-	pm.pmove_fixed = pmove_fixed.integer;
-	pm.pmove_msec = pmove_msec.integer;
+	pm.pmove_fixed = fixed;
+	pm.pmove_msec = pmsec;
+
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
