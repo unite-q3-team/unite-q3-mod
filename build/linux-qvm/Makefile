@@ -44,7 +44,7 @@ vm/cgame.qvm: $(cg_asm)
 #	$(Q3ASM) -o $@ $(ui_asm)  # Assemble UI sources into QVM
 
 # Define rules for generating assembly files from C sources
-vm/game/clcmds/%.asm: $(QADIR)/clcmds/%.c; $(qa_cc)  # Generate assembly for game/clcmds from C
+vm/game/cmds/%.asm: $(QADIR)/cmds/%.c; $(qa_cc)  # Generate assembly for game/clcmds from C
 vm/game/%.asm: $(QADIR)/%.c; $(qa_cc)  # Generate assembly for game from C
 # vm/game/%.asm: ../../code/game/%.c; $(qa_cc)
 vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C

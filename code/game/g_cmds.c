@@ -1,6 +1,7 @@
 // Copyright (C) 1999-2000 Id Software, Inc.
 //
-#include "g_local.h"
+// #include "g_local.h"
+#include "cmds/cmds.h"
 
 #ifdef MISSIONPACK
 #include "../../ui/menudef.h"			// for the voice chats
@@ -1840,122 +1841,6 @@ static void Cmd_Test_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
 }
 
-static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
-    const char *val = Info_ValueForKey(userinfo, key);
-    if (!val || !val[0])
-        return defaultValue;
-    return atoi(val);
-}
-
-static const char *GetUserinfoString(const char *userinfo, const char *key, const char *defaultValue) {
-    const char *val = Info_ValueForKey(userinfo, key);
-    if (!val || !val[0])
-        return defaultValue;
-    return val;
-}
-
-static void Cmd_Plrlist_f(gentity_t *ent) {
-    char buffer[8192];
-    int i;
-    gclient_t *cl;
-    char userinfo[MAX_INFO_STRING];
-    char name_padded[MAX_QPATH];
-    char mod_aligned[16];
-    const char *teamChar;
-    int nudge;
-    char rate_buf[16];
-    char snaps_buf[16];
-    const char *osp_str;
-    const char *mod_str;
-    int len, pad;
-    int max_len;
-
-    buffer[0] = '\0';
-
-    Q_strcat(buffer, sizeof(buffer),
-        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps  Mod\n", g_mapname.string));
-    Q_strcat(buffer, sizeof(buffer),
-        "^1----------------------------------------------------------------------\n");
-
-    for (i = 0; i < level.maxclients; i++) {
-        cl = &level.clients[i];
-
-        if (cl->pers.connected != CON_CONNECTED) {
-            continue;
-        }
-
-        switch (cl->sess.sessionTeam) {
-        case TEAM_RED:
-            teamChar = "^1R";
-            break;
-        case TEAM_BLUE:
-            teamChar = "^4B";
-            break;
-        case TEAM_SPECTATOR:
-            teamChar = "^3S";
-            break;
-        case TEAM_FREE:
-            teamChar = "^7F";
-            break;
-        default:
-            teamChar = " ";
-            break;
-        }
-
-        trap_GetUserinfo(i, userinfo, sizeof(userinfo));
-
-        nudge = GetUserinfoInt(userinfo, "cl_timeNudge", 0);
-
-        strncpy(rate_buf, GetUserinfoString(userinfo, "rate", "0"), sizeof(rate_buf) - 1);
-        rate_buf[sizeof(rate_buf) - 1] = '\0';
-
-        strncpy(snaps_buf, GetUserinfoString(userinfo, "snaps", "0"), sizeof(snaps_buf) - 1);
-        snaps_buf[sizeof(snaps_buf) - 1] = '\0';
-
-        osp_str = GetUserinfoString(userinfo, "osp_client", "");
-        if (osp_str[0] != '\0') {
-            mod_str = "^3OSP";
-        } else {
-            mod_str = "^1---";
-        }
-
-        // rate
-        max_len = 6;
-        len = strlen(rate_buf);
-        if (len > max_len) len = max_len;
-        pad = max_len - len;
-        memmove(rate_buf + pad, rate_buf, len);
-        memset(rate_buf, ' ', pad);
-        rate_buf[max_len] = '\0';
-
-        // snaps
-        max_len = 4;
-        len = strlen(snaps_buf);
-        if (len > max_len) len = max_len;
-        pad = max_len - len;
-        memmove(snaps_buf + pad, snaps_buf, len);
-        memset(snaps_buf, ' ', pad);
-        snaps_buf[max_len] = '\0';
-
-        // mod
-        max_len = 6;
-        len = strlen(mod_str);
-        if (len > max_len) len = max_len;
-        pad = max_len - len;
-        memset(mod_aligned, ' ', pad);
-        memcpy(mod_aligned + pad, mod_str, len);
-        mod_aligned[max_len] = '\0';
-
-		// name
-        Q_FixNameWidth(cl->pers.netname, name_padded, 32);
-
-        Q_strcat(buffer, sizeof(buffer),
-            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s %s\n",
-                teamChar, i, name_padded, nudge, rate_buf, snaps_buf, mod_aligned));
-    }
-
-    SendServerCommandInChunks(ent, buffer);
-}
 
 
 
