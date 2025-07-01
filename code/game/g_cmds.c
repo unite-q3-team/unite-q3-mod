@@ -1840,24 +1840,40 @@ static void Cmd_Test_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
 }
 
+static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
+    const char *val = Info_ValueForKey(userinfo, key);
+    if (!val || !val[0])
+        return defaultValue;
+    return atoi(val);
+}
+
+static const char *GetUserinfoString(const char *userinfo, const char *key, const char *defaultValue) {
+    const char *val = Info_ValueForKey(userinfo, key);
+    if (!val || !val[0])
+        return defaultValue;
+    return val;
+}
+
 static void Cmd_Plrlist_f(gentity_t *ent) {
     char buffer[8192];
     int i;
     gclient_t *cl;
     char userinfo[MAX_INFO_STRING];
     char name_padded[MAX_QPATH];
+    char mod_aligned[16];
     const char *teamChar;
     int nudge;
-    const char *val;
-    const char *rate_str;
-    const char *snaps_str;
-    char rate_aligned[16];
-    char snaps_aligned[16];
+    char rate_buf[16];
+    char snaps_buf[16];
+    const char *osp_str;
+    const char *mod_str;
+    int len, pad;
+    int max_len;
 
     buffer[0] = '\0';
 
     Q_strcat(buffer, sizeof(buffer),
-        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps\n", g_mapname.string));
+        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps  Mod\n", g_mapname.string));
     Q_strcat(buffer, sizeof(buffer),
         "^1----------------------------------------------------------------------\n");
 
@@ -1868,7 +1884,6 @@ static void Cmd_Plrlist_f(gentity_t *ent) {
             continue;
         }
 
-		// team
         switch (cl->sess.sessionTeam) {
         case TEAM_RED:
             teamChar = "^1R";
@@ -1877,7 +1892,10 @@ static void Cmd_Plrlist_f(gentity_t *ent) {
             teamChar = "^4B";
             break;
         case TEAM_SPECTATOR:
-            teamChar = "^7S";
+            teamChar = "^3S";
+            break;
+        case TEAM_FREE:
+            teamChar = "^7F";
             break;
         default:
             teamChar = " ";
@@ -1886,54 +1904,60 @@ static void Cmd_Plrlist_f(gentity_t *ent) {
 
         trap_GetUserinfo(i, userinfo, sizeof(userinfo));
 
-        val = Info_ValueForKey(userinfo, "cl_timeNudge");
-        nudge = (val && val[0]) ? atoi(val) : 0;
+        nudge = GetUserinfoInt(userinfo, "cl_timeNudge", 0);
 
-        rate_str = Info_ValueForKey(userinfo, "rate");
-        if (!rate_str || !rate_str[0]) {
-            rate_str = "0";
-        }
+        strncpy(rate_buf, GetUserinfoString(userinfo, "rate", "0"), sizeof(rate_buf) - 1);
+        rate_buf[sizeof(rate_buf) - 1] = '\0';
 
-        snaps_str = Info_ValueForKey(userinfo, "snaps");
-        if (!snaps_str || !snaps_str[0]) {
-            snaps_str = "0";
+        strncpy(snaps_buf, GetUserinfoString(userinfo, "snaps", "0"), sizeof(snaps_buf) - 1);
+        snaps_buf[sizeof(snaps_buf) - 1] = '\0';
+
+        osp_str = GetUserinfoString(userinfo, "osp_client", "");
+        if (osp_str[0] != '\0') {
+            mod_str = "^3OSP";
+        } else {
+            mod_str = "^1---";
         }
 
         // rate
-		{
-			int pad;
-			int max_len = 6;
-			int len = strlen(rate_str);
-			if (len > max_len) len = max_len;
+        max_len = 6;
+        len = strlen(rate_buf);
+        if (len > max_len) len = max_len;
+        pad = max_len - len;
+        memmove(rate_buf + pad, rate_buf, len);
+        memset(rate_buf, ' ', pad);
+        rate_buf[max_len] = '\0';
 
-			pad = max_len - len;
-			memset(rate_aligned, ' ', pad);
-			memcpy(rate_aligned + pad, rate_str, len);
-			rate_aligned[max_len] = '\0';  // завершаем строку
-		}
+        // snaps
+        max_len = 4;
+        len = strlen(snaps_buf);
+        if (len > max_len) len = max_len;
+        pad = max_len - len;
+        memmove(snaps_buf + pad, snaps_buf, len);
+        memset(snaps_buf, ' ', pad);
+        snaps_buf[max_len] = '\0';
 
-		// snaps
-		{
-			int pad;
-			int max_len = 4;
-			int len = strlen(snaps_str);
-			if (len > max_len) len = max_len;
+        // mod
+        max_len = 6;
+        len = strlen(mod_str);
+        if (len > max_len) len = max_len;
+        pad = max_len - len;
+        memset(mod_aligned, ' ', pad);
+        memcpy(mod_aligned + pad, mod_str, len);
+        mod_aligned[max_len] = '\0';
 
-			pad = max_len - len;
-			memset(snaps_aligned, ' ', pad);
-			memcpy(snaps_aligned + pad, snaps_str, len);
-			snaps_aligned[max_len] = '\0';  // завершаем строку
-		}
-
+		// name
         Q_FixNameWidth(cl->pers.netname, name_padded, 32);
 
         Q_strcat(buffer, sizeof(buffer),
-            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s\n",
-    teamChar, i, name_padded, nudge, rate_aligned, snaps_aligned));
+            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s %s\n",
+                teamChar, i, name_padded, nudge, rate_buf, snaps_buf, mod_aligned));
     }
 
     SendServerCommandInChunks(ent, buffer);
 }
+
+
 
 
 /*

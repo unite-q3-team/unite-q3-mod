@@ -1794,6 +1794,17 @@ reswitch:
     return count;
 }
 
+int Q_snprintf(char *buffer, int size, const char *fmt, ...) {
+    int ret;
+    va_list argptr;
+
+    va_start(argptr, fmt);
+    ret = Q_vsnprintf(buffer, size, fmt, argptr);
+    va_end(argptr);
+
+    return ret;
+}
+
 
 int BG_sprintf( char *buf, const char *format, ... ) 
 {
