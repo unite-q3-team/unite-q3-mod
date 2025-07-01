@@ -18,7 +18,8 @@ dirs:
 .PHONY: all dirs testc  # Declare 'all', 'dirs', and 'testc' as phony targets
 
 # Define how to create the PK3 file from the compiled QVM files
-$(PK3): vm/qagame.qvm vm/cgame.qvm #vm/ui.qvm
+# ignore cgame here
+$(PK3): vm/qagame.qvm #vm/cgame.qvm #vm/ui.qvm 
 	$(7Z) $@ vm/*.qvm vm/*.jts #../../assets/*  # Use 7-Zip to package the files into a PK3
 
 # Define a command to compile C files into assembly
@@ -37,8 +38,8 @@ cg_cc = $(call cc,cgame,$(CG_CFLAGS))  # Compilation command for the cgame
 vm/qagame.qvm: $(qa_asm)
 	$(Q3ASM) -o $@ $(qa_asm)  # Assemble game sources into QVM
 
-vm/cgame.qvm: $(cg_asm)
-	$(Q3ASM) -o $@ $(cg_asm)  # Assemble cgame sources into QVM
+# vm/cgame.qvm: $(cg_asm)	  # also ignore cgame
+# 	$(Q3ASM) -o $@ $(cg_asm)  # Assemble cgame sources into QVM
 
 #vm/ui.qvm: $(ui_asm)
 #	$(Q3ASM) -o $@ $(ui_asm)  # Assemble UI sources into QVM
