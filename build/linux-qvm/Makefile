@@ -13,7 +13,7 @@ all: dirs $(PK3)
 
 # Create necessary directories for the build
 dirs:
-	mkdir -p vm/game vm/cgame vm/ui vm/game/clcmds  # Create directories if they do not exist
+	mkdir -p vm/game vm/cgame vm/ui vm/game/cmds  # Create directories if they do not exist
 
 .PHONY: all dirs testc  # Declare 'all', 'dirs', and 'testc' as phony targets
 
