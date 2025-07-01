@@ -4,6 +4,7 @@
         "g_local.h": "c",
         "q_shared.h": "c",
         "bg_public.h": "c",
-        "g_public.h": "c"
+        "g_public.h": "c",
+        "testcmd.h": "c"
     }
 }
