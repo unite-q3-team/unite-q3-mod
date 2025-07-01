@@ -976,6 +976,27 @@ char *Q_CleanStr( char *string ) {
 	return string;
 }
 
+void Q_FixNameWidth(const char *name, char *out, int desiredVisibleLen) {
+    int visibleLen = 0;
+    int src_i = 0, dst_i = 0;
+
+    while (visibleLen < desiredVisibleLen) {
+        if (name[src_i] == '\0') {
+            // add spaces
+            out[dst_i++] = ' ';
+            visibleLen++;
+        } else if (Q_IsColorString(&name[src_i])) {
+            // copy color code
+            out[dst_i++] = name[src_i++];
+            out[dst_i++] = name[src_i++];
+        } else {
+            // copy visible symbol
+            out[dst_i++] = name[src_i++];
+            visibleLen++;
+        }
+    }
+    out[dst_i] = '\0';
+}
 
 int QDECL Com_sprintf( char *dest, int size, const char *fmt, ... ) {
 	va_list argptr;

@@ -634,6 +634,8 @@ int Q_PrintStrlen( const char *string );
 // removes color sequences from string
 char *Q_CleanStr( char *string );
 
+void Q_FixNameWidth(const char *name, char *out, int desiredVisibleLen);
+
 //=============================================
 
 typedef intptr_t (*syscall_t)( intptr_t *parms );

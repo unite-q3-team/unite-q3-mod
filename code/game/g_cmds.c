@@ -1,11 +1,49 @@
 // Copyright (C) 1999-2000 Id Software, Inc.
 //
-// #include "g_local.h"
-#include "clcmds/testcmd.h"
+#include "g_local.h"
 
 #ifdef MISSIONPACK
 #include "../../ui/menudef.h"			// for the voice chats
 #endif
+
+#define CHUNK_SIZE 1000
+
+void SendServerCommandInChunks(gentity_t *ent, const char *text) {
+    int text_len;
+    int sent_pos;
+    int max_chunk;
+    int last_newline;
+    int i;
+    int chunk_len;
+    char sendbuf[CHUNK_SIZE + 1];
+
+    text_len = strlen(text);
+    sent_pos = 0;
+
+    while (sent_pos < text_len) {
+        max_chunk = (text_len - sent_pos > CHUNK_SIZE) ? CHUNK_SIZE : (text_len - sent_pos);
+        last_newline = -1;
+
+        for (i = 0; i < max_chunk; i++) {
+            if (text[sent_pos + i] == '\n') {
+                last_newline = i;
+            }
+        }
+
+        if (last_newline == -1) {
+            chunk_len = max_chunk;
+        } else {
+            chunk_len = last_newline + 1;
+        }
+
+        memcpy(sendbuf, text + sent_pos, chunk_len);
+        sendbuf[chunk_len] = '\0';
+
+        trap_SendServerCommand(ent - g_entities, va("print \"%s\"", sendbuf));
+
+        sent_pos += chunk_len;
+    }
+}
 
 /*
 ==================
@@ -1802,26 +1840,99 @@ static void Cmd_Test_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
 }
 
-static void Cmd_Plrlist_f( gentity_t *ent ) {
-	// trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
-    char buffer[1024]; // Буфер для вывода списка
+static void Cmd_Plrlist_f(gentity_t *ent) {
+    char buffer[8192];
     int i;
     gclient_t *cl;
-	
-	buffer[0] = '\0';
-	Q_strcat(buffer, sizeof(buffer), va(" ^3Map^1: ^2%s\n\n^3 ID ^1: ^3Players\n", g_mapname.string));
-	// 71 dots
-	Q_strcat(buffer, sizeof(buffer), "^1----------------------------------------------------------------------\n");
+    char userinfo[MAX_INFO_STRING];
+    char name_padded[MAX_QPATH];
+    const char *teamChar;
+    int nudge;
+    const char *val;
+    const char *rate_str;
+    const char *snaps_str;
+    char rate_aligned[16];
+    char snaps_aligned[16];
+
+    buffer[0] = '\0';
+
+    Q_strcat(buffer, sizeof(buffer),
+        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps\n", g_mapname.string));
+    Q_strcat(buffer, sizeof(buffer),
+        "^1----------------------------------------------------------------------\n");
 
     for (i = 0; i < level.maxclients; i++) {
         cl = &level.clients[i];
-        if (cl->pers.connected == CON_CONNECTED) { // Проверка, что клиент подключен
-            Q_strcat(buffer, sizeof(buffer), va("^7  %d ^1:^7 %s^7\n", i, cl->pers.netname));
+
+        if (cl->pers.connected != CON_CONNECTED) {
+            continue;
         }
+
+		// team
+        switch (cl->sess.sessionTeam) {
+        case TEAM_RED:
+            teamChar = "^1R";
+            break;
+        case TEAM_BLUE:
+            teamChar = "^4B";
+            break;
+        case TEAM_SPECTATOR:
+            teamChar = "^7S";
+            break;
+        default:
+            teamChar = " ";
+            break;
+        }
+
+        trap_GetUserinfo(i, userinfo, sizeof(userinfo));
+
+        val = Info_ValueForKey(userinfo, "cl_timeNudge");
+        nudge = (val && val[0]) ? atoi(val) : 0;
+
+        rate_str = Info_ValueForKey(userinfo, "rate");
+        if (!rate_str || !rate_str[0]) {
+            rate_str = "0";
+        }
+
+        snaps_str = Info_ValueForKey(userinfo, "snaps");
+        if (!snaps_str || !snaps_str[0]) {
+            snaps_str = "0";
+        }
+
+        // rate
+		{
+			int pad;
+			int max_len = 6;
+			int len = strlen(rate_str);
+			if (len > max_len) len = max_len;
+
+			pad = max_len - len;
+			memset(rate_aligned, ' ', pad);
+			memcpy(rate_aligned + pad, rate_str, len);
+			rate_aligned[max_len] = '\0';  // завершаем строку
+		}
+
+		// snaps
+		{
+			int pad;
+			int max_len = 4;
+			int len = strlen(snaps_str);
+			if (len > max_len) len = max_len;
+
+			pad = max_len - len;
+			memset(snaps_aligned, ' ', pad);
+			memcpy(snaps_aligned + pad, snaps_str, len);
+			snaps_aligned[max_len] = '\0';  // завершаем строку
+		}
+
+        Q_FixNameWidth(cl->pers.netname, name_padded, 32);
+
+        Q_strcat(buffer, sizeof(buffer),
+            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s\n",
+    teamChar, i, name_padded, nudge, rate_aligned, snaps_aligned));
     }
-	
-	// buffer[strlen(buffer) - 2] = '\0'; // Удаляем последние ", "
-	trap_SendServerCommand(ent - g_entities, va("print \"Connected players: \n\n%s\n\"", buffer));
+
+    SendServerCommandInChunks(ent, buffer);
 }
 
 
@@ -1853,7 +1964,7 @@ void ClientCommand( int clientNum ) {
 	trap_Argv( 0, cmd, sizeof( cmd ) );
 
 	if (!(Q_stricmp (cmd, "say") == 0 || Q_stricmp (cmd, "say_team") == 0 || Q_stricmp (cmd, "tell") == 0)) {
-		G_LogPrintf( "@ %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
+		G_LogPrintf( "@  %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
 	}
 
 	if ( ent->client->pers.connected != CON_CONNECTED ) {
@@ -1958,8 +2069,6 @@ void ClientCommand( int clientNum ) {
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)
 		Cmd_Test_f( ent );
-	else if (Q_stricmp (cmd, "atest") == 0)
-		Cmd_NewTest_f( ent );
 	else if (Q_stricmp (cmd, "playerlist") == 0 || Q_stricmp (cmd, "players") == 0)
 		Cmd_Plrlist_f( ent );
 	else{
