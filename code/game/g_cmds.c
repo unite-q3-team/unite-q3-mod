@@ -1,6 +1,7 @@
 // Copyright (C) 1999-2000 Id Software, Inc.
 //
-#include "g_local.h"
+// #include "g_local.h"
+#include "clcmds/testcmd.h"
 
 #ifdef MISSIONPACK
 #include "../../ui/menudef.h"			// for the voice chats
@@ -1806,7 +1807,7 @@ static void Cmd_Plrlist_f( gentity_t *ent ) {
     char buffer[1024]; // Буфер для вывода списка
     int i;
     gclient_t *cl;
-
+	
 	buffer[0] = '\0';
 	Q_strcat(buffer, sizeof(buffer), va(" ^3Map^1: ^2%s\n\n^3 ID ^1: ^3Players\n", g_mapname.string));
 	// 71 dots
@@ -1818,7 +1819,7 @@ static void Cmd_Plrlist_f( gentity_t *ent ) {
             Q_strcat(buffer, sizeof(buffer), va("^7  %d ^1:^7 %s^7\n", i, cl->pers.netname));
         }
     }
-
+	
 	// buffer[strlen(buffer) - 2] = '\0'; // Удаляем последние ", "
 	trap_SendServerCommand(ent - g_entities, va("print \"Connected players: \n\n%s\n\"", buffer));
 }
@@ -1852,7 +1853,7 @@ void ClientCommand( int clientNum ) {
 	trap_Argv( 0, cmd, sizeof( cmd ) );
 
 	if (!(Q_stricmp (cmd, "say") == 0 || Q_stricmp (cmd, "say_team") == 0 || Q_stricmp (cmd, "tell") == 0)) {
-		G_LogPrintf( "@  %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
+		G_LogPrintf( "@ %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
 	}
 
 	if ( ent->client->pers.connected != CON_CONNECTED ) {
@@ -1957,6 +1958,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)
 		Cmd_Test_f( ent );
+	else if (Q_stricmp (cmd, "atest") == 0)
+		Cmd_NewTest_f( ent );
 	else if (Q_stricmp (cmd, "playerlist") == 0 || Q_stricmp (cmd, "players") == 0)
 		Cmd_Plrlist_f( ent );
 	else{

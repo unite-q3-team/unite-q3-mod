@@ -13,7 +13,7 @@ all: dirs $(PK3)
 
 # Create necessary directories for the build
 dirs:
-	mkdir -p vm/game vm/cgame vm/ui  # Create directories if they do not exist
+	mkdir -p vm/game vm/cgame vm/ui vm/game/clcmds  # Create directories if they do not exist
 
 .PHONY: all dirs testc  # Declare 'all', 'dirs', and 'testc' as phony targets
 
@@ -22,8 +22,12 @@ $(PK3): vm/qagame.qvm vm/cgame.qvm #vm/ui.qvm
 	$(7Z) $@ vm/*.qvm vm/*.jts #../../assets/*  # Use 7-Zip to package the files into a PK3
 
 # Define a command to compile C files into assembly
-cc = cd vm/$1 && $(Q3LCC) $2 -o $(notdir $@).tmp ../../$< && mv $(notdir $@).tmp $(notdir $@)
+cc = \
+    echo "Compiling: $< -> $@" && \
+    mkdir -p $(dir $@) && \
+    $(Q3LCC) $2 -o $@ $<
 
+	
 # Define compilation commands for each component
 qa_cc = $(call cc,game,$(QA_CFLAGS))  # Compilation command for the game
 cg_cc = $(call cc,cgame,$(CG_CFLAGS))  # Compilation command for the cgame
@@ -40,7 +44,9 @@ vm/cgame.qvm: $(cg_asm)
 #	$(Q3ASM) -o $@ $(ui_asm)  # Assemble UI sources into QVM
 
 # Define rules for generating assembly files from C sources
+vm/game/clcmds/%.asm: $(QADIR)/clcmds/%.c; $(qa_cc)  # Generate assembly for game/clcmds from C
 vm/game/%.asm: $(QADIR)/%.c; $(qa_cc)  # Generate assembly for game from C
+# vm/game/%.asm: ../../code/game/%.c; $(qa_cc)
 vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C
 vm/cgame/%.asm: $(CGDIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C in CGDIR
 #vm/ui/%.asm: $(QADIR)/%.c; $(ui_cc)      # Generate assembly for UI from C
