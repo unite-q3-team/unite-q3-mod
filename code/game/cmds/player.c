@@ -115,3 +115,7 @@ void Cmd_Plrlist_f(gentity_t *ent) {
 
     SendServerCommandInChunks(ent, va("\n%s\n", buffer));
 }
+
+void Cmd_From_f(gentity_t *ent){
+
+}

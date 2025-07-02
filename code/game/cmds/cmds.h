@@ -3,6 +3,7 @@
 
 void Cmd_NewTest_f(gentity_t *ent);
 void Cmd_Plrlist_f(gentity_t *ent);
+void Cmd_From_f(gentity_t *ent);
 
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);

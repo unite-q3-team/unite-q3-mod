@@ -51,6 +51,7 @@ vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C
 vm/cgame/%.asm: $(CGDIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C in CGDIR
 #vm/ui/%.asm: $(QADIR)/%.c; $(ui_cc)      # Generate assembly for UI from C
 #vm/ui/%.asm: $(UIDIR)/%.c; $(ui_cc)      # Generate assembly for UI from C in UIDIR
+# vm/cgame/%.asm: $(COMDIR)/%.c; $(cg_cc)
 
 # Define the clean target to remove generated files
 clean:
