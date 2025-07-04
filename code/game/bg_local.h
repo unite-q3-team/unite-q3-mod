@@ -33,6 +33,7 @@ typedef struct {
 
 extern	pmove_t		*pm;
 extern	pml_t		pml;
+extern  pmoveConfig_t pmoveConfig;
 
 // movement parameters
 extern	float	pm_stopspeed;

@@ -131,6 +131,20 @@ G_CVAR( g_rg_damage,     "g_rg_damage",     "100",  0, 0, qfalse, qfalse )
 G_CVAR( g_pg_damage,   "g_pg_damage",   "20",  0, 0, qfalse, qfalse )
 G_CVAR( g_bfg_damage,         "g_bfg_damage",         "100",  0, 0, qfalse, qfalse )
 
+G_CVAR( g_rl_projectileSpeed,      "g_rl_projectileSpeed",      "900",  0, 0, qfalse, qfalse )
+G_CVAR( g_pg_projectileSpeed,      "g_pg_projectileSpeed",      "2000",  0, 0, qfalse, qfalse )
+G_CVAR( g_bfg_projectileSpeed,      "g_bfg_projectileSpeed",      "2000",  0, 0, qfalse, qfalse )
+
+G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
+G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )
+G_CVAR( g_sg_fireRatio,     "g_sg_fireRatio",     "1000", 0, 0, qfalse, qfalse )
+G_CVAR( g_mg_fireRatio,           "g_mg_fireRatio",          "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_gl_fireRatio,           "g_gl_fireRatio",          "800",  0, 0, qfalse, qfalse )
+G_CVAR( g_rl_fireRatio,           "g_rl_fireRatio",          "800",  0, 0, qfalse, qfalse )
+G_CVAR( g_pg_fireRatio,           "g_pg_fireRatio",          "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_rg_fireRatio,           "g_rg_fireRatio",          "1500", 0, 0, qfalse, qfalse )
+G_CVAR( g_bfg_fireRatio,           "g_bfg_fireRatio",          "200", 0, 0, qfalse, qfalse )
+
 G_CVAR( g_vampire, "g_vampire", "0.0", CVAR_NORESTART, 0, qtrue, qfalse )
 G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qtrue, qfalse )
 
@@ -142,9 +156,8 @@ G_CVAR( g_spawnItems, "g_spawnItems", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtru
 
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
-// G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
-// ... до WP_NUM_WEAPONS - 1
+// G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
 
 

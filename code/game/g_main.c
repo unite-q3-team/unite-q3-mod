@@ -353,6 +353,23 @@ static void G_LocateSpawnSpots( void )
 }
 
 
+extern pmoveConfig_t pmoveConfig;
+
+// Надо улучшать. Требуется переезд cvar на новую систему (как в осп2 или omega-mod)
+// Сейчас требуется рестарт сервера для применения изменений, т.к. инит при старте карты
+// Сейчас нет возможности сделать аналог CG_LocalEventCvarChanged (ОСП2)
+void G_InitFireRatios(void) {
+    pmoveConfig.fireRatios[WP_GAUNTLET]         = g_gauntlet_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_LIGHTNING]        = g_lg_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_SHOTGUN]          = g_sg_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_MACHINEGUN]       = g_mg_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_GRENADE_LAUNCHER] = g_gl_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_ROCKET_LAUNCHER]  = g_rl_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_PLASMAGUN]        = g_pg_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_RAILGUN]          = g_rg_fireRatio.integer;
+    pmoveConfig.fireRatios[WP_BFG]              = g_bfg_fireRatio.integer;
+}
+
 /*
 ============
 G_InitGame
@@ -385,6 +402,8 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	srand( randomSeed );
 
 	G_RegisterCvars();
+
+	G_InitFireRatios();
 
 	G_ProcessIPBans();
 

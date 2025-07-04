@@ -37,7 +37,7 @@ g_start_ammo_chaingun      // пулемёт (MISSIONPACK)
 g_start_health         // здоровье при спавне
 g_start_armor          // броня при спавне
 
-// Weapon damage
+// Weapons
 g_gauntlet_damage      // урон перчатки
 g_mg_damage            // урон пулемёта
 g_mg_damageTeam        // урон пулемёта в командных режимах игры 
@@ -45,9 +45,24 @@ g_sg_damage            // урон дробовика
 g_gl_damage            // урон гранатомёта
 g_rl_damage            // урон ракетницы
 g_lg_damage            // урон молнии
-g_rg_damage            // урон рельсы
+g_rg_damage            // урон рельсотрона
 g_pg_damage            // урон плазмы
 g_bfg_damage           // урон BFG
 g_damageThroughWalls   // Урон от взрывов через пол/стены
+
+g_rl_projectileSpeed   // Скорость снаряда ракетницы 
+g_pg_projectileSpeed   // Скорость снаряда плазмы 
+g_bfg_projectileSpeed  // Скорость снаряда BFG  
+
+g_gauntlet_fireRatio    // Скорострельность перчатки
+g_lg_fireRatio          // Скорострельность молнии
+g_sg_fireRatio          // Скорострельность дробовика  
+g_mg_fireRatio          // Скорострельность пулемёта  
+g_gl_fireRatio          // Скорострельность гранатомёта  
+g_rl_fireRatio          // Скорострельность ракетницы  
+g_pg_fireRatio          // Скорострельность плазмы  
+g_rg_fireRatio          // Скорострельность рельсотрона  
+g_bfg_fireRatio         // Скорострельность BFG  
+
 
 

@@ -320,6 +320,10 @@ typedef enum {
 	WP_MAX_WEAPONS = 16
 } weapon_t;
 
+typedef struct {
+    int fireRatios[WP_NUM_WEAPONS];
+} pmoveConfig_t;
+
 
 // reward sounds (stored in ps->persistant[PERS_PLAYEREVENTS])
 #define	PLAYEREVENT_DENIEDREWARD		0x0001

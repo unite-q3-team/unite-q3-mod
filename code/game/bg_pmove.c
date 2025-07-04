@@ -9,6 +9,7 @@
 
 pmove_t		*pm;
 pml_t		pml;
+pmoveConfig_t pmoveConfig;
 
 // movement parameters
 float	pm_stopspeed = 100.0f;
@@ -1641,33 +1642,33 @@ static void PM_Weapon( void ) {
 	PM_AddEvent( EV_FIRE_WEAPON );
 
 	switch( pm->ps->weapon ) {
-	default:
+		default:
 	case WP_GAUNTLET:
-		addTime = 400;
+		addTime = pmoveConfig.fireRatios[WP_GAUNTLET];
 		break;
 	case WP_LIGHTNING:
-		addTime = 50;
+		addTime = pmoveConfig.fireRatios[WP_LIGHTNING];
 		break;
 	case WP_SHOTGUN:
-		addTime = 1000;
+		addTime = pmoveConfig.fireRatios[WP_SHOTGUN];
 		break;
 	case WP_MACHINEGUN:
-		addTime = 100;
+		addTime = pmoveConfig.fireRatios[WP_MACHINEGUN];
 		break;
 	case WP_GRENADE_LAUNCHER:
-		addTime = 800;
+		addTime = pmoveConfig.fireRatios[WP_GRENADE_LAUNCHER];
 		break;
 	case WP_ROCKET_LAUNCHER:
-		addTime = 800;
+		addTime = pmoveConfig.fireRatios[WP_ROCKET_LAUNCHER];
 		break;
 	case WP_PLASMAGUN:
-		addTime = 100;
+		addTime = pmoveConfig.fireRatios[WP_PLASMAGUN];
 		break;
 	case WP_RAILGUN:
-		addTime = 1500;
+		addTime = pmoveConfig.fireRatios[WP_RAILGUN];
 		break;
 	case WP_BFG:
-		addTime = 200;
+		addTime = pmoveConfig.fireRatios[WP_BFG];
 		break;
 	case WP_GRAPPLING_HOOK:
 		addTime = 400;
