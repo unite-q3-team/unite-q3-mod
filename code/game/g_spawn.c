@@ -267,24 +267,54 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	}
 
 	// check item spawn functions
-	for ( item=bg_itemlist+1 ; item->classname ; item++ ) {
-		if ( !strcmp(item->classname, ent->classname) ) {
-			G_SpawnItem( ent, item );
-			return qtrue;
-		}
-	}
+	if ( g_items.integer )
+	{
+		if ( !g_instagib.integer ) {
+			for ( item = bg_itemlist + 1; item->classname; item++ ) {
+				if ( !strcmp( item->classname, ent->classname ) ) {
 
+					switch ( item->giType ) {
+						case IT_HEALTH:
+							if (!(g_spawnItems.integer & ITEMMASK_HEALTH))
+								return qfalse;
+							break;
+						case IT_ARMOR:
+							if (!(g_spawnItems.integer & ITEMMASK_ARMOR))
+								return qfalse;
+							break;
+						case IT_WEAPON:
+							if (!(g_spawnItems.integer & ITEMMASK_WEAPONS))
+								return qfalse;
+							break;
+						case IT_AMMO:
+							if (!(g_spawnItems.integer & ITEMMASK_AMMO))
+								return qfalse;
+							break;
+						case IT_POWERUP:
+							if (!(g_spawnItems.integer & ITEMMASK_POWERUP))
+								return qfalse;
+							break;
+						default:
+							break;
+					}
+
+					G_SpawnItem( ent, item );
+					return qtrue;
+				}
+			}
+		}
+	}
 	// check normal spawn functions
-	for ( s=spawns ; s->name ; s++ ) {
-		if ( !strcmp(s->name, ent->classname) ) {
-			// found it
-			s->spawn(ent);
+	for ( s = spawns; s->name; s++ ) {
+		if ( !strcmp( s->name, ent->classname ) ) {
+			s->spawn( ent );
 			return qtrue;
 		}
 	}
-	G_Printf ("%s doesn't have a spawn function\n", ent->classname);
+	G_Printf( "%s doesn't have a spawn function\n", ent->classname );
 	return qfalse;
 }
+
 
 /*
 =============
@@ -573,7 +603,7 @@ void SP_worldspawn( void ) {
 	G_SpawnString( "enableDust", "0", &s );
 	trap_Cvar_Set( "g_enableDust", s );
 
-	G_SpawnString( "enableBreath", "0", &s );
+	G_SpawnString( "enableBreath", "1", &s );
 	trap_Cvar_Set( "g_enableBreath", s );
 
 	g_entities[ENTITYNUM_WORLD].s.number = ENTITYNUM_WORLD;

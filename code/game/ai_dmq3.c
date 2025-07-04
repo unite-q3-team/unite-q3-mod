@@ -1575,7 +1575,10 @@ void BotChooseWeapon(bot_state_t *bs) {
 		trap_EA_SelectWeapon(bs->client, bs->weaponnum);
 	}
 	else {
-		newweaponnum = trap_BotChooseBestFightWeapon(bs->ws, bs->inventory);
+                if(g_instagib.integer)
+                    newweaponnum = WP_RAILGUN;
+                else
+                    newweaponnum = trap_BotChooseBestFightWeapon(bs->ws, bs->inventory);
 		if (bs->weaponnum != newweaponnum) bs->weaponchange_time = FloatTime();
 		bs->weaponnum = newweaponnum;
 		//BotAI_Print(PRT_MESSAGE, "bs->weaponnum = %d\n", bs->weaponnum);
@@ -2399,6 +2402,9 @@ int BotCanAndWantsToRocketJump(bot_state_t *bs) {
 	if (bs->inventory[INVENTORY_ROCKETLAUNCHER] <= 0) return qfalse;
 	//if low on rockets
 	if (bs->inventory[INVENTORY_ROCKETS] < 3) return qfalse;
+    if ( g_selfDamage.integer == 0) {
+            return qtrue;
+        }
 	//never rocket jump with the Quad
 	if (bs->inventory[INVENTORY_QUAD]) return qfalse;
 	//if low on health

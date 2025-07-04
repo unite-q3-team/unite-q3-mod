@@ -111,7 +111,7 @@ qboolean CheckGauntletAttack( gentity_t *ent ) {
 	}
 #endif
 
-	damage = 50 * s_quadFactor;
+	damage = g_gauntlet_damage.integer * s_quadFactor;
 	G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_GAUNTLET );
 
 	return qtrue;
@@ -158,8 +158,8 @@ void SnapVectorTowards( vec3_t v, vec3_t to ) {
 #define CHAINGUN_SPREAD		600
 #endif
 #define MACHINEGUN_SPREAD	200
-#define	MACHINEGUN_DAMAGE	7
-#define	MACHINEGUN_TEAM_DAMAGE	5		// wimpier MG in teamplay
+// #define	MACHINEGUN_DAMAGE	7
+// #define	MACHINEGUN_TEAM_DAMAGE	5		// wimpier MG in teamplay
 
 static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 	trace_t		tr;
@@ -275,7 +275,7 @@ SHOTGUN
 
 // DEFAULT_SHOTGUN_SPREAD and DEFAULT_SHOTGUN_COUNT	are in bg_public.h, because
 // client predicts same spreads
-#define	DEFAULT_SHOTGUN_DAMAGE	10
+// #define	DEFAULT_SHOTGUN_DAMAGE	10
 
 static qboolean ShotgunPellet( const vec3_t start, const vec3_t end, gentity_t *ent ) {
 	trace_t		tr;
@@ -301,7 +301,7 @@ static qboolean ShotgunPellet( const vec3_t start, const vec3_t end, gentity_t *
 		}
 
 		if ( traceEnt->takedamage ) {
-			damage = DEFAULT_SHOTGUN_DAMAGE * s_quadFactor;
+			damage = g_sg_damage.integer * s_quadFactor;
 #ifdef MISSIONPACK
 			if ( traceEnt->client && traceEnt->client->invulnerabilityTime > level.time ) {
 				if (G_InvulnerabilityEffect( traceEnt, forward, tr.endpos, impactpoint, bouncedir )) {
@@ -469,7 +469,7 @@ void weapon_railgun_fire( gentity_t *ent ) {
 	int			passent;
 	gentity_t	*unlinkedEntities[MAX_RAIL_HITS];
 
-	damage = 100 * s_quadFactor;
+	damage = g_instagib.integer ? 800 : (g_rg_damage.integer * s_quadFactor);
 
 	VectorMA( muzzle_origin, 8192.0, forward, end );
 
@@ -481,8 +481,13 @@ void weapon_railgun_fire( gentity_t *ent ) {
 	hits = 0;
 	passent = ent->s.number;
 	do {
-		trap_Trace( &trace, muzzle_origin, NULL, NULL, end, passent, MASK_SHOT );
+		{
+			trap_Trace (&trace, muzzle, NULL, NULL, end, passent, MASK_SHOT );
+		}
 		if ( trace.entityNum >= ENTITYNUM_MAX_NORMAL ) {
+			if (g_railJump.integer) {
+				G_RailJump( trace.endpos, ent );
+			}
 			break;
 		}
 		traceEnt = &g_entities[ trace.entityNum ];
@@ -516,6 +521,12 @@ void weapon_railgun_fire( gentity_t *ent ) {
 				G_Damage( traceEnt, ent, ent, forward, trace.endpos, damage, 0, MOD_RAILGUN );
 			}
 #endif
+		}
+		if ( trace.contents & CONTENTS_SOLID ) {
+			if (g_railJump.integer) {
+				G_RailJump( trace.endpos, ent );
+			}
+		break;
 		}
 		if ( trace.contents & CONTENTS_SOLID ) {
 			break;		// we hit something solid enough to stop the beam
@@ -642,7 +653,7 @@ void Weapon_LightningFire( gentity_t *ent ) {
 	gentity_t	*traceEnt, *tent;
 	int			damage, i, passent;
 
-	damage = 8 * s_quadFactor;
+	damage = g_lg_damage.integer * s_quadFactor;
 
 	passent = ent->s.number;
 
@@ -847,9 +858,9 @@ void FireWeapon( gentity_t *ent ) {
 		break;
 	case WP_MACHINEGUN:
 		if ( g_gametype.integer != GT_TEAM ) {
-			Bullet_Fire( ent, MACHINEGUN_SPREAD, MACHINEGUN_DAMAGE );
+			Bullet_Fire( ent, MACHINEGUN_SPREAD,  g_mg_damage.integer );
 		} else {
-			Bullet_Fire( ent, MACHINEGUN_SPREAD, MACHINEGUN_TEAM_DAMAGE );
+			Bullet_Fire( ent, MACHINEGUN_SPREAD,  g_mg_damageTeam.integer );
 		}
 		break;
 	case WP_GRENADE_LAUNCHER:
@@ -878,7 +889,7 @@ void FireWeapon( gentity_t *ent ) {
 		weapon_proxlauncher_fire( ent );
 		break;
 	case WP_CHAINGUN:
-		Bullet_Fire( ent, CHAINGUN_SPREAD, MACHINEGUN_DAMAGE );
+		Bullet_Fire( ent, CHAINGUN_SPREAD, g_mg_damage.integer );
 		break;
 #endif
 	default:

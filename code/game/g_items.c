@@ -473,6 +473,12 @@ Touch_Item
 void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	int			respawn;
 	qboolean	predict;
+	
+	if (!g_items.integer)
+		return;
+
+	if (g_instagib.integer && ent->item->giType != IT_TEAM)
+		return;
 
 	if (!other->client)
 		return;
@@ -676,7 +682,6 @@ Spawns an item and tosses it forward
 gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle ) {
 	vec3_t	velocity;
 	vec3_t	angles;
-
 	VectorCopy( ent->s.apos.trBase, angles );
 	angles[YAW] += angle;
 	angles[PITCH] = 0;	// always forward
@@ -855,18 +860,31 @@ ClearRegisteredItems
 ==============
 */
 void ClearRegisteredItems( void ) {
+	int i;
 	memset( itemRegistered, 0, sizeof( itemRegistered ) );
 
-	// players always start with the base weapon
-	RegisterItem( BG_FindItemForWeapon( WP_MACHINEGUN ) );
-	RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
+	if ( g_instagib.integer ) {
+		RegisterItem( BG_FindItemForWeapon( WP_RAILGUN ) );
+		if ( g_instagib.integer & 2 ) {
+			RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
+		}
+	} else {
+		for ( i = 1; i < WP_NUM_WEAPONS; i++ ) {
+			if ( g_startWeapons.integer & (1 << i) ) {
+				RegisterItem( BG_FindItemForWeapon( i ) );
+			}
+		}
+	}
+
 #ifdef MISSIONPACK
-	if( g_gametype.integer == GT_HARVESTER ) {
+	if ( g_gametype.integer == GT_HARVESTER ) {
 		RegisterItem( BG_FindItem( "Red Cube" ) );
 		RegisterItem( BG_FindItem( "Blue Cube" ) );
 	}
 #endif
 }
+
+
 
 /*
 ===============

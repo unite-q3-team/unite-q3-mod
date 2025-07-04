@@ -1086,19 +1086,70 @@ void ClientSpawn(gentity_t *ent) {
 
 	client->ps.clientNum = index;
 
-	client->ps.stats[STAT_WEAPONS] = ( 1 << WP_MACHINEGUN );
-	if ( g_gametype.integer == GT_TEAM ) {
-		client->ps.ammo[WP_MACHINEGUN] = 50;
+	if ( g_instagib.integer ) {
+		client->ps.stats[STAT_WEAPONS] = (1 << WP_RAILGUN);
+		client->ps.ammo[WP_RAILGUN] = 999;
+	if(g_instagib.integer & 2)
+		{
+		client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_GAUNTLET );
+		client->ps.ammo[WP_GAUNTLET] = -1;
+		}
 	} else {
-		client->ps.ammo[WP_MACHINEGUN] = 100;
+		client->ps.stats[STAT_WEAPONS] = 0;
+		for ( i = 1; i < WP_NUM_WEAPONS; i++ ) {
+			if ( g_startWeapons.integer & (1 << i) ) {
+				client->ps.stats[STAT_WEAPONS] |= (1 << i);
+				switch(i) {
+					case WP_GAUNTLET:
+						client->ps.ammo[WP_GAUNTLET] = -1;
+						break;
+					case WP_MACHINEGUN:
+						client->ps.ammo[i] = (g_gametype.integer == GT_TEAM) ? g_start_ammo_mg.integer / 2 : g_start_ammo_mg.integer;
+						break;
+					case WP_SHOTGUN:
+						client->ps.ammo[i] = g_start_ammo_shotgun.integer;
+						break;
+					case WP_GRENADE_LAUNCHER:
+						client->ps.ammo[i] = g_start_ammo_grenade.integer;
+						break;
+					case WP_ROCKET_LAUNCHER:
+						client->ps.ammo[i] = g_start_ammo_rocket.integer;
+						break;
+					case WP_LIGHTNING:
+						client->ps.ammo[i] = g_start_ammo_lightning.integer;
+						break;
+					case WP_RAILGUN:
+						client->ps.ammo[i] = g_start_ammo_railgun.integer;
+						break;
+					case WP_PLASMAGUN:
+						client->ps.ammo[i] = g_start_ammo_plasmagun.integer;
+						break;
+					case WP_BFG:
+						client->ps.ammo[i] = g_start_ammo_bfg.integer;
+						break;
+	#ifdef MISSIONPACK
+					case WP_NAILGUN:
+						client->ps.ammo[i] = g_start_ammo_nailgun.integer;
+						break;
+					case WP_PROX_LAUNCHER:
+						client->ps.ammo[i] = g_start_ammo_proxlauncher.integer;
+						break;
+					case WP_CHAINGUN:
+						client->ps.ammo[i] = g_start_ammo_chaingun.integer;
+						break;
+	#endif
+					default:
+						client->ps.ammo[i] = 100;
+						break;
+				}
+			}
+		}
 	}
 
-	client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_GAUNTLET );
-	client->ps.ammo[WP_GAUNTLET] = -1;
-	client->ps.ammo[WP_GRAPPLING_HOOK] = -1;
+	// client->ps.ammo[WP_GRAPPLING_HOOK] = -1;
 
-	// health will count down towards max_health
-	ent->health = client->ps.stats[STAT_HEALTH] = client->ps.stats[STAT_MAX_HEALTH] + 25;
+	ent->health = client->ps.stats[STAT_HEALTH] = g_start_health.integer;
+	client->ps.stats[STAT_ARMOR] = g_start_armor.integer;
 
 	G_SetOrigin( ent, spawn_origin );
 	VectorCopy( spawn_origin, client->ps.origin );
@@ -1113,9 +1164,21 @@ void ClientSpawn(gentity_t *ent) {
 	if ( !isSpectator )
 		G_KillBox( ent );
 
-	// force the base weapon up
-	client->ps.weapon = WP_MACHINEGUN;
+	// Устанавливаем оружие, форсим если можно, иначе лучшее
+	if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS &&
+		(client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer))) {
+		client->ps.weapon = g_startWeapon.integer;
+	} else {
+		client->ps.weapon = 0; // WP_NONE, если есть
+		for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
+			if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
+				client->ps.weapon = i;
+				break;
+			}
+		}
+	}
 	client->ps.weaponstate = WEAPON_READY;
+
 
 	// don't allow full run speed for a bit
 	client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
@@ -1139,13 +1202,24 @@ void ClientSpawn(gentity_t *ent) {
 
 		// select the highest weapon number available, after any
 		// spawn given items have fired
-		client->ps.weapon = 1;
-		for ( i = WP_NUM_WEAPONS - 1 ; i > 0 ; i-- ) {
-			if ( client->ps.stats[STAT_WEAPONS] & ( 1 << i ) ) {
-				client->ps.weapon = i;
-				break;
+		// Если g_startWeapon валидно и разрешено — ставим его
+			if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS
+				&& (client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer)) )
+			{
+				client->ps.weapon = g_startWeapon.integer;
 			}
-		}
+			else
+			{
+				// Иначе ставим лучшее из разрешённых
+				client->ps.weapon = 1; // или 0, если есть WP_NONE
+				for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
+					if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
+						client->ps.weapon = i;
+						break;
+					}
+				}
+			}
+
 	}
 
 	// run a client frame to drop exactly to the floor,

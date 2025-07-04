@@ -1,0 +1,53 @@
+// System
+sv_pmove_fixed         // фиксированное перемещение игроков (true/false)
+sv_pmove_msec          // интервал обновления физики в мс (при sv_pmove_fixed)
+
+// Game modes/modificators
+g_instagib             // Истагиб. 1 - вкл, только рейл, 2 - вкл, рейл + перчатка
+g_railJump             // Рейл-джамп
+
+g_vampire              // Вампиризм (вовзрат ХП от в зависимости от нанесённого урона), в %, где 1 - 100%
+g_vampireMaxHealth     // Максимальное хп при вампиризме
+
+// Player spawn
+g_selfdamage           // наносит ли урон себе
+g_startWeapon          // стартовое выбранное оружие (если разрешено)
+g_startWeapons         // битовая маска стартовых оружий, где 2 - пулемёт, 4 - шотган и т.д.
+
+// items
+
+disable_%              // возможность отключать выбранные предметы, например disable_weapon_rocketlauncher 1 - отключает спаун rocketlauncher (дефолт bq3a фича)
+g_items                // Предметы на карте (дроп/спаун). 0/1
+g_spawnItems           // Выбор предметов для спауна. 1 - здоровье, 2 - броня, 4 - оружия, 8 - патроны, 16 - усилители (power ups)
+
+// Start ammo
+g_start_ammo_mg            // количество патронов к пулемёту
+g_start_ammo_shotgun       // патроны для дробовика
+g_start_ammo_grenade       // гранаты
+g_start_ammo_rocket        // ракеты
+g_start_ammo_lightning     // заряд молнии
+g_start_ammo_railgun       // патроны к рельсотрону
+g_start_ammo_plasmagun     // плазма
+g_start_ammo_bfg           // BFG
+g_start_ammo_nailgun       // гвоздомёт (MISSIONPACK)
+g_start_ammo_proxlauncher  // прокси-мины (MISSIONPACK)
+g_start_ammo_chaingun      // пулемёт (MISSIONPACK)
+
+// Start stats
+g_start_health         // здоровье при спавне
+g_start_armor          // броня при спавне
+
+// Weapon damage
+g_gauntlet_damage      // урон перчатки
+g_mg_damage            // урон пулемёта
+g_mg_damageTeam        // урон пулемёта в командных режимах игры 
+g_sg_damage            // урон дробовика
+g_gl_damage            // урон гранатомёта
+g_rl_damage            // урон ракетницы
+g_lg_damage            // урон молнии
+g_rg_damage            // урон рельсы
+g_pg_damage            // урон плазмы
+g_bfg_damage           // урон BFG
+g_damageThroughWalls   // Урон от взрывов через пол/стены
+
+

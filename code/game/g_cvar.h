@@ -88,9 +88,9 @@ G_CVAR( g_blueteam, "g_blueteam", "Pagans", CVAR_ARCHIVE | CVAR_SERVERINFO | CVA
 G_CVAR( g_singlePlayer, "ui_singlePlayerActive", "", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_enableDust, "g_enableDust", "0", CVAR_SERVERINFO, 0, qtrue, qfalse )
-G_CVAR( g_enableBreath, "g_enableBreath", "0", CVAR_SERVERINFO, 0, qtrue, qfalse )
 G_CVAR( g_proxMineTimeout, "g_proxMineTimeout", "20000", 0, 0, qfalse, qfalse )
 #endif
+// G_CVAR( g_enableBreath, "g_enableBreath", "1", 0, 0, qtrue, qfalse ) // Хуета не работает, на клиенте ни в какую не рисуются breath puffs lol
 G_CVAR( g_smoothClients, "g_smoothClients", "1", 0, 0, qfalse, qfalse )
 G_CVAR( pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
 G_CVAR( pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
@@ -98,5 +98,54 @@ G_CVAR( sv_pmove_fixed, "sv_pmove_fixed", "0",0 , 0, qfalse, qfalse )
 G_CVAR( sv_pmove_msec, "sv_pmove_msec", "8", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+G_CVAR( g_selfDamage,     "g_selfDamage",     "1", 0, 0, qfalse, qfalse )
+G_CVAR( g_startWeapon,     "g_startWeapon",     "5", 0, 0, qfalse, qfalse )
+G_CVAR( g_startWeapons,     "g_startWeapons",     "1023", 0, 0, qfalse, qfalse )
+
+
+G_CVAR( g_start_ammo_mg,          "g_start_ammo_mg",          "200",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_shotgun,     "g_start_ammo_shotgun",     "25",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_grenade,     "g_start_ammo_grenade",     "15",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_rocket,      "g_start_ammo_rocket",      "50",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_lightning,   "g_start_ammo_lightning",   "400",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_railgun,     "g_start_ammo_railgun",     "25",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_plasmagun,   "g_start_ammo_plasmagun",   "200",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_bfg,         "g_start_ammo_bfg",         "20",  0, 0, qfalse, qfalse )
+#ifdef MISSIONPACK
+G_CVAR( g_start_ammo_nailgun,     "g_start_ammo_nailgun",     "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_proxlauncher,"g_start_ammo_proxlauncher","100",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_ammo_chaingun,    "g_start_ammo_chaingun",    "100",  0, 0, qfalse, qfalse )
+#endif
+G_CVAR( g_start_health,   		"g_start_health",   "125",  0, 0, qfalse, qfalse )
+G_CVAR( g_start_armor,         "g_start_armor",         "100",  0, 0, qfalse, qfalse )
+
+G_CVAR( g_gauntlet_damage,   "g_gauntlet_damage",   "50",   0, 0, qfalse, qfalse )
+G_CVAR( g_mg_damage,          "g_mg_damage",          "7",  0, 0, qfalse, qfalse )
+G_CVAR( g_mg_damageTeam,          "g_mg_damageTeam",          "5",  0, 0, qfalse, qfalse )
+G_CVAR( g_sg_damage,     "g_sg_damage",     "10",  0, 0, qfalse, qfalse )
+G_CVAR( g_gl_damage,     "g_gl_damage",     "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_rl_damage,      "g_rl_damage",      "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_lg_damage,   "g_lg_damage",   "8",  0, 0, qfalse, qfalse )
+G_CVAR( g_rg_damage,     "g_rg_damage",     "100",  0, 0, qfalse, qfalse )
+G_CVAR( g_pg_damage,   "g_pg_damage",   "20",  0, 0, qfalse, qfalse )
+G_CVAR( g_bfg_damage,         "g_bfg_damage",         "100",  0, 0, qfalse, qfalse )
+
+G_CVAR( g_vampire, "g_vampire", "0.0", CVAR_NORESTART, 0, qtrue, qfalse )
+G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qtrue, qfalse )
+
+G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+
+G_CVAR( g_items, "g_items", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+G_CVAR( g_spawnItems, "g_spawnItems", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+
+G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+
+// G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
+
+// ... до WP_NUM_WEAPONS - 1
+
+
 
 #undef G_CVAR

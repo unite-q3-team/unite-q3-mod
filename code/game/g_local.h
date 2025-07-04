@@ -32,6 +32,14 @@
 #define FL_NO_HUMANS			0x00004000	// spawn point just for bots
 #define FL_FORCE_GESTURE		0x00008000	// force gesture on client
 
+// spawn items flags
+#define ITEMMASK_HEALTH   1
+#define ITEMMASK_ARMOR    2
+#define ITEMMASK_WEAPONS  4
+#define ITEMMASK_AMMO     8
+#define ITEMMASK_POWERUP  16
+
+
 // movers are things like doors, plats, buttons, etc
 typedef enum {
 	MOVER_POS1,
@@ -528,6 +536,7 @@ const char *BuildShaderStateConfig( void );
 qboolean CanDamage (gentity_t *targ, vec3_t origin);
 void G_Damage (gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, vec3_t dir, vec3_t point, int damage, int dflags, int mod);
 qboolean G_RadiusDamage (vec3_t origin, gentity_t *attacker, float damage, float radius, gentity_t *ignore, int mod);
+qboolean G_RailJump( vec3_t origin, gentity_t *attacker);
 int G_InvulnerabilityEffect( gentity_t *targ, vec3_t dir, vec3_t point, vec3_t impactpoint, vec3_t bouncedir );
 void body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int meansOfDeath );
 void TossClientItems( gentity_t *self );

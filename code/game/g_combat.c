@@ -62,6 +62,8 @@ void TossClientItems( gentity_t *self ) {
 	gentity_t	*drop;
 
 	// drop the weapon if not a gauntlet or machinegun
+	if (!g_items.integer || g_instagib.integer)
+		return;
 	weapon = self->s.weapon;
 
 	// make a special check to see if they are changing to a new
@@ -944,6 +946,13 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	if ( damage < 1 ) {
 		damage = 1;
 	}
+
+	 if(targ == attacker && (g_dmflags.integer & DF_NO_SELF_DAMAGE) )
+            damage = 0;
+	
+	if ( !g_selfDamage.integer || g_railJump.integer && ( targ == attacker ||  mod == MOD_FALLING )) {
+		damage = 0;
+	}
 	take = damage;
 
 	// save some from armor
@@ -1014,6 +1023,17 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		// set the last client who damaged the target
 		targ->client->lasthurt_client = attacker->s.number;
 		targ->client->lasthurt_mod = mod;
+	}
+	
+	if( g_vampire.value>0.0 && (targ != attacker) && take > 0 && 
+                !(OnSameTeam(targ, attacker)) && attacker->health > 0 && targ->health > 0 )
+	{
+		if(take<targ->health)
+			attacker->health += (int)(((float)take)*g_vampire.value);
+		else
+			attacker->health += (int)(((float)targ->health)*g_vampire.value);
+		if(attacker->health>g_vampireMaxHealth.integer)
+			attacker->health = g_vampireMaxHealth.integer;
 	}
 
 	// do the damage
@@ -1130,6 +1150,46 @@ qboolean CanDamage( gentity_t *targ, vec3_t origin )
 	return qfalse;
 }
 
+#define RAILJUMP_TIME 800
+qboolean G_RailJump( vec3_t origin, gentity_t *attacker) {
+	float		points, dist;
+	float damage = 100;
+	float radius = 120;
+	vec3_t		v;
+	vec3_t		dir;
+	int i;
+
+	// find the distance from the edge of the bounding box
+	for ( i = 0 ; i < 3 ; i++ ) {
+		if ( origin[i] < attacker->r.absmin[i] ) {
+			v[i] = attacker->r.absmin[i] - origin[i];
+		} else if ( origin[i] > attacker->r.absmax[i] ) {
+			v[i] = origin[i] - attacker->r.absmax[i];
+		} else {
+			v[i] = 0;
+		}
+	}
+
+	dist = VectorLength( v );
+	if ( dist >= radius ) {
+		return qfalse;
+	}
+
+	points = damage * ( 1.0 - dist / radius );
+
+	if( CanDamage (attacker, origin) || g_damageThroughWalls.integer ) {
+		VectorSubtract (attacker->r.currentOrigin, origin, dir);
+		// push the center of mass higher than the origin so players
+		// get knocked into the air more
+		dir[2] += 24;
+		G_Damage (attacker, attacker, attacker, dir, origin, (int)points, DAMAGE_RADIUS, MOD_RAILGUN);
+		if (attacker->client && attacker->client->ps.weaponTime > RAILJUMP_TIME) {
+			attacker->client->ps.weaponTime = RAILJUMP_TIME;
+		}
+		return qtrue;
+	}
+	return qfalse;
+}
 
 /*
 ============
@@ -1185,7 +1245,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 
 		points = damage * ( 1.0 - dist / radius );
 
-		if( CanDamage (ent, origin) ) {
+		if( CanDamage (ent, origin) || g_damageThroughWalls.integer) {
 			if( LogAccuracyHit( ent, attacker ) ) {
 				hitClient = qtrue;
 			}
