@@ -913,6 +913,7 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pmove_fixed = fixed;
 	pm.pmove_msec = pmsec;
 
+	pm.pmove_autohop = pmove_autohop.integer;
 
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
