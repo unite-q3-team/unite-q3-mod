@@ -1978,6 +1978,8 @@ void ClientCommand( int clientNum ) {
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)
 		Cmd_Test_f( ent );
+	else if (Q_stricmp (cmd, "atest") == 0)
+		Cmd_NewTest_f( ent );
 	else if (Q_stricmp (cmd, "playerlist") == 0 || Q_stricmp (cmd, "players") == 0)
 		Cmd_Plrlist_f( ent );
 	else{

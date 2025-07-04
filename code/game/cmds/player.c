@@ -19,6 +19,7 @@ void AlignString(char *dest, int destSize, const char *src, int width, qboolean 
     dest[width] = '\0';
 }
 
+
 void Cmd_Plrlist_f(gentity_t *ent) {
     char buffer[8192];
     int i;
@@ -27,18 +28,22 @@ void Cmd_Plrlist_f(gentity_t *ent) {
     char name_padded[MAX_QPATH];
     char rate_buf[16];
     char snaps_buf[16];
+    char cc_buf[16];
     const char *osp_str;
     const char *mod_str;
+    const char *cc_str;
     char rate_aligned[7];
     char snaps_aligned[5];
     char mod_aligned[7];
+    char cc_aligned[5];
     char teamChar[4];
+    int activePlayers = 0;
     int nudge;
 
     // Инициализация буфера
     buffer[0] = '\0';
     Q_strcat(buffer, sizeof(buffer),
-        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps  Mod\n", g_mapname.string));
+        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps  MOD  CC\n", g_mapname.string));
     Q_strcat(buffer, sizeof(buffer),
         "^1----------------------------------------------------------------------\n");
 
@@ -49,6 +54,7 @@ void Cmd_Plrlist_f(gentity_t *ent) {
         if (cl->pers.connected != CON_CONNECTED) {
             continue;
         }
+        activePlayers++;
 
         // Определение команды
         switch (cl->sess.sessionTeam) {
@@ -87,19 +93,29 @@ void Cmd_Plrlist_f(gentity_t *ent) {
             mod_str = "^1---";
         }
 
+        cc_str = "^1??";
+
         // Выравнивание данных
         AlignString(rate_aligned, sizeof(rate_aligned), rate_buf, 6, qfalse);
         AlignString(snaps_aligned, sizeof(snaps_aligned), snaps_buf, 4, qfalse);
         AlignString(mod_aligned, sizeof(mod_aligned), mod_str, 6, qfalse);
+        // AlignString(cc_aligned, sizeof(cc_aligned), cc_str, 6, qfalse);
 
         // Форматирование имени
         Q_FixNameWidth(cl->pers.netname, name_padded, 32);
 
         // Добавление строки в буфер
         Q_strcat(buffer, sizeof(buffer),
-            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s %s\n",
-                teamChar, i, name_padded, nudge, rate_aligned, snaps_aligned, mod_aligned));
+            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s %s %s\n",
+                teamChar, i, name_padded, nudge, rate_aligned, snaps_aligned, mod_aligned, cc_str));
     }
 
+        Q_strcat(buffer, sizeof(buffer),
+            va("\n^3Total players: ^7%d\n", activePlayers));
+
     SendServerCommandInChunks(ent, va("\n%s\n", buffer));
+}
+
+void Cmd_From_f(gentity_t *ent){
+
 }
