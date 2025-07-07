@@ -101,8 +101,10 @@ G_CVAR( sv_pmove_msec, "sv_pmove_msec", "8", 0, 0, qfalse, qfalse )
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_selfDamage,     "g_selfDamage",     "1", 0, 0, qfalse, qfalse )
+G_CVAR( g_fallDamage,     "g_fallDamage",     "1", 0, 0, qfalse, qfalse )
+
 G_CVAR( g_startWeapon,     "g_startWeapon",     "5", 0, 0, qfalse, qfalse )
-G_CVAR( g_startWeapons,     "g_startWeapons",     "1023", 0, 0, qfalse, qfalse )
+G_CVAR( g_startWeapons,     "g_startWeapons",     "511", 0, 0, qfalse, qfalse )
 G_CVAR( g_weaponlimit,     "g_weaponlimit",     "1023", 0, 0, qfalse, qfalse )
 
 
@@ -153,8 +155,10 @@ G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qt
 G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
-G_CVAR( g_items, "g_items", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+G_CVAR( g_items, "g_items", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+
 G_CVAR( g_wpflags, "g_wpflags", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+
 G_CVAR( g_spawnItems, "g_spawnItems", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 // G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
 
@@ -176,6 +180,7 @@ G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_autoThawTime, "g_autoThawTime", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
 

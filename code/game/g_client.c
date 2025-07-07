@@ -500,6 +500,112 @@ void SetClientViewAngle( gentity_t *ent, vec3_t angle ) {
 
 /*
 ================
+StarWeapons
+================
+*/
+
+void AssignStartingWeapons(gclient_t *client) {
+	int i;
+    client->ps.stats[STAT_WEAPONS] = 0;
+
+    if (g_instagib.integer) {
+        client->ps.stats[STAT_WEAPONS] = (1 << WP_RAILGUN);
+        client->ps.ammo[WP_RAILGUN] = 999;
+        if (g_instagib.integer & 2) {
+            client->ps.stats[STAT_WEAPONS] |= (1 << WP_GAUNTLET);
+            client->ps.ammo[WP_GAUNTLET] = -1;
+        }
+        return;
+    }
+
+    for (i = 1; i < WP_NUM_WEAPONS; i++) {
+        if (g_startWeapons.integer & (1 << i)) {
+            client->ps.stats[STAT_WEAPONS] |= (1 << i);
+            switch (i) {
+                case WP_GAUNTLET:
+                    client->ps.ammo[WP_GAUNTLET] = -1;
+                    break;
+                case WP_MACHINEGUN:
+                    client->ps.ammo[i] = (g_gametype.integer == GT_TEAM) ? g_start_ammo_mg.integer / 2 : g_start_ammo_mg.integer;
+                    break;
+                case WP_SHOTGUN:
+                    client->ps.ammo[i] = g_start_ammo_shotgun.integer;
+                    break;
+                case WP_GRENADE_LAUNCHER:
+                    client->ps.ammo[i] = g_start_ammo_grenade.integer;
+                    break;
+                case WP_ROCKET_LAUNCHER:
+                    client->ps.ammo[i] = g_start_ammo_rocket.integer;
+                    break;
+                case WP_LIGHTNING:
+                    client->ps.ammo[i] = g_start_ammo_lightning.integer;
+                    break;
+                case WP_RAILGUN:
+                    client->ps.ammo[i] = g_start_ammo_railgun.integer;
+                    break;
+                case WP_PLASMAGUN:
+                    client->ps.ammo[i] = g_start_ammo_plasmagun.integer;
+                    break;
+                case WP_BFG:
+                    client->ps.ammo[i] = g_start_ammo_bfg.integer;
+                    break;
+#ifdef MISSIONPACK
+                case WP_NAILGUN:
+                    client->ps.ammo[i] = g_start_ammo_nailgun.integer;
+                    break;
+                case WP_PROX_LAUNCHER:
+                    client->ps.ammo[i] = g_start_ammo_proxlauncher.integer;
+                    break;
+                case WP_CHAINGUN:
+                    client->ps.ammo[i] = g_start_ammo_chaingun.integer;
+                    break;
+#endif
+                default:
+                    client->ps.ammo[i] = 100;
+                    break;
+            }
+        }
+    }
+}
+
+
+void SetInitialWeapon(gclient_t *client) {
+	int i;
+
+	client->ps.weapon = WP_NONE;
+	client->pers.cmd.weapon = WP_NONE;
+	client->ps.weaponstate = WEAPON_READY;
+	client->ps.weaponTime = 0;
+
+    if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS &&
+        (client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer))) {
+        client->ps.weapon = g_startWeapon.integer;
+    } else {
+        for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
+            if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
+                client->ps.weapon = i;
+                break;
+            }
+        }
+    }
+
+    if (client->ps.ammo[client->ps.weapon] <= 0 && client->ps.weapon != WP_GAUNTLET) {
+        for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
+            if (client->ps.stats[STAT_WEAPONS] & (1 << i) && client->ps.ammo[i] > 0) {
+                client->ps.weapon = i;
+                break;
+            }
+        }
+    }
+
+    client->ps.weaponstate = WEAPON_READY;
+    client->ps.weaponTime = 0;
+}
+
+
+
+/*
+================
 respawn
 ================
 */
@@ -1163,65 +1269,7 @@ void ClientSpawn(gentity_t *ent) {
 
 	client->ps.clientNum = index;
 
-	if ( g_instagib.integer ) {
-		client->ps.stats[STAT_WEAPONS] = (1 << WP_RAILGUN);
-		client->ps.ammo[WP_RAILGUN] = 999;
-	if(g_instagib.integer & 2)
-		{
-		client->ps.stats[STAT_WEAPONS] |= ( 1 << WP_GAUNTLET );
-		client->ps.ammo[WP_GAUNTLET] = -1;
-		}
-	} else {
-		client->ps.stats[STAT_WEAPONS] = 0;
-		for ( i = 1; i < WP_NUM_WEAPONS; i++ ) {
-			if ( g_startWeapons.integer & (1 << i) ) {
-				client->ps.stats[STAT_WEAPONS] |= (1 << i);
-				switch(i) {
-					case WP_GAUNTLET:
-						client->ps.ammo[WP_GAUNTLET] = -1;
-						break;
-					case WP_MACHINEGUN:
-						client->ps.ammo[i] = (g_gametype.integer == GT_TEAM) ? g_start_ammo_mg.integer / 2 : g_start_ammo_mg.integer;
-						break;
-					case WP_SHOTGUN:
-						client->ps.ammo[i] = g_start_ammo_shotgun.integer;
-						break;
-					case WP_GRENADE_LAUNCHER:
-						client->ps.ammo[i] = g_start_ammo_grenade.integer;
-						break;
-					case WP_ROCKET_LAUNCHER:
-						client->ps.ammo[i] = g_start_ammo_rocket.integer;
-						break;
-					case WP_LIGHTNING:
-						client->ps.ammo[i] = g_start_ammo_lightning.integer;
-						break;
-					case WP_RAILGUN:
-						client->ps.ammo[i] = g_start_ammo_railgun.integer;
-						break;
-					case WP_PLASMAGUN:
-						client->ps.ammo[i] = g_start_ammo_plasmagun.integer;
-						break;
-					case WP_BFG:
-						client->ps.ammo[i] = g_start_ammo_bfg.integer;
-						break;
-	#ifdef MISSIONPACK
-					case WP_NAILGUN:
-						client->ps.ammo[i] = g_start_ammo_nailgun.integer;
-						break;
-					case WP_PROX_LAUNCHER:
-						client->ps.ammo[i] = g_start_ammo_proxlauncher.integer;
-						break;
-					case WP_CHAINGUN:
-						client->ps.ammo[i] = g_start_ammo_chaingun.integer;
-						break;
-	#endif
-					default:
-						client->ps.ammo[i] = 100;
-						break;
-				}
-			}
-		}
-	}
+	AssignStartingWeapons(client);
 
 	// client->ps.ammo[WP_GRAPPLING_HOOK] = -1;
 
@@ -1258,19 +1306,10 @@ void ClientSpawn(gentity_t *ent) {
 
 
 	// Устанавливаем оружие, форсим если можно, иначе лучшее
-	if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS &&
-		(client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer))) {
-		client->ps.weapon = g_startWeapon.integer;
-	} else {
-		client->ps.weapon = 0; // WP_NONE, если есть
-		for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
-			if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
-				client->ps.weapon = i;
-				break;
-			}
-		}
-	}
-	client->ps.weaponstate = WEAPON_READY;
+	
+	client->ps.weapon = WP_NONE;
+
+	SetInitialWeapon(client);
 
 
 	// don't allow full run speed for a bit
@@ -1316,16 +1355,16 @@ void ClientSpawn(gentity_t *ent) {
 				}
 			}
 		//freeze
-			if ( client->ps.stats[ STAT_WEAPONS ] & ( 1 << WP_ROCKET_LAUNCHER ) ) {
-				client->ps.weapon = WP_ROCKET_LAUNCHER;
-			}
+			// if ( client->ps.stats[ STAT_WEAPONS ] & ( 1 << WP_ROCKET_LAUNCHER ) ) {
+			// 	client->ps.weapon = WP_ROCKET_LAUNCHER;
+			// }
 
-			if ( g_start_armor.integer > 0 ) { // Вроде это лишнее
-				client->ps.stats[ STAT_ARMOR ] += g_start_armor.integer;
-				if ( client->ps.stats[ STAT_ARMOR ] > client->ps.stats[ STAT_MAX_HEALTH ] * 2 ) {
-					client->ps.stats[ STAT_ARMOR ] = client->ps.stats[ STAT_MAX_HEALTH ] * 2;
-				}
-			}
+			// if ( g_start_armor.integer > 0 ) { // Вроде это лишнее
+			// 	client->ps.stats[ STAT_ARMOR ] += g_start_armor.integer;
+			// 	if ( client->ps.stats[ STAT_ARMOR ] > client->ps.stats[ STAT_MAX_HEALTH ] * 2 ) {
+			// 		client->ps.stats[ STAT_ARMOR ] = client->ps.stats[ STAT_MAX_HEALTH ] * 2;
+			// 	}
+			// }
 		//freeze
 
 	}
