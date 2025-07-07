@@ -122,33 +122,39 @@ void AddTeamScore( vec3_t origin, team_t team, int score ) {
 	if ( score == 0 ) {
 		return;
 	}
+	
 
-	eventParm = -1;
-	otherTeam = OtherTeam( team );
+	if (!g_freeze.integer){
+		eventParm = -1;
+		otherTeam = OtherTeam( team );
 
-	if ( level.teamScores[ team ] + score == level.teamScores[ otherTeam ] ) {
-		//teams are tied sound
-		eventParm = GTS_TEAMS_ARE_TIED;
-	} else if ( level.teamScores[ team ] >= level.teamScores[ otherTeam ] &&
-				level.teamScores[ team ] + score < level.teamScores[ otherTeam ] ) {
-		// other team took the lead sound (negative score)
-		eventParm = ( otherTeam == TEAM_RED ) ? GTS_REDTEAM_TOOK_LEAD : GTS_BLUETEAM_TOOK_LEAD;
-	} else if ( level.teamScores[ team ] <= level.teamScores[ otherTeam ] &&
-				level.teamScores[ team ] + score > level.teamScores[ otherTeam ] ) {
-		// this team took the lead sound
-		eventParm = ( team == TEAM_RED ) ? GTS_REDTEAM_TOOK_LEAD : GTS_BLUETEAM_TOOK_LEAD;
-	} else if ( score > 0 && g_gametype.integer != GT_TEAM ) {
-		// team scored sound
-		eventParm = ( team == TEAM_RED ) ? GTS_REDTEAM_SCORED : GTS_BLUETEAM_SCORED;
+		if ( level.teamScores[ team ] + score == level.teamScores[ otherTeam ] ) {
+			//teams are tied sound
+			eventParm = GTS_TEAMS_ARE_TIED;
+		} else if ( level.teamScores[ team ] >= level.teamScores[ otherTeam ] &&
+					level.teamScores[ team ] + score < level.teamScores[ otherTeam ] ) {
+			// other team took the lead sound (negative score)
+			eventParm = ( otherTeam == TEAM_RED ) ? GTS_REDTEAM_TOOK_LEAD : GTS_BLUETEAM_TOOK_LEAD;
+		} else if ( level.teamScores[ team ] <= level.teamScores[ otherTeam ] &&
+					level.teamScores[ team ] + score > level.teamScores[ otherTeam ] ) {
+			// this team took the lead sound
+			eventParm = ( team == TEAM_RED ) ? GTS_REDTEAM_TOOK_LEAD : GTS_BLUETEAM_TOOK_LEAD;
+		} else if ( score > 0 && g_gametype.integer != GT_TEAM ) {
+			// team scored sound
+			eventParm = ( team == TEAM_RED ) ? GTS_REDTEAM_SCORED : GTS_BLUETEAM_SCORED;
+		}
+
+		if ( eventParm != -1 ) {
+			te = G_TempEntity(origin, EV_GLOBAL_TEAM_SOUND );
+			te->r.svFlags |= SVF_BROADCAST;
+			te->s.eventParm = eventParm;
+		}
+
+		level.teamScores[ team ] += score;
+	} else {
+		
 	}
 
-	if ( eventParm != -1 ) {
-		te = G_TempEntity(origin, EV_GLOBAL_TEAM_SOUND );
-		te->r.svFlags |= SVF_BROADCAST;
-		te->s.eventParm = eventParm;
-	}
-
-	level.teamScores[ team ] += score;
 }
 
 /*
