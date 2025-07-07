@@ -586,6 +586,9 @@ static void CopyToBody( gentity_t *ent ) {
     body->s.eFlags = 0;
     body->s.powerups = 1 << PW_BATTLESUIT;
     body->s.number = body - g_entities;
+	body->s.weapon = WP_NONE;
+	body->s.eFlags &= ~EF_FIRING; 
+	body->s.loopSound = 0;
     body->timestamp = level.time;
     body->physicsObject = qtrue;
 

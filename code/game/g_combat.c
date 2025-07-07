@@ -1037,7 +1037,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		damage = 0;
 	}
 
-	if ( !g_railJump.integer && targ == attacker) {
+	if ( g_instagib.integer && g_railJump.integer && targ == attacker) {
 		damage = 0;
 	}
 
