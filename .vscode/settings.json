@@ -6,6 +6,7 @@
         "bg_public.h": "c",
         "g_public.h": "c",
         "testcmd.h": "c",
-        "g_freeze.h": "c"
+        "g_freeze.h": "c",
+        "cg_local.h": "c"
     }
 }

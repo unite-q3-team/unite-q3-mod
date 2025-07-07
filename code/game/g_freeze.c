@@ -18,7 +18,7 @@ qboolean is_spectator( gclient_t *client ) {
 
     // 1 << 0 == 1
     if ( g_debugFreeze.integer & (1 << 0) ) {
-        Com_Printf( "is_spectator: client %p => %s\n", client, result ? "qtrue" : "qfalse" );
+        Com_Printf( "is_spectator: client %p => %s\n", client->ps.clientNum, result ? "qtrue" : "qfalse" );
     }
 
     return result;
@@ -878,16 +878,16 @@ void team_wins( int team ) {
 
 	te = G_TempEntity( vec3_origin, EV_GLOBAL_TEAM_SOUND );
 	if ( team == TEAM_RED ) {
-		teamstr = "Red";
+		teamstr = "^1Red";
 		te->s.eventParm = GTS_BLUE_CAPTURE;
 	} else {
-		teamstr = "Blue";
+		teamstr = "^4Blue";
 		te->s.eventParm = GTS_RED_CAPTURE;
 	}
 	te->r.svFlags |= SVF_BROADCAST;
 
-	trap_SendServerCommand( -1, va( "cp \"" S_COLOR_MAGENTA "%s " S_COLOR_WHITE "team scores!\n\"", teamstr ) );
-	trap_SendServerCommand( -1, va( "print \"%s team scores!\n\"", teamstr ) );
+	trap_SendServerCommand( -1, va( "cp \"" S_COLOR_MAGENTA "%s " S_COLOR_WHITE "^3team scores!\n\"", teamstr ) );
+	trap_SendServerCommand( -1, va( "print \"%s ^3team scores!\n\"", teamstr ) );
 
 	AddTeamScore( vec3_origin, team, 1 );
 	Team_ForceGesture( team );
