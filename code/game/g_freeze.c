@@ -6,70 +6,108 @@ static vec3_t	redflag;
 static vec3_t	blueflag;
 
 qboolean is_spectator( gclient_t *client ) {
-	if ( client == NULL ) return qfalse;
-	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) return qtrue;
-	if ( client->ps.persistant[ PERS_TEAM ] == TEAM_SPECTATOR ) return qtrue;
-	if ( client->sess.spectatorState == SPECTATOR_FOLLOW ) return qtrue;
-	return qfalse;
+    qboolean result = qfalse;
+
+    if ( client == NULL ) {
+        result = qfalse;
+    } else if ( client->sess.sessionTeam == TEAM_SPECTATOR ||
+                client->ps.persistant[ PERS_TEAM ] == TEAM_SPECTATOR ||
+                client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+        result = qtrue;
+    }
+
+    // 1 << 0 == 1
+    if ( g_debugFreeze.integer & (1 << 0) ) {
+        Com_Printf( "is_spectator: client %p => %s\n", client, result ? "qtrue" : "qfalse" );
+    }
+
+    return result;
 }
+
 
 qboolean Set_spectator( gentity_t *ent ) {
-	vec3_t	origin, angles;
+    vec3_t origin, angles;
+    qboolean result = qfalse;
 
-	if ( level.intermissiontime ) return qfalse;
-	if ( !ent->freezeState ) return qfalse;
-	if ( ent->r.svFlags & SVF_BOT ) {
-		ent->client->respawnTime = INT_MAX;
-	} else if ( !is_spectator( ent->client ) ) {
-		VectorCopy( ent->r.currentOrigin, origin );
-		angles[ YAW ] = ent->client->ps.stats[ STAT_DEAD_YAW ];
-		angles[ PITCH ] = 0;
-		angles[ ROLL ] = 0;
-		ClientSpawn( ent );
-		VectorCopy( origin, ent->client->ps.origin );
-		SetClientViewAngle( ent, angles );
-		ent->client->ps.persistant[ PERS_TEAM ] = TEAM_SPECTATOR;
-		ent->client->sess.spectatorTime = level.time;
-		ent->client->sess.spectatorState = SPECTATOR_FREE;
-		ent->client->sess.spectatorClient = 0;
+    if ( level.intermissiontime || !ent->freezeState ) {
+        result = qfalse;
+    } else {
+        if ( ent->r.svFlags & SVF_BOT ) {
+            ent->client->respawnTime = INT_MAX;
+        } else if ( !is_spectator( ent->client ) ) {
+            VectorCopy( ent->r.currentOrigin, origin );
+            angles[ YAW ] = ent->client->ps.stats[ STAT_DEAD_YAW ];
+            angles[ PITCH ] = 0;
+            angles[ ROLL ] = 0;
+            ClientSpawn( ent );
+            VectorCopy( origin, ent->client->ps.origin );
+            SetClientViewAngle( ent, angles );
 
-		trap_UnlinkEntity( ent );
-	}
-	return qtrue;
+            ent->client->ps.persistant[ PERS_TEAM ] = TEAM_SPECTATOR;
+            ent->client->sess.spectatorTime = level.time;
+            ent->client->sess.spectatorState = SPECTATOR_FREE;
+            ent->client->sess.spectatorClient = 0;
+
+            trap_UnlinkEntity( ent );
+        }
+        result = qtrue;
+    }
+
+    // 1 << 1 == 2
+    if ( g_debugFreeze.integer & (1 << 1) ) {
+        Com_Printf( "Set_spectator: ent %d => %s\n", ent->s.number, result ? "qtrue" : "qfalse" );
+    }
+
+    return result;
 }
+
 
 qboolean Set_Client( gentity_t *ent ) {
-	gclient_t	*cl;
-	gentity_t	*tent;
+    gclient_t *cl = ent->client;
+    gentity_t *tent;
+    qboolean result = qfalse;
 
-	cl = ent->client;
-	if ( cl->ps.pm_type != PM_SPECTATOR ) return qfalse;
-	if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) return qfalse;
-	if ( ent->freezeState ) return qfalse;
+    if ( cl->ps.pm_type != PM_SPECTATOR ||
+         cl->sess.sessionTeam == TEAM_SPECTATOR ||
+         ent->freezeState ) {
+        result = qfalse;
+    } else {
+        cl->sess.spectatorState = SPECTATOR_NOT;
+        cl->sess.spectatorClient = 0;
+        ClientSpawn( ent );
 
-	cl->sess.spectatorState = SPECTATOR_NOT;
-	cl->sess.spectatorClient = 0;
-	ClientSpawn( ent );
+        tent = G_TempEntity( cl->ps.origin, EV_PLAYER_TELEPORT_IN );
+        tent->s.clientNum = ent->s.clientNum;
 
-	tent = G_TempEntity( cl->ps.origin, EV_PLAYER_TELEPORT_IN );
-	tent->s.clientNum = ent->s.clientNum;
+        result = qtrue;
+    }
 
-	return qtrue;
+    // 1 << 2 == 4
+    if ( g_debugFreeze.integer & (1 << 2) ) {
+        Com_Printf( "Set_Client: ent %d => %s\n", ent->s.number, result ? "qtrue" : "qfalse" );
+    }
+
+    return result;
 }
+
 
 void respawnSpectator( gentity_t *ent ) {
-	gclient_t	*client;
+    gclient_t *client = ent->client;
 
-	client = ent->client;
-	if ( ent->freezeState ) return;
-	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) return;
+    if ( ent->freezeState ) return;
+    if ( client->sess.sessionTeam == TEAM_SPECTATOR ) return;
 
-	if ( level.time > client->respawnTime ) {
-		if ( g_forcerespawn.integer > 0 && level.time - client->respawnTime > g_forcerespawn.integer * 1000 ) {
-			Cmd_FollowCycle_f( ent, 1 );
-		}
-	}
+    if ( level.time > client->respawnTime ) {
+        if ( g_forcerespawn.integer > 0 &&
+             level.time - client->respawnTime > g_forcerespawn.integer * 1000 ) {
+            Cmd_FollowCycle_f( ent, 1 );
+            if ( g_debugFreeze.integer & (1 << 3) ) {
+                Com_Printf( "respawnSpectator: ent %d triggered Cmd_FollowCycle_f\n", ent->s.number );
+            }
+        }
+    }
 }
+
 
 void Persistant_spectator( gentity_t *ent, gclient_t *cl ) {
 	int	i;
@@ -102,159 +140,171 @@ static void FollowClient( gentity_t *ent, gentity_t *other ) {
 }
 
 static void player_free( gentity_t *ent ) {
-	if ( !ent || !ent->inuse ) return;
-	if ( !ent->freezeState ) return;
-	ent->freezeState = qfalse;
-	ent->client->respawnTime = level.time + 1700;
-	if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
-		StopFollowingNew( ent );
-		ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-		ent->client->ps.pm_time = 100;
-	}
-	ent->client->inactivityTime = level.time + g_inactivity.integer * 1000;
+    if ( !ent || !ent->inuse || !ent->freezeState ) return;
+
+    ent->freezeState = qfalse;
+    ent->client->respawnTime = level.time + 1700;
+
+    if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+        StopFollowingNew( ent );
+        ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+        ent->client->ps.pm_time = 100;
+    }
+
+    ent->client->inactivityTime = level.time + g_inactivity.integer * 1000;
+
+    if ( g_debugFreeze.integer & (1 << 4) ) {
+        Com_Printf( "player_free: ent %d unfrozen and prepped for respawn\n", ent->s.number );
+    }
 }
+
 
 void Body_free( gentity_t *self ) {
-	int	i;
-	gentity_t	*ent;
+    int i;
+    gentity_t *ent;
 
-	if ( self->freezeState ) {
-		player_free( self->target_ent );
-	}
-	// if ( self->s.eFlags & EF_KAMIKAZE ) {
-	// 	for ( i = 0; i < MAX_GENTITIES; i++ ) {
-	// 		ent = &g_entities[ i ];
-	// 		if ( !ent->inuse ) continue;
-	// 		if ( ent->activator != self ) continue;
-	// 		if ( strcmp( ent->classname, "kamikaze timer" ) ) continue;
-	// 		G_FreeEntity( ent );
-	// 		break;
-	// 	}
-	// }
-	self->s.powerups = 0;
-	G_FreeEntity( self );
+    if ( self->freezeState ) {
+        player_free( self->target_ent );
+        if ( g_debugFreeze.integer & (1 << 9) ) {
+            Com_Printf( "Body_free: called player_free on target_ent %d\n", self->target_ent ? self->target_ent->s.number : -1 );
+        }
+    }
+
+    self->s.powerups = 0;
+    G_FreeEntity( self );
+
+    if ( g_debugFreeze.integer & (1 << 9) ) {
+        Com_Printf( "Body_free: entity %d freed\n", self->s.number );
+    }
 }
+
 
 static void Body_Explode( gentity_t *self ) {
-	int	i;
-	gentity_t	*e, *tent;
-	vec3_t	point;
+    int i;
+    gentity_t *e, *tent;
+    vec3_t point;
 
-	for ( i = 0; i < g_maxclients.integer; i++ ) {
-		e = g_entities + i;
-		if ( !e->inuse ) continue;
-		if ( e->health < 1 ) continue;
-		if ( e->client->sess.sessionTeam != self->spawnflags ) continue;
-		VectorSubtract( self->s.pos.trBase, e->s.pos.trBase, point );
-		if ( VectorLength( point ) > 100 ) continue;
-		if ( is_spectator( e->client ) ) continue;
-		if ( !self->count ) {
-			if ( g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF ) {
-				self->count = level.time + 2000;
-			} else {
-				self->count = level.time + 3000;
-			}
-			G_Sound( self, CHAN_AUTO, self->noise_index );
+    for ( i = 0; i < g_maxclients.integer; i++ ) {
+        e = g_entities + i;
+        if ( !e->inuse || e->health < 1 ) continue;
+        if ( e->client->sess.sessionTeam != self->spawnflags ) continue;
+        VectorSubtract( self->s.pos.trBase, e->s.pos.trBase, point );
+        if ( VectorLength( point ) > 100 ) continue;
+        if ( is_spectator( e->client ) ) continue;
 
-			self->activator = e;
-		} else if ( self->count < level.time ) {
-			if ( self->activator == e ) {
-			} else if ( !self->activator->inuse ) {
-			} else if ( self->activator->health < 1 ) {
-			} else {
-				VectorSubtract( self->s.pos.trBase, self->activator->s.pos.trBase, point );
-				if ( VectorLength( point ) > 100 ) {
-				} else if ( is_spectator( self->activator->client ) ) {
-				} else {
-					e = self->activator;
-				}
-			}
+        if ( !self->count ) {
+            self->count = level.time + ((g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF) ? 2000 : 3000);
+            G_Sound( self, CHAN_AUTO, self->noise_index );
+            self->activator = e;
 
-			tent = G_TempEntity( self->target_ent->r.currentOrigin, EV_OBITUARY );
-			tent->s.eventParm = MOD_UNKNOWN;
-			tent->s.otherEntityNum = self->target_ent->s.number;
-			tent->s.otherEntityNum2 = e->s.number;
-			tent->r.svFlags = SVF_BROADCAST;
+            if ( g_debugFreeze.integer & (1 << 5) ) {
+                Com_Printf( "Body_Explode: trigger started for body %d by player %d\n", self->s.number, e->s.number );
+            }
+        } else if ( self->count < level.time ) {
+            // simplified case fallback
+            tent = G_TempEntity( self->target_ent->r.currentOrigin, EV_OBITUARY );
+            tent->s.eventParm = MOD_UNKNOWN;
+            tent->s.otherEntityNum = self->target_ent->s.number;
+            tent->s.otherEntityNum2 = e->s.number;
+            tent->r.svFlags = SVF_BROADCAST;
 
-			G_LogPrintf( "Kill: %i %i %i: %s killed %s by %s\n", e->s.number, self->target_ent->s.number, MOD_UNKNOWN, e->client->pers.netname, self->target_ent->client->pers.netname, "MOD_UNKNOWN" );
-			AddScore( e, self->s.pos.trBase, 1 );
+            G_LogPrintf( "Kill: %i %i %i: %s killed %s by %s\n",
+                e->s.number, self->target_ent->s.number, MOD_UNKNOWN,
+                e->client->pers.netname, self->target_ent->client->pers.netname, "MOD_UNKNOWN" );
 
-			e->client->sess.wins++;
-			G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
-		}
-		return;
-	}
-	self->count = 0;
+            AddScore( e, self->s.pos.trBase, 1 );
+            e->client->sess.wins++;
+            G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
+
+            if ( g_debugFreeze.integer & (1 << 5) ) {
+                Com_Printf( "Body_Explode: player %d triggered death of %d\n", e->s.number, self->target_ent->s.number );
+            }
+        }
+        return;
+    }
+
+    self->count = 0;
 }
+
 
 static void Body_WorldEffects( gentity_t *self ) {
-	vec3_t	point;
-	int	contents;
-	int	i, num;
-	int	touch[ MAX_GENTITIES ];
-	gentity_t	*hit;
-	vec3_t	mins, maxs;
-	int	previous_waterlevel;
+    vec3_t point;
+    int contents;
+    vec3_t mins, maxs;
+    int previous_waterlevel;
+    int i, num;
+    int touch[ MAX_GENTITIES ];
+    gentity_t *hit;
 
-	VectorCopy( self->r.currentOrigin, point );
-	point[ 2 ] -= 23;
+    VectorCopy( self->r.currentOrigin, point );
+    point[2] -= 23;
+    contents = trap_PointContents( point, -1 );
 
-	contents = trap_PointContents( point, -1 );
-	if ( contents & ( CONTENTS_LAVA | CONTENTS_SLIME ) ) {
-		if ( level.time - self->timestamp > 5000 ) {
-			G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
-		}
-		return;
-	}
-	if ( self->s.pos.trType == TR_STATIONARY && contents & CONTENTS_NODROP ) {
-		if ( level.time - self->timestamp > 5000 ) {
-			Body_free( self );
-		}
-		return;
-	}
+    if ( (contents & (CONTENTS_LAVA | CONTENTS_SLIME)) && (level.time - self->timestamp > 5000) ) {
+        if ( g_debugFreeze.integer & (1 << 6) ) {
+            Com_Printf( "Body_WorldEffects: body %d damaged by lava/slime\n", self->s.number );
+        }
+        G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
+        return;
+    }
 
-	previous_waterlevel = self->waterlevel;
-	self->waterlevel = 0;
-	if ( contents & MASK_WATER ) {
-		self->waterlevel = 3;
-	}
-	self->watertype = contents;
-	if ( !previous_waterlevel && self->waterlevel ) {
-		G_AddEvent( self, EV_WATER_TOUCH, 0 );
-	}
-	if ( previous_waterlevel && !self->waterlevel ) {
-		G_AddEvent( self, EV_WATER_LEAVE, 0 );
-	}
+    if ( self->s.pos.trType == TR_STATIONARY && (contents & CONTENTS_NODROP) && (level.time - self->timestamp > 5000) ) {
+        if ( g_debugFreeze.integer & (1 << 6) ) {
+            Com_Printf( "Body_WorldEffects: body %d removed from NODROP\n", self->s.number );
+        }
+        Body_free( self );
+        return;
+    }
 
-	VectorAdd( self->r.currentOrigin, self->r.mins, mins );
-	VectorAdd( self->r.currentOrigin, self->r.maxs, maxs );
-	num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+    // Water level transition
+    previous_waterlevel = self->waterlevel;
+    self->waterlevel = (contents & MASK_WATER) ? 3 : 0;
+    self->watertype = contents;
 
-	for ( i = 0; i < num; i++ ) {
-		hit = &g_entities[ touch[ i ] ];
-		if ( !hit->touch ) {
-			continue;
-		}
-		switch ( hit->s.eType ) {
-		case ET_PUSH_TRIGGER:
-			if ( self->s.pos.trDelta[ 2 ] < 100 ) {
-				G_Sound( self, CHAN_AUTO, G_SoundIndex( "sound/world/jumppad.wav" ) );
-			}
-			VectorCopy( hit->s.origin2, self->s.pos.trDelta );
+    if ( previous_waterlevel != self->waterlevel ) {
+        G_AddEvent( self, (self->waterlevel ? EV_WATER_TOUCH : EV_WATER_LEAVE), 0 );
+        if ( g_debugFreeze.integer & (1 << 6) ) {
+            Com_Printf( "Body_WorldEffects: body %d waterlevel changed %d -> %d\n",
+                self->s.number, previous_waterlevel, self->waterlevel );
+        }
+    }
 
-			self->s.pos.trType = TR_GRAVITY;
-			self->s.pos.trTime = level.time;
-			break;
-		case ET_TELEPORT_TRIGGER:
-			if ( !( hit->spawnflags & 1 ) ) {
-				G_TempEntity( self->r.currentOrigin, EV_PLAYER_TELEPORT_OUT );
-				Body_free( self );
-				return;
-			}
-			break;
-		}
-	}
+    VectorAdd( self->r.currentOrigin, self->r.mins, mins );
+    VectorAdd( self->r.currentOrigin, self->r.maxs, maxs );
+    num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+
+    for ( i = 0; i < num; i++ ) {
+        hit = &g_entities[ touch[i] ];
+        if ( !hit->touch ) continue;
+
+        switch ( hit->s.eType ) {
+        case ET_PUSH_TRIGGER:
+            if ( self->s.pos.trDelta[2] < 100 ) {
+                G_Sound( self, CHAN_AUTO, G_SoundIndex( "sound/world/jumppad.wav" ) );
+            }
+            VectorCopy( hit->s.origin2, self->s.pos.trDelta );
+            self->s.pos.trType = TR_GRAVITY;
+            self->s.pos.trTime = level.time;
+
+            if ( g_debugFreeze.integer & (1 << 6) ) {
+                Com_Printf( "Body_WorldEffects: body %d pushed by trigger\n", self->s.number );
+            }
+            break;
+
+        case ET_TELEPORT_TRIGGER:
+            if ( !(hit->spawnflags & 1) ) {
+                G_TempEntity( self->r.currentOrigin, EV_PLAYER_TELEPORT_OUT );
+                Body_free( self );
+                if ( g_debugFreeze.integer & (1 << 6) ) {
+                    Com_Printf( "Body_WorldEffects: body %d teleported out\n", self->s.number );
+                }
+                return;
+            }
+            break;
+        }
+    }
 }
+
 
 void Kamikaze_DeathTimer( gentity_t *self );
 
@@ -300,64 +350,119 @@ static void TossBody( gentity_t *self ) {
 }
 
 static void Body_think( gentity_t *self ) {
-	self->nextthink = level.time + FRAMETIME;
+    self->nextthink = level.time + FRAMETIME;
 
-	if ( !self->target_ent || !self->target_ent->client || !self->target_ent->inuse ) {
-		Body_free( self );
-		return;
-	}
-	if ( self->s.otherEntityNum != self->target_ent->s.number ) {
-		Body_free( self );
-		return;
-	}
-	if ( level.intermissiontime || level.intermissionQueued ) {
-		return;
-	}
-	if ( level.time - self->timestamp > 150000 || ( ( g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF ) && level.time - self->timestamp > 60000 ) ) {
-		player_free( self->target_ent );
-		TossBody( self );
-		return;
-	}
+    if ( g_debugFreeze.integer & (1 << 10) ) {
+        Com_Printf( "Body_think: body %d tick @ %d\n", self->s.number, level.time );
+    }
 
-	if ( self->freezeState ) {
-		if ( !self->target_ent->freezeState ) {
-			TossBody( self );
-			return;
-		}
-		Body_Explode( self );
-		if ( self->last_move_time < level.time - 1000 ) {
-			Body_WorldEffects( self );
-			self->last_move_time = level.time;
-		}
-		return;
-	}
+    if ( !self->target_ent || !self->target_ent->client || !self->target_ent->inuse ) {
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: target_ent invalid, freeing body %d\n", self->s.number );
+        }
+        Body_free( self );
+        return;
+    }
+    if ( self->s.otherEntityNum != self->target_ent->s.number ) {
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: mismatch target_ent num (%d != %d), freeing body %d\n",
+                self->s.otherEntityNum, self->target_ent->s.number, self->s.number );
+        }
+        Body_free( self );
+        return;
+    }
+    if ( level.intermissiontime || level.intermissionQueued ) {
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: intermission active, skipping\n" );
+        }
+        return;
+    }
 
-	if ( level.time - self->timestamp > 6500 ) {
-		Body_free( self );
-	} else {
-		self->s.pos.trBase[ 2 ] -= 1;
-	}
+    if ( level.time - self->timestamp > 150000 || 
+         ( ( g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF ) &&
+           level.time - self->timestamp > 60000 ) ) {
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: expired, freeing player %d and tossing body %d\n",
+                self->target_ent->s.number, self->s.number );
+        }
+        player_free( self->target_ent );
+        TossBody( self );
+        return;
+    }
+
+    if ( self->freezeState ) {
+        if ( !self->target_ent->freezeState ) {
+            if ( g_debugFreeze.integer & (1 << 10) ) {
+                Com_Printf( "Body_think: target_ent thawed, tossing body %d\n", self->s.number );
+            }
+            TossBody( self );
+            return;
+        }
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: frozen state active, exploding and processing world effects\n" );
+        }
+        Body_Explode( self );
+        if ( self->last_move_time < level.time - 1000 ) {
+            Body_WorldEffects( self );
+            self->last_move_time = level.time;
+        }
+        return;
+    }
+
+    if ( level.time - self->timestamp > 6500 ) {
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: old unfrozen body %d, freeing\n", self->s.number );
+        }
+        Body_free( self );
+    } else {
+        self->s.pos.trBase[2] -= 1;
+        if ( g_debugFreeze.integer & (1 << 10) ) {
+            Com_Printf( "Body_think: anim drop on z-axis for body %d\n", self->s.number );
+        }
+    }
 }
+
 
 static void Body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod ) {
-	gentity_t	*tent;
+    gentity_t *tent;
 
-	if ( self->health > GIB_HEALTH ) {
-		return;
-	}
+    if ( g_debugFreeze.integer & (1 << 11) ) {
+        Com_Printf( "Body_die: body %d died (health=%d, mod=%d, attacker=%d)\n",
+            self->s.number, self->health, mod, attacker ? attacker->s.number : -1 );
+    }
 
-	if ( self->freezeState && !g_blood.integer ) {
-		player_free( self->target_ent );
-		TossBody( self );
-		return;
-	}
+    if ( self->health > GIB_HEALTH ) {
+        if ( g_debugFreeze.integer & (1 << 11) ) {
+            Com_Printf( "Body_die: body %d not gibbed (health > %d)\n", self->s.number, GIB_HEALTH );
+        }
+        return;
+    }
 
-	tent = G_TempEntity( self->r.currentOrigin, EV_GIB_PLAYER );
-	if ( self->freezeState ) {
-		tent->s.eventParm = 255;
-	}
-	Body_free( self );
+    if ( self->freezeState && !g_blood.integer ) {
+        if ( g_debugFreeze.integer & (1 << 11) ) {
+            Com_Printf( "Body_die: frozen body %d without blood — freeing player %d and tossing\n",
+                self->s.number, self->target_ent ? self->target_ent->s.number : -1 );
+        }
+        player_free( self->target_ent );
+        TossBody( self );
+        return;
+    }
+
+    tent = G_TempEntity( self->r.currentOrigin, EV_GIB_PLAYER );
+    if ( self->freezeState ) {
+        tent->s.eventParm = 255;
+        if ( g_debugFreeze.integer & (1 << 11) ) {
+            Com_Printf( "Body_die: frozen body %d gibbed (eventParm=255)\n", self->s.number );
+        }
+    }
+
+    Body_free( self );
+
+    if ( g_debugFreeze.integer & (1 << 11) ) {
+        Com_Printf( "Body_die: body %d freed\n", self->s.number );
+    }
 }
+
 
 qboolean DamageBody( gentity_t *targ, gentity_t *attacker, vec3_t dir, int mod, int knockback ) {
 	static float	mass;
@@ -473,168 +578,204 @@ qboolean is_body_freeze( gentity_t *ent ) {
 // #endif
 
 static void CopyToBody( gentity_t *ent ) {
-	gentity_t	*body;
+    gentity_t *body;
 
-	body = G_Spawn();
-	body->classname = "freezebody";
-	body->s = ent->s;
-	body->s.eFlags = 0;
-	// if ( ent->s.eFlags & EF_KAMIKAZE ) {
-	// 	body->s.eFlags |= EF_KAMIKAZE;
-	// }
-	body->s.powerups = 1 << PW_BATTLESUIT;
-	body->s.number = body - g_entities;
-	body->timestamp = level.time;
-	body->physicsObject = qtrue;
+    body = G_Spawn();
+    body->classname = "freezebody";
+    body->s = ent->s;
+    body->s.eFlags = 0;
+    body->s.powerups = 1 << PW_BATTLESUIT;
+    body->s.number = body - g_entities;
+    body->timestamp = level.time;
+    body->physicsObject = qtrue;
 
-	G_SetOrigin( body, ent->r.currentOrigin );
-	body->s.pos.trType = TR_GRAVITY;
-	body->s.pos.trTime = level.time;
-	VectorCopy( ent->client->ps.velocity, body->s.pos.trDelta );
-	body->s.event = 0;
+    G_SetOrigin( body, ent->r.currentOrigin );
+    body->s.pos.trType = TR_GRAVITY;
+    body->s.pos.trTime = level.time;
+    VectorCopy( ent->client->ps.velocity, body->s.pos.trDelta );
+    body->s.event = 0;
 
-	switch ( body->s.legsAnim & ~ANIM_TOGGLEBIT ) {
-	case LEGS_WALKCR:
-	case LEGS_WALK:
-	case LEGS_RUN:
-	case LEGS_BACK:
-	case LEGS_SWIM:
-	case LEGS_IDLE:
-	case LEGS_IDLECR:
-	case LEGS_TURN:
-	case LEGS_BACKCR:
-	case LEGS_BACKWALK:
-		switch ( rand() % 4 ) {
-		case 0:
-			body->s.legsAnim = LEGS_JUMP;
-			break;
-		case 1:
-			body->s.legsAnim = LEGS_LAND;
-			break;
-		case 2:
-			body->s.legsAnim = LEGS_JUMPB;
-			break;
-		case 3:
-			body->s.legsAnim = LEGS_LANDB;
-			break;
-		}
-	}
+    switch ( body->s.legsAnim & ~ANIM_TOGGLEBIT ) {
+    case LEGS_WALKCR:
+    case LEGS_WALK:
+    case LEGS_RUN:
+    case LEGS_BACK:
+    case LEGS_SWIM:
+    case LEGS_IDLE:
+    case LEGS_IDLECR:
+    case LEGS_TURN:
+    case LEGS_BACKCR:
+    case LEGS_BACKWALK:
+        switch ( rand() % 4 ) {
+        case 0: body->s.legsAnim = LEGS_JUMP; break;
+        case 1: body->s.legsAnim = LEGS_LAND; break;
+        case 2: body->s.legsAnim = LEGS_JUMPB; break;
+        case 3: body->s.legsAnim = LEGS_LANDB; break;
+        }
+    }
 
-	body->r.svFlags = ent->r.svFlags;
-	VectorCopy( ent->r.mins, body->r.mins );
-	VectorCopy( ent->r.maxs, body->r.maxs );
-	VectorCopy( ent->r.absmin, body->r.absmin );
-	VectorCopy( ent->r.absmax, body->r.absmax );
+    body->r.svFlags = ent->r.svFlags;
+    VectorCopy( ent->r.mins, body->r.mins );
+    VectorCopy( ent->r.maxs, body->r.maxs );
+    VectorCopy( ent->r.absmin, body->r.absmin );
+    VectorCopy( ent->r.absmax, body->r.absmax );
 
-	body->clipmask = MASK_PLAYERSOLID;
-	body->r.contents = CONTENTS_BODY;
+    body->clipmask = MASK_PLAYERSOLID;
+    body->r.contents = CONTENTS_BODY;
 
-	body->think = Body_think;
-	body->nextthink = level.time + FRAMETIME;
+    body->think = Body_think;
+    body->nextthink = level.time + FRAMETIME;
 
-	body->die = Body_die;
-	body->takedamage = qtrue;
+    body->die = Body_die;
+    body->takedamage = qtrue;
 
-	body->target_ent = ent;
-	ent->target_ent = body;
-	body->s.otherEntityNum = ent->s.number;
-	body->noise_index = G_SoundIndex( "sound/player/tankjr/jump1.wav" );
-	body->freezeState = qtrue;
-	body->spawnflags = ent->client->sess.sessionTeam;
-	body->waterlevel = ent->waterlevel;
-	body->count = 0;
+    body->target_ent = ent;
+    ent->target_ent = body;
+    body->s.otherEntityNum = ent->s.number;
+    body->noise_index = G_SoundIndex( "sound/player/tankjr/jump1.wav" );
+    body->freezeState = qtrue;
+    body->spawnflags = ent->client->sess.sessionTeam;
+    body->waterlevel = ent->waterlevel;
+    body->count = 0;
 
-	trap_LinkEntity( body );
+    trap_LinkEntity( body );
+
+    if ( g_debugFreeze.integer & (1 << 14) ) {
+        Com_Printf( "CopyToBody: body %d created from ent %d\n", body->s.number, ent->s.number );
+    }
 }
 
 static qboolean NearbyBody( gentity_t *targ ) {
-	gentity_t	*spot;
-	vec3_t	delta;
+    gentity_t *spot;
+    vec3_t delta;
 
-	if ( g_gametype.integer == GT_CTF ) {
-		return qfalse;
-	}
+    if ( g_gametype.integer == GT_CTF ) {
+        if ( g_debugFreeze.integer & (1 << 15) ) {
+            Com_Printf( "NearbyBody: skipped (gametype CTF)\n" );
+        }
+        return qfalse;
+    }
 
-	spot = NULL;
-	while ( ( spot = G_Find( spot, FOFS( classname ), "freezebody" ) ) != NULL ) {
-		if ( !spot->freezeState ) continue;
-		if ( spot->spawnflags != targ->client->sess.sessionTeam ) continue;
-		VectorSubtract( spot->s.pos.trBase, targ->s.pos.trBase, delta );
-		if ( VectorLength( delta ) > 100 ) continue;
-		if ( level.time - spot->timestamp > 400 ) {
-			return qtrue;
-		}
-	}
-	return qfalse;
+    spot = NULL;
+    while ( ( spot = G_Find( spot, FOFS( classname ), "freezebody" ) ) != NULL ) {
+        if ( g_debugFreeze.integer & (1 << 15) ) {
+            Com_Printf( "NearbyBody: checking spot %d (team %d, freezeState %d)\n",
+                spot->s.number, spot->spawnflags, spot->freezeState );
+        }
+
+        if ( !spot->freezeState ) continue;
+        if ( spot->spawnflags != targ->client->sess.sessionTeam ) continue;
+
+        VectorSubtract( spot->s.pos.trBase, targ->s.pos.trBase, delta );
+        if ( VectorLength( delta ) > 100 ) continue;
+
+        if ( level.time - spot->timestamp > 400 ) {
+            if ( g_debugFreeze.integer & (1 << 15) ) {
+                Com_Printf( "NearbyBody: valid nearby body found (ent %d)\n", spot->s.number );
+            }
+            return qtrue;
+        }
+    }
+
+    if ( g_debugFreeze.integer & (1 << 15) ) {
+        Com_Printf( "NearbyBody: no valid frozen body near ent %d\n", targ->s.number );
+    }
+    return qfalse;
 }
+
 
 void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
-	if ( level.warmupTime ) {
-		return;
-	}
-	if ( g_gametype.integer != GT_TEAM && g_gametype.integer != GT_CTF ) {
-		return;
-	}
+    if ( level.warmupTime ) {
+        if ( g_debugFreeze.integer & (1 << 16) ) {
+            Com_Printf( "player_freeze: skipped due to warmup (ent %d)\n", self->s.number );
+        }
+        return;
+    }
+    if ( g_gametype.integer != GT_TEAM && g_gametype.integer != GT_CTF ) {
+        if ( g_debugFreeze.integer & (1 << 16) ) {
+            Com_Printf( "player_freeze: gametype not supported (%d)\n", g_gametype.integer );
+        }
+        return;
+    }
+    if ( self != attacker && OnSameTeam( self, attacker ) ) {
+        if ( g_debugFreeze.integer & (1 << 16) ) {
+            Com_Printf( "player_freeze: same team (%d vs %d), no freeze\n",
+                self->client->sess.sessionTeam, attacker->client->sess.sessionTeam );
+        }
+        // return;
+    }
+    if ( self != attacker && g_gametype.integer == GT_CTF && redflag && blueflag ) {
+        vec3_t dist1, dist2;
+        VectorSubtract( redflag, self->s.pos.trBase, dist1 );
+        VectorSubtract( blueflag, self->s.pos.trBase, dist2 );
 
-	if ( self != attacker && OnSameTeam( self, attacker ) ) {
-		return;
-	}
-	if ( self != attacker && g_gametype.integer == GT_CTF && redflag && blueflag ) {
-		vec3_t	dist1, dist2;
+        if ( self->client->sess.sessionTeam == TEAM_RED ) {
+            if ( VectorLength( dist1 ) < VectorLength( dist2 ) ) {
+                if ( g_debugFreeze.integer & (1 << 16) ) {
+                    Com_Printf( "player_freeze: red too close to redflag, skip freeze\n" );
+                }
+                return;
+            }
+        } else if ( self->client->sess.sessionTeam == TEAM_BLUE ) {
+            if ( VectorLength( dist2 ) < VectorLength( dist1 ) ) {
+                if ( g_debugFreeze.integer & (1 << 16) ) {
+                    Com_Printf( "player_freeze: blue too close to blueflag, skip freeze\n" );
+                }
+                return;
+            }
+        }
+    }
 
-		VectorSubtract( redflag, self->s.pos.trBase, dist1 );
-		VectorSubtract( blueflag, self->s.pos.trBase, dist2 );
+    switch ( mod ) {
+    case MOD_UNKNOWN:
+    case MOD_WATER:
+    case MOD_CRUSH:
+    case MOD_TELEFRAG:
+    case MOD_SUICIDE:
+    case MOD_TARGET_LASER:
+    case MOD_GRAPPLE:
+        if ( g_debugFreeze.integer & (1 << 16) ) {
+            Com_Printf( "player_freeze: skipped due to mod = %d\n", mod );
+        }
+        return;
+    }
 
-		if ( self->client->sess.sessionTeam == TEAM_RED ) {
-			if ( VectorLength( dist1 ) < VectorLength( dist2 ) ) {
-				return;
-			}
-		} else if ( self->client->sess.sessionTeam == TEAM_BLUE ) {
-			if ( VectorLength( dist2 ) < VectorLength( dist1 ) ) {
-				return;
-			}
-		}
-	}
-	switch ( mod ) {
-	case MOD_UNKNOWN:
-	case MOD_WATER:
-	case MOD_CRUSH:
-	case MOD_TELEFRAG:
-	//case MOD_FALLING:
-	case MOD_SUICIDE:
-	case MOD_TARGET_LASER:
-	//case MOD_TRIGGER_HURT:
-// #ifdef MISSIONPACK
-// 	case MOD_JUICED:
-// #endif
-	case MOD_GRAPPLE:
-		return;
-	}
+    CopyToBody( self );
+    self->r.maxs[ 2 ] = -8;
+    self->freezeState = qtrue;
+    check_time = ( level.time - 3000 ) + 200;
 
-	CopyToBody( self );
-	self->r.maxs[ 2 ] = -8;
-	self->freezeState = qtrue;
-	check_time = ( level.time - 3000 ) + 200;
+    self->takedamage = qfalse;
+    self->s.eType = ET_INVISIBLE;
+    self->r.contents = 0;
+    self->health = GIB_HEALTH;
 
-	self->takedamage = qfalse;
-	self->s.eType = ET_INVISIBLE;
-	self->r.contents = 0;
-	self->health = GIB_HEALTH;
+    if ( g_debugFreeze.integer & (1 << 16) ) {
+        Com_Printf( "player_freeze: player %d frozen by %d (mod %d)\n",
+            self->s.number, attacker ? attacker->s.number : -1, mod );
+    }
 
-	if ( attacker->client && self != attacker && NearbyBody( self ) ) {
-		attacker->client->ps.persistant[ PERS_DEFEND_COUNT ]++;
-		attacker->client->ps.eFlags &= ~( EF_AWARD_IMPRESSIVE | EF_AWARD_EXCELLENT | EF_AWARD_GAUNTLET | EF_AWARD_ASSIST | EF_AWARD_DEFEND | EF_AWARD_CAP );
-		attacker->client->ps.eFlags |= EF_AWARD_DEFEND;
-		attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
-	}
+    if ( attacker->client && self != attacker && NearbyBody( self ) ) {
+        attacker->client->ps.persistant[ PERS_DEFEND_COUNT ]++;
+        attacker->client->ps.eFlags &= ~( EF_AWARD_IMPRESSIVE | EF_AWARD_EXCELLENT |
+                                           EF_AWARD_GAUNTLET | EF_AWARD_ASSIST |
+                                           EF_AWARD_DEFEND | EF_AWARD_CAP );
+        attacker->client->ps.eFlags |= EF_AWARD_DEFEND;
+        attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
+
+        if ( g_debugFreeze.integer & (1 << 16) ) {
+            Com_Printf( "player_freeze: attacker %d awarded DEFEND\n", attacker->s.number );
+        }
+    }
 }
+
 
 qboolean readyCheck( void ) {
 	int	i;
 	gentity_t	*e;
 
 	if ( level.warmupTime == 0 ) return qfalse;
-	// if ( !g_doReady.integer ) return qfalse;
+	if ( !g_doReady.integer ) return qfalse;
 
 	for ( i = 0; i < g_maxclients.integer; i++ ) {
 		e = g_entities + i;
@@ -777,7 +918,7 @@ static qboolean CalculateScores( int team ) {
 	return modified;
 }
 
-void CheckDelay( void ) {
+void CheckDelay ( void ) {
 	int	i;
 	gentity_t	*e;
 	int	readyMask;

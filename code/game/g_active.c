@@ -936,9 +936,9 @@ void ClientThink_real( gentity_t *ent ) {
 		pm.tracemask = MASK_PLAYERSOLID;
 	}
 	//freeze
-		if ( g_freeze.integer ) {
-			pm.tracemask &= ~CONTENTS_PLAYERCLIP;
-		}
+	if ( g_dmflags.integer & 2048 ) { // ПРИЧИНА ПРОВАЛА, FIXME (флага не существует)
+		pm.tracemask &= ~CONTENTS_PLAYERCLIP;
+	}
 	//freeze
 	pm.trace = trap_Trace;
 	pm.pointcontents = trap_PointContents;

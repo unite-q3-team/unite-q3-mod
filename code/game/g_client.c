@@ -44,6 +44,10 @@ void SP_info_player_intermission( gentity_t *ent ) {
 
 }
 
+void SetPlayerBox( gentity_t *ent ) {
+    VectorSet( ent->r.mins, -15, -15, -24 );
+    VectorSet( ent->r.maxs, 15, 15, 32 );
+}
 
 
 /*

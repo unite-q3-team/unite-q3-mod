@@ -61,6 +61,7 @@ G_CVAR( g_teamChangeCooldown, "g_teamChangeCooldown", "5000", CVAR_ARCHIVE, 0, q
 G_CVAR( g_debugMove, "g_debugMove", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugDamage, "g_debugDamage", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugAlloc, "g_debugAlloc", "0", 0, 0, qfalse, qfalse )
+G_CVAR( g_debugFreeze, "g_debugFreeze", "262143", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_motd, "g_motd", "", 0, 0, qfalse, qfalse )
 G_CVAR( g_blood, "com_blood", "1", 0, 0, qfalse, qfalse )
 
@@ -175,5 +176,7 @@ G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_autoThawTime, "g_autoThawTime", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+
 
 #undef G_CVAR
