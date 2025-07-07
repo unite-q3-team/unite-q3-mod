@@ -5,6 +5,7 @@
         "q_shared.h": "c",
         "bg_public.h": "c",
         "g_public.h": "c",
-        "testcmd.h": "c"
+        "testcmd.h": "c",
+        "g_freeze.h": "c"
     }
 }

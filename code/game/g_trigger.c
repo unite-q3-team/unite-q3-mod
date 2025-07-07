@@ -258,10 +258,20 @@ void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace
 		return;
 	}
 	// Spectators only?
-	if ( ( self->spawnflags & 1 ) && 
-		other->client->sess.sessionTeam != TEAM_SPECTATOR ) {
-		return;
+	if (self->spawnflags & 1) {
+		if (!g_freeze.integer) {
+			// старая проверка — только команда spectator
+			if (other->client->sess.sessionTeam != TEAM_SPECTATOR) {
+				return;
+			}
+		} else {
+			// при g_freeze включён — используем is_spectator для расширенной проверки
+			if (!is_spectator(other->client)) {
+				return;
+			}
+		}
 	}
+
 
 
 	dest = 	G_PickTarget( self->target );

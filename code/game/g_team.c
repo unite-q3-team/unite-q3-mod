@@ -240,7 +240,7 @@ void Team_CheckDroppedItem( gentity_t *dropped ) {
 Team_ForceGesture
 ================
 */
-static void Team_ForceGesture( team_t team ) {
+void Team_ForceGesture( team_t team ) {
 	int i;
 	gentity_t *ent;
 
@@ -747,6 +747,13 @@ static int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, team_t team ) {
 #ifdef MISSIONPACK
 	}
 #endif
+	//freeze
+	if (g_freeze.integer) {
+		if ( g_gametype.integer == GT_CTF || g_gametype.integer == GT_TEAM ) {
+			team_wins( team );
+		}
+	}
+	//freeze
 
 	cl->ps.powerups[enemy_flag] = 0;
 
@@ -924,6 +931,15 @@ gentity_t *Team_GetLocation(gentity_t *ent)
 
 	best = NULL;
 	bestlen = 3*8192.0*8192.0;
+
+	//freeze
+	if (g_freeze.integer) {
+	if ( ent->freezeState && is_body( ent->target_ent ) ) {
+		VectorCopy( ent->target_ent->r.currentOrigin, origin );
+	} else
+		VectorCopy( ent->r.currentOrigin, origin );
+	} 	//freeze
+	else
 
 	VectorCopy( ent->r.currentOrigin, origin );
 
@@ -1118,6 +1134,12 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 			a = player->client->ps.stats[STAT_ARMOR];
 			if (h < 0) h = 0;
 			if (a < 0) a = 0;
+			
+			if (g_freeze.integer) {
+				if ( player->freezeState ) {
+					h = a = 0;
+				}
+			}
 
 			j = BG_sprintf( entry, " %i %i %i %i %i %i",
 //				level.sortedClients[i], player->client->pers.teamState.location, h, a, 
@@ -1179,6 +1201,11 @@ void CheckTeamStatus( void ) {
 Only in CTF games.  Red players spawn here at game start.
 */
 void SP_team_CTF_redplayer( gentity_t *ent ) {
+//freeze
+	if ( g_gametype.integer == GT_TEAM ) {
+		ent->classname = "info_player_deathmatch";
+	}
+//freeze
 }
 
 
@@ -1186,6 +1213,11 @@ void SP_team_CTF_redplayer( gentity_t *ent ) {
 Only in CTF games.  Blue players spawn here at game start.
 */
 void SP_team_CTF_blueplayer( gentity_t *ent ) {
+//freeze
+	if ( g_gametype.integer == GT_TEAM ) {
+		ent->classname = "info_player_deathmatch";
+	}
+//freeze
 }
 
 

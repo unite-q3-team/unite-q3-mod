@@ -875,6 +875,7 @@ void CalculateRanks( void ) {
 	}
 
 	// see if it is time to end the level
+	if (!g_freeze.integer)
 	CheckExitRules();
 
 	// if we are at the intermission, send the new info to everyone
@@ -1365,6 +1366,10 @@ static void CheckExitRules( void ) {
 		return;
 	}
 
+	//freeze
+	CheckDelay();
+	//freeze
+
 	// check for sudden death
 	if ( ScoreIsTied() ) {
 		// always wait for sudden death
@@ -1413,22 +1418,37 @@ static void CheckExitRules( void ) {
 			}
 		}
 	}
-
-	if ( g_gametype.integer >= GT_CTF && g_capturelimit.integer ) {
-
-		if ( level.teamScores[TEAM_RED] >= g_capturelimit.integer ) {
-			G_BroadcastServerCommand( -1, "print \"Red hit the capturelimit.\n\"" );
-			LogExit( "Capturelimit hit." );
-			return;
-		}
-
-		if ( level.teamScores[TEAM_BLUE] >= g_capturelimit.integer ) {
-			G_BroadcastServerCommand( -1, "print \"Blue hit the capturelimit.\n\"" );
-			LogExit( "Capturelimit hit." );
-			return;
+	if (g_capturelimit.integer) {
+		if (g_freeze.integer) {
+			if (g_gametype.integer >= GT_TEAM) {
+				if (level.teamScores[TEAM_RED] >= g_capturelimit.integer) {
+					trap_SendServerCommand(-1, "print \"Red hit the capturelimit.\n\"");
+					LogExit("Capturelimit hit.");
+					return;
+				}
+				if (level.teamScores[TEAM_BLUE] >= g_capturelimit.integer) {
+					trap_SendServerCommand(-1, "print \"Blue hit the capturelimit.\n\"");
+					LogExit("Capturelimit hit.");
+					return;
+				}
+			}
+		} else {
+			if (g_gametype.integer >= GT_CTF) {
+				if (level.teamScores[TEAM_RED] >= g_capturelimit.integer) {
+					trap_SendServerCommand(-1, "print \"Red hit the capturelimit.\n\"");
+					LogExit("Capturelimit hit.");
+					return;
+				}
+				if (level.teamScores[TEAM_BLUE] >= g_capturelimit.integer) {
+					trap_SendServerCommand(-1, "print \"Blue hit the capturelimit.\n\"");
+					LogExit("Capturelimit hit.");
+					return;
+				}
+			}
 		}
 	}
 }
+
 
 
 static void ClearBodyQue( void ) {
@@ -1641,7 +1661,14 @@ static void CheckTournament( void ) {
 		} else if ( level.numPlayingClients < 2 ) {
 			notEnough = qtrue;
 		}
-
+		//freeze
+		if (g_freeze.integer)
+		{
+			if ( !notEnough ) {
+				notEnough = readyCheck();
+			}
+		}
+		//freeze
 		if ( notEnough ) {
 			if ( level.warmupTime != -1 ) {
 				level.warmupTime = -1;

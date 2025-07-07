@@ -88,6 +88,10 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 
 		perfect = ( cl->ps.persistant[PERS_RANK] == 0 && cl->ps.persistant[PERS_KILLED] == 0 ) ? 1 : 0;
 
+		//freeze
+		if (g_freeze.integer)
+		scoreFlags = cl->sess.wins;
+		//freeze
 		j = BG_sprintf( entry, " %i %i %i %i %i %i %i %i %i %i %i %i %i %i",
 			level.sortedClients[i],
 			cl->ps.persistant[PERS_SCORE],
@@ -495,17 +499,23 @@ void Cmd_TeamTask_f( gentity_t *ent ) {
 Cmd_Kill_f
 =================
 */
-void Cmd_Kill_f( gentity_t *ent ) {
-	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+void Cmd_Kill_f(gentity_t *ent) {
+	if ((g_freeze.integer && is_spectator(ent->client)) ||
+		(!g_freeze.integer && ent->client->sess.sessionTeam == TEAM_SPECTATOR)) {
 		return;
 	}
+
 	if (ent->health <= 0) {
 		return;
 	}
+
 	ent->flags &= ~FL_GODMODE;
 	ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
-	player_die (ent, ent, ent, 100000, MOD_SUICIDE);
+
+	player_die(ent, ent, ent, 100000,
+		(g_freeze.integer ? MOD_BFG_SPLASH : MOD_SUICIDE));
 }
+
 
 
 /*
@@ -766,6 +776,21 @@ void StopFollowing( gentity_t *ent, qboolean release ) {
 	client->ps.clientNum = ent - g_entities;
 }
 
+void StopFollowingNew( gentity_t *ent ) { // using for freeze only
+	ent->client->ps.persistant[ PERS_TEAM ] = TEAM_SPECTATOR;	
+/*freeze
+	ent->client->sess.sessionTeam = TEAM_SPECTATOR;	
+freeze*/
+	SetClientViewAngle( ent, ent->client->ps.viewangles );
+	ent->client->ps.stats[ STAT_HEALTH ] = ent->health = 100;
+	memset( ent->client->ps.powerups, 0, sizeof ( ent->client->ps.powerups ) );
+//freeze
+	ent->client->sess.spectatorState = SPECTATOR_FREE;
+	ent->client->ps.pm_flags &= ~PMF_FOLLOW;
+	ent->r.svFlags &= ~SVF_BOT;
+	ent->client->ps.clientNum = ent - g_entities;
+}
+
 
 /*
 =================
@@ -808,7 +833,14 @@ static void Cmd_Team_f( gentity_t *ent ) {
 		&& ent->client->sess.sessionTeam == TEAM_FREE ) {
 		ent->client->sess.losses++;
 	}
-
+	if (g_freeze.integer) {
+		if ( ent->freezeState ) {
+			if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+				StopFollowingNew( ent );
+			}
+			return;
+		}
+	}
 	trap_Argv( 1, s, sizeof( s ) );
 
 	if ( SetTeam( ent, s ) ) {
@@ -848,9 +880,19 @@ static void Cmd_Follow_f( gentity_t *ent ) {
 	}
 
 	// can't follow another spectator
-	if ( level.clients[ i ].sess.sessionTeam == TEAM_SPECTATOR ) {
+	if (ent->freezeState && (g_freeze.integer ? !is_spectator(ent->client) : ent->client->sess.sessionTeam != TEAM_SPECTATOR))
 		return;
+
+	if (g_freeze.integer) {
+		if (is_spectator(&level.clients[i])) {
+			return;
+		}
+	} else {
+		if (level.clients[i].sess.sessionTeam == TEAM_SPECTATOR) {
+			return;
+		}
 	}
+
 
 	// if they are playing a tournement game, count as a loss
 	if ( (g_gametype.integer == GT_TOURNAMENT )
@@ -878,6 +920,12 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 	int		original;
 	gclient_t	*client;
 
+	//freeze
+	if (g_freeze.integer) {
+		if ( ent->freezeState && !is_spectator( ent->client ) ) return;
+		if ( Set_Client( ent ) ) return;
+	}
+	//freeze
 	// if they are playing a tournement game, count as a loss
 	if ( (g_gametype.integer == GT_TOURNAMENT )
 		&& ent->client->sess.sessionTeam == TEAM_FREE ) {
@@ -912,8 +960,26 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 		}
 
 		// can't follow another spectator
-		if ( level.clients[ clientnum ].sess.sessionTeam == TEAM_SPECTATOR ) {
+		if (&level.clients[clientnum] == ent->client) {
+			if (ent->client->sess.spectatorState == SPECTATOR_FOLLOW) {
+				StopFollowingNew(ent);
+				ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+				ent->client->ps.pm_time = 100;
+				return;
+			}
+		}
+
+		if (g_entities[clientnum].freezeState)
 			continue;
+
+		if (g_freeze.integer) {
+			if (is_spectator(&level.clients[clientnum])) {
+				continue;
+			}
+		} else {
+			if (level.clients[clientnum].sess.sessionTeam == TEAM_SPECTATOR) {
+				continue;
+			}
 		}
 
 		// this is good, we can use it

@@ -9,7 +9,8 @@
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
-#define	GAMEVERSION	"baseq3"
+// #define	GAMEVERSION	"baseq3"
+#define	GAMEVERSION	"q3unite-freeze_v2"
 
 #define BODY_QUEUE_SIZE		8
 
@@ -168,6 +169,11 @@ struct gentity_s {
 	team_t		fteam;
 
 	tag_t		tag;
+
+	//freeze
+	qboolean	freezeState;
+	qboolean	readyBegin;
+	//freeze
 };
 
 
@@ -469,6 +475,7 @@ char *G_NewString( const char *string );
 //
 void Cmd_Score_f (gentity_t *ent);
 void StopFollowing( gentity_t *ent, qboolean release );
+void StopFollowingNew( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, team_t oldTeam );
 qboolean SetTeam( gentity_t *ent, const char *s );
 void Cmd_FollowCycle_f( gentity_t *ent, int dir );
@@ -477,6 +484,9 @@ void G_RevertVote( gclient_t *client );
 //
 // g_items.c
 //
+//freeze
+qboolean Registered( gitem_t *item );
+//freeze
 void G_CheckTeamItems( void );
 void G_RunItem( gentity_t *ent );
 void RespawnItem( gentity_t *ent );
@@ -679,6 +689,7 @@ qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
 void Team_CheckDroppedItem( gentity_t *dropped );
 qboolean CheckObeliskAttack( gentity_t *obelisk, gentity_t *attacker );
 void Team_ResetFlags( void );
+// static void Team_ForceGesture( team_t team );
 
 //
 // g_mem.c
@@ -758,6 +769,9 @@ qboolean G_MapExist( const char *map );
 
 
 #include "g_team.h" // teamplay specific stuff
+//freeze
+#include "g_freeze.h"
+//freeze
 
 extern	level_locals_t	level;
 extern	gentity_t		g_entities[MAX_GENTITIES];

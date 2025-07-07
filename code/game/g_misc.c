@@ -61,7 +61,10 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 
 	// use temp events at source and destination to prevent the effect
 	// from getting dropped by a second player event
-	if ( player->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+		if (
+		(g_freeze.integer && !is_spectator(player->client)) ||
+		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
+	) {
 		tent = G_TempEntity( player->client->ps.origin, EV_PLAYER_TELEPORT_OUT );
 		tent->s.clientNum = player->s.clientNum;
 
@@ -99,7 +102,10 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	G_ResetHistory( player );
 
 	// kill anything at the destination
-	if ( player->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+	if (
+		(g_freeze.integer && !is_spectator( player->client )) ||
+		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
+	) {
 		G_KillBox( player );
 	}
 
@@ -109,9 +115,13 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	// use the precise origin for linking
 	VectorCopy( player->client->ps.origin, player->r.currentOrigin );
 
-	if ( player->client->sess.sessionTeam != TEAM_SPECTATOR ) {
+	if (
+		(g_freeze.integer && !is_spectator( player->client )) ||
+		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
+	) {
 		trap_LinkEntity( player );
 	}
+
 }
 
 

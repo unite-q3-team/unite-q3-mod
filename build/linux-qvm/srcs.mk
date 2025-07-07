@@ -8,6 +8,7 @@ QA_SRC = \
  g_trigger g_unlagged g_utils g_weapon \
  cmds/cmds \
  cmds/player \
+ g_freeze \
 
 CG_SRC = \
  cg_main $(CGDIR)/cg_syscalls.asm \

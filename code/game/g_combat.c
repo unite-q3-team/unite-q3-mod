@@ -44,6 +44,11 @@ void AddScore( gentity_t *ent, vec3_t origin, int score ) {
 	if ( g_gametype.integer == GT_TEAM ) {
 		AddTeamScore( origin, ent->client->ps.persistant[PERS_TEAM], score );
 	}
+	if(!g_freeze.integer) {
+		if ( g_gametype.integer == GT_TEAM )
+			level.teamScores[ ent->client->ps.persistant[PERS_TEAM] ] += score;
+	}
+	else
 	CalculateRanks();
 }
 
@@ -92,28 +97,62 @@ void TossClientItems( gentity_t *self ) {
 	}
 
 	// drop all the powerups if not in teamplay
-	if ( g_gametype.integer != GT_TEAM ) {
-		angle = 45;
-		for ( i = 1 ; i < PW_NUM_POWERUPS ; i++ ) {
-			if ( self->client->ps.powerups[ i ] > level.time ) {
-				item = BG_FindItemForPowerup( i );
-				if ( !item ) {
+	if (!g_freeze.integer) {
+		if (g_gametype.integer != GT_TEAM) {
+			angle = 45;
+			for (i = 1; i < PW_NUM_POWERUPS; i++) {
+				if (self->client->ps.powerups[i] > level.time) {
+					item = BG_FindItemForPowerup(i);
+					if (!item) {
+						continue;
+					}
+					drop = Drop_Item(self, item, angle);
+					// decide how many seconds it has left
+					drop->count = (self->client->ps.powerups[i] - level.time) / 1000;
+					if (drop->count < 1) {
+						drop->count = 1;
+					}
+					// for pickup prediction
+					drop->s.time2 = drop->count;
+					angle += 45;
+				}
+			}
+		}
+	} else {
+		{
+			for (i = 1; i < HI_NUM_HOLDABLE; i++) {
+				if (i == HI_KAMIKAZE)
 					continue;
+				if (bg_itemlist[self->client->ps.stats[STAT_HOLDABLE_ITEM]].giTag == i) {
+					item = BG_FindItemForHoldable(i);
+					if (!item)
+						break;
+					drop = Drop_Item(self, item, 45);
+					break;
 				}
-				drop = Drop_Item( self, item, angle );
-				// decide how many seconds it has left
-				drop->count = ( self->client->ps.powerups[ i ] - level.time ) / 1000;
-				if ( drop->count < 1 ) {
-					drop->count = 1;
+			}
+
+			angle = 45;
+			for (i = 1; i < PW_NUM_POWERUPS; i++) {
+				if (self->client->ps.powerups[i] > level.time) {
+					item = BG_FindItemForPowerup(i);
+					if (!item) {
+						continue;
+					}
+					drop = Drop_Item(self, item, angle);
+					// decide how many seconds it has left
+					drop->count = (self->client->ps.powerups[i] - level.time) / 1000;
+					if (drop->count < 1) {
+						drop->count = 1;
+					}
+					// для предсказания подбора
+					drop->s.time2 = drop->count;
+					angle += 45;
 				}
-				// for pickup prediction
-				drop->s.time2 = drop->count;
-				angle += 45;
 			}
 		}
 	}
 }
-
 
 #ifdef MISSIONPACK
 /*
@@ -564,9 +603,15 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		if ( client->pers.connected != CON_CONNECTED ) {
 			continue;
 		}
-		if ( client->sess.sessionTeam != TEAM_SPECTATOR ) {
-			continue;
+		if (!g_freeze.integer) {
+			if ( client->sess.sessionTeam != TEAM_SPECTATOR ) {
+				continue;
+			}
 		}
+		else {
+			if ( !is_spectator( client ) ) {
+				continue;
+			}
 		if ( client->sess.spectatorClient == self->s.number ) {
 			Cmd_Score_f( g_entities + i );
 		}
@@ -586,6 +631,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	self->s.loopSound = 0;
 
+	if (!g_freeze.integer)
 	self->r.maxs[2] = -8;
 
 	// don't allow respawn until the death anim is done
@@ -594,6 +640,18 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	// remove powerups
 	memset( self->client->ps.powerups, 0, sizeof(self->client->ps.powerups) );
+
+	//freeze
+	if (g_freeze.integer) {
+	player_freeze( self, attacker, meansOfDeath );
+	if ( self->freezeState ) {
+		G_AddEvent( self, EV_DEATH1 + ( rand() % 3 ), killer );
+		trap_LinkEntity( self );
+		return;
+	}
+	self->r.maxs[ 2 ] = -8;
+	}
+	//freeze
 
 	// never gib in a nodrop
 	if ( (self->health <= GIB_HEALTH && !(contents & CONTENTS_NODROP) && g_blood.integer) || meansOfDeath == MOD_SUICIDE) {
@@ -644,6 +702,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	trap_LinkEntity (self);
 
+}
 }
 
 
@@ -926,6 +985,15 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			return;
 		}
 	}
+	//freeze
+	if (g_freeze.integer) {
+		if ( client ) {
+			if ( targ != attacker && level.time - client->respawnTime < 1000 ) return;
+		} else {
+			if ( DamageBody( targ, attacker, dir, mod, knockback ) ) return;
+		}
+	}
+	//freeze
 
 	// battlesuit protects from all radius damage (but takes knockback)
 	// and protects 50% against all damage
@@ -974,6 +1042,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			attacker->client->ps.persistant[PERS_HITS]--;
 		} else {
 			attacker->client->ps.persistant[PERS_HITS]++;
+			attacker->client->ps.persistant[PERS_DAMAGE_DONE] += damage;
 		}
 		attacker->client->ps.persistant[PERS_ATTACKEE_ARMOR] = (targ->health<<8)|(client->ps.stats[STAT_ARMOR]);
 #else

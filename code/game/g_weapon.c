@@ -94,6 +94,17 @@ qboolean CheckGauntletAttack( gentity_t *ent ) {
 		tent->s.eventParm = DirToByte( tr.plane.normal );
 		tent->s.weapon = ent->s.weapon;
 	}
+	if (g_freeze.integer)
+	{
+		//freeze
+		if ( is_body( traceEnt ) ) {
+			tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+			tent->s.otherEntityNum = traceEnt->s.number;
+			tent->s.eventParm = DirToByte( tr.plane.normal );
+			tent->s.weapon = ent->s.weapon;
+		}
+		//freeze
+	}
 
 	if ( !traceEnt->takedamage ) {
 		return qfalse;
@@ -110,7 +121,13 @@ qboolean CheckGauntletAttack( gentity_t *ent ) {
 		s_quadFactor *= 2;
 	}
 #endif
-
+	//freeze
+	if (g_freeze.integer) { // Хуета
+		if ( g_dmflags.integer & 1024 && !( g_weaponlimit.integer & 2048 ) ) {
+			s_quadFactor = 8;
+		}
+	}
+	//freeze
 	damage = g_gauntlet_damage.integer * s_quadFactor;
 	G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_GAUNTLET );
 
@@ -213,6 +230,11 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 			if( LogAccuracyHit( traceEnt, ent ) ) {
 				ent->client->accuracy_hits++;
 			}
+		//freeze
+		} else if ( g_freeze.integer && is_body( traceEnt ) ) {
+			tent = G_TempEntity( tr.endpos, EV_BULLET_HIT_FLESH );
+			tent->s.eventParm = traceEnt->s.number;
+		//freeze	
 		} else {
 			tent = G_TempEntity( tr.endpos, EV_BULLET_HIT_WALL );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
@@ -456,9 +478,9 @@ weapon_railgun_fire
 #define	MAX_RAIL_HITS	4
 void weapon_railgun_fire( gentity_t *ent ) {
 	vec3_t		end;
-#ifdef MISSIONPACK
+// #ifdef MISSIONPACK
 	vec3_t impactpoint, bouncedir;
-#endif
+// #endif
 	trace_t		trace;
 	gentity_t	*tent;
 	gentity_t	*traceEnt;
@@ -716,6 +738,13 @@ void Weapon_LightningFire( gentity_t *ent ) {
 			tent->s.otherEntityNum = traceEnt->s.number;
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = ent->s.weapon;
+		//freeze
+		} else if ( g_freeze.integer && is_body( traceEnt ) ) {
+			tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
+			tent->s.otherEntityNum = traceEnt->s.number;
+			tent->s.eventParm = DirToByte( tr.plane.normal );
+			tent->s.weapon = ent->s.weapon;
+		//freeze
 		} else if ( !( tr.surfaceFlags & SURF_NOIMPACT ) ) {
 			tent = G_TempEntity( tr.endpos, EV_MISSILE_MISS );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
@@ -826,7 +855,13 @@ void FireWeapon( gentity_t *ent ) {
 		s_quadFactor *= 2;
 	}
 #endif
-
+	//freeze
+	if (g_freeze.integer) { // Хуета
+		if ( g_dmflags.integer & 1024 ) {
+			s_quadFactor = 8;
+		}
+	}
+	//freeze
 	// track shots taken for accuracy tracking.  Grapple is not a weapon and gauntet is just not tracked
 	if( ent->s.weapon != WP_GRAPPLING_HOOK && ent->s.weapon != WP_GAUNTLET ) {
 #ifdef MISSIONPACK

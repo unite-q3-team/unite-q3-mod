@@ -249,13 +249,20 @@ void	G_TouchTriggers( gentity_t *ent ) {
 			continue;
 		}
 
-		// ignore most entities if a spectator
-		if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
-			if ( hit->s.eType != ET_TELEPORT_TRIGGER &&
-				// this is ugly but adding a new ET_? type will
-				// most likely cause network incompatibilities
-				hit->touch != Touch_DoorTrigger) {
-				continue;
+				// ignore most entities if a spectator
+		if (g_freeze.integer) {
+			if (is_spectator(ent->client)) {
+				if (hit->s.eType != ET_TELEPORT_TRIGGER &&
+					hit->touch != Touch_DoorTrigger) {
+					continue;
+				}
+			}
+		} else {
+			if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+				if (hit->s.eType != ET_TELEPORT_TRIGGER &&
+					hit->touch != Touch_DoorTrigger) {
+					continue;
+				}
 			}
 		}
 
@@ -312,6 +319,11 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 			pm.tracemask = 0;
 		else
 			pm.tracemask = MASK_PLAYERSOLID & ~CONTENTS_BODY;	// spectators can fly through bodies
+	//freeze
+		if ( g_freeze.integer ) {
+			pm.tracemask &= ~CONTENTS_PLAYERCLIP;
+		}
+	//freeze
 		pm.trace = trap_Trace;
 		pm.pointcontents = trap_PointContents;
 
@@ -355,6 +367,11 @@ qboolean ClientInactivityTimer( gclient_t *client ) {
 		client->inactivityTime = level.time + g_inactivity.integer * 1000;
 		client->inactivityWarning = qfalse;
 	} else if ( !client->pers.localClient ) {
+		//freeze
+		if ( g_entities[ client->ps.clientNum ].freezeState ) {
+			return qtrue;
+		}
+		//freeze
 		if ( level.time > client->inactivityTime ) {
 			trap_DropClient( client - level.clients, "Dropped due to inactivity" );
 			return qfalse;
@@ -804,13 +821,25 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 
 	// spectators don't do much
-	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
-		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
+	//freeze
+	if (g_freeze.integer) {
+		if (is_spectator(client)) {
+			if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
+				return;
+			}
+			SpectatorThink(ent, ucmd);
 			return;
 		}
-		SpectatorThink( ent, ucmd );
-		return;
+	} else {
+		if (client->sess.sessionTeam == TEAM_SPECTATOR) {
+			if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
+				return;
+			}
+			SpectatorThink(ent, ucmd);
+			return;
+		}
 	}
+
 
 	// check for inactivity timer, but never drop the local client of a non-dedicated server
 	if ( !ClientInactivityTimer( client ) ) {
@@ -906,6 +935,11 @@ void ClientThink_real( gentity_t *ent ) {
 	else {
 		pm.tracemask = MASK_PLAYERSOLID;
 	}
+	//freeze
+		if ( g_freeze.integer ) {
+			pm.tracemask &= ~CONTENTS_PLAYERCLIP;
+		}
+	//freeze
 	pm.trace = trap_Trace;
 	pm.pointcontents = trap_PointContents;
 	pm.debugLevel = g_debugMove.integer;
@@ -1064,22 +1098,40 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 		} else if ( clientNum == -2 ) {
 			clientNum = level.follow2;
 		}
-		if ( (unsigned)clientNum < MAX_CLIENTS ) {
-			cl = &level.clients[ clientNum ];
-			if ( cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR ) {
-				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) | (ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
-				ent->client->ps = cl->ps;
+	if ( (unsigned)clientNum < MAX_CLIENTS ) {
+		cl = &level.clients[clientNum];
+		//freeze
+		if (g_freeze.integer) {
+			if (cl->pers.connected == CON_CONNECTED && !is_spectator(cl)) {
+				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) |
+						(ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
+				Persistant_spectator(ent, cl);
 				ent->client->ps.pm_flags |= PMF_FOLLOW;
 				ent->client->ps.eFlags = flags;
 				return;
 			} else {
 				// drop them to free spectators unless they are dedicated camera followers
-				if ( ent->client->sess.spectatorClient >= 0 ) {
+				if (ent->client->sess.spectatorClient >= 0) {
+					StopFollowingNew(ent);
+				}
+			}
+		} else {
+			if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR) {
+				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) |
+						(ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
+				ent->client->ps = cl->ps;
+				ent->client->ps.pm_flags |= PMF_FOLLOW;
+				ent->client->ps.eFlags = flags;
+				return;
+			} else {
+				if (ent->client->sess.spectatorClient >= 0) {
 					ent->client->sess.spectatorState = SPECTATOR_FREE;
-					ClientBegin( ent->client - level.clients );
+					ClientBegin(ent->client - level.clients);
 				}
 			}
 		}
+	}
+
 	}
 
 	if ( ent->client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
@@ -1111,9 +1163,16 @@ void ClientEndFrame( gentity_t *ent ) {
 
 	ent->r.svFlags &= ~svf_self_portal2;
 
-	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
-		SpectatorClientEndFrame( ent );
-		return;
+	if (g_freeze.integer) {
+		if (is_spectator(ent->client)) {
+			SpectatorClientEndFrame(ent);
+			return;
+		}
+	} else {
+		if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+			SpectatorClientEndFrame(ent);
+			return;
+		}
 	}
 
 	client = ent->client;

@@ -785,6 +785,14 @@ void Blocked_Door( gentity_t *ent, gentity_t *other ) {
 			Team_DroppedFlagThink( other );
 			return;
 		}
+		//freeze
+		if (g_freeze.integer) {
+			if ( is_body( other ) ) {
+				Body_free( other );
+				return;
+			}
+		}
+		//freeze
 		G_TempEntity( other->s.origin, EV_ITEM_POP );
 		G_FreeEntity( other );
 		return;
@@ -838,17 +846,22 @@ Touch_DoorTrigger
 ================
 */
 void Touch_DoorTrigger( gentity_t *ent, gentity_t *other, trace_t *trace ) {
-	if ( other->client && other->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+	if (
+		other->client &&
+		( g_freeze.integer
+			? is_spectator( other->client )
+			: (other->client->sess.sessionTeam == TEAM_SPECTATOR) )
+	) {
 		// if the door is not open and not opening
 		if ( ent->parent->moverState != MOVER_1TO2 &&
-			ent->parent->moverState != MOVER_POS2) {
+			 ent->parent->moverState != MOVER_POS2) {
 			Touch_DoorTriggerSpectator( ent, other, trace );
 		}
-	}
-	else if ( ent->parent->moverState != MOVER_1TO2 ) {
+	} else if ( ent->parent->moverState != MOVER_1TO2 ) {
 		Use_BinaryMover( ent->parent, ent, other );
 	}
 }
+
 
 
 /*

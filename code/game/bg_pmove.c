@@ -1950,7 +1950,11 @@ void PmoveSingle (pmove_t *pmove) {
 		PM_DropTimers ();
 		return;
 	}
-
+	//freeze
+	if (pm->ps->pm_type == PM_FREEZE) {
+		return;		// no movement at all
+	}
+	//freeze
 	if (pm->ps->pm_type == PM_FREEZE) {
 		return;		// no movement at all
 	}
