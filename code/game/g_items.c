@@ -480,9 +480,6 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	int			respawn;
 	qboolean	predict;
 	
-	if (!g_items.integer)
-		return;
-
 	if (g_instagib.integer && ent->item->giType != IT_TEAM)
 		return;
 

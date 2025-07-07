@@ -1033,9 +1033,18 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 	 if(targ == attacker && (g_dmflags.integer & DF_NO_SELF_DAMAGE) )
             damage = 0;
 	
-	if ( !g_selfDamage.integer || g_railJump.integer && ( targ == attacker ||  mod == MOD_FALLING )) {
+	if ( g_selfDamage.integer && targ == attacker) {
 		damage = 0;
 	}
+
+	if ( !g_railJump.integer && targ == attacker) {
+		damage = 0;
+	}
+
+	if ( mod == MOD_FALLING && !g_fallDamage.integer ) {
+		damage = 0;
+	}
+
 	take = damage;
 
 	// save some from armor

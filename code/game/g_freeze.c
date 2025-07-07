@@ -823,17 +823,8 @@ void team_wins( int team ) {
 
 		memset( cl->ps.ammo, 0, sizeof ( cl->ps.ammo ) );
 
-		cl->ps.stats[ STAT_WEAPONS ] = 1 << WP_MACHINEGUN;
-		cl->ps.ammo[ WP_MACHINEGUN ] = 50;
-
-		cl->ps.stats[ STAT_WEAPONS ] |= 1 << WP_GAUNTLET;
-		cl->ps.ammo[ WP_GAUNTLET ] = -1;
-		cl->ps.ammo[ WP_GRAPPLING_HOOK ] = -1;
-
-		cl->ps.weapon = WP_MACHINEGUN;
-		cl->ps.weaponstate = WEAPON_READY;
-
-		SpawnWeapon( cl );
+		AssignStartingWeapons (cl);
+		SetInitialWeapon(cl);
 
 		flight = cl->ps.powerups[ PW_FLIGHT ];
 		if ( cl->ps.powerups[ PW_REDFLAG ] ) {
@@ -850,26 +841,10 @@ void team_wins( int team ) {
 		}
 		cl->ps.powerups[ PW_FLIGHT ] = flight;
 
-		cl->ps.stats[ STAT_ARMOR ] = 0;
+		e->health = cl->ps.stats[STAT_HEALTH] = g_start_health.integer;
+		cl->ps.stats[STAT_ARMOR] = g_start_armor.integer;
 
-		if ( !( g_dmflags.integer & 1024 ) ) G_UseTargets( spawnPoint, e );
-		cl->ps.weapon = 1;
-		for ( j = WP_NUM_WEAPONS - 1; j > 0; j-- ) {
-			if ( cl->ps.stats[ STAT_WEAPONS ] & ( 1 << j ) ) {
-				cl->ps.weapon = j;
-				break;
-			}
-		}
-		if ( cl->ps.stats[ STAT_WEAPONS ] & ( 1 << WP_ROCKET_LAUNCHER ) ) {
-			cl->ps.weapon = WP_ROCKET_LAUNCHER;
-		}
-
-		if ( g_start_armor.integer > 0 ) {
-			cl->ps.stats[ STAT_ARMOR ] += g_start_armor.integer;
-			if ( cl->ps.stats[ STAT_ARMOR ] > cl->ps.stats[ STAT_MAX_HEALTH ] * 2 ) {
-				cl->ps.stats[ STAT_ARMOR ] = cl->ps.stats[ STAT_MAX_HEALTH ] * 2;
-			}
-		}
+		
 	}
 
 	if ( level.numPlayingClients < 2 || g_gametype.integer == GT_CTF ) {
