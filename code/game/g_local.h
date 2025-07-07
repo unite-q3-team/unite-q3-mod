@@ -9,7 +9,9 @@
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
-#define	GAMEVERSION	"baseq3"
+// #define	GAMEVERSION	"baseq3"
+#define	GAMEVERSION	"q3unite_0.0001"
+
 
 #define BODY_QUEUE_SIZE		8
 
@@ -39,6 +41,13 @@
 #define ITEMMASK_AMMO     8
 #define ITEMMASK_POWERUP  16
 
+// ftmod
+typedef enum {
+	FROZEN_NOT = 0, // not frozen
+	FROZEN_ONMAP, // remnant is still around
+	FROZEN_REMNANTDESTROYED, // remnant was destroyed
+	FROZEN_DIED, // died without producing a remnant
+} frozen_t;
 
 // movers are things like doors, plats, buttons, etc
 typedef enum {
@@ -168,6 +177,10 @@ struct gentity_s {
 	team_t		fteam;
 
 	tag_t		tag;
+
+	// ftmod
+	gentity_t *frozenPlayer;
+	qboolean frozenPlayer_finalized;
 };
 
 
@@ -304,9 +317,17 @@ struct gclient_s {
 	int			respawnTime;		// can respawn when time > this, force after g_forcerespwan
 	int			inactivityTime;		// kick players when time > this
 	qboolean	inactivityWarning;	// qtrue if the five seoond warning has been given
+	qboolean	inactivityLastSuspend; // helps to track inactivity in elimination modes
 	int			rewardTime;			// clear the EF_AWARD_IMPRESSIVE, etc when time > this
 
 	int			airOutTime;
+	int			lavaDmgTime;
+
+	// ftmod
+
+	float		freezetag_thawed;
+	int			freezetag_thawedBy;
+	frozen_t	frozen;
 
 	int			lastKillTime;		// for multiple kill rewards
 
@@ -319,14 +340,24 @@ struct gclient_s {
 	// like health / armor countdowns and regeneration
 	int			timeResidual;
 
-#ifdef MISSIONPACK
+// #ifdef MISSIONPACK
 	gentity_t	*persistantPowerup;
 	int			portalID;
 	int			ammoTimes[WP_NUM_WEAPONS];
 	int			invulnerabilityTime;
-#endif
+// #endif
 
 	char		*areabits;
+
+	
+    //New vote system. The votes are saved in the client info, so we know who voted on what and can cancel votes on leave.
+	//0=not voted, 1=voted yes, -1=voted no
+	int vote;
+       
+	int lastSentFlying;                             //The last client that sent the player flying
+	int lastSentFlyingTime;                         //So we can time out
+
+	int lastGroundTime;                             // the last time the player touched the ground
 
 	// unlagged
 	clientHistory_t	history[ NUM_CLIENT_HISTORY ];
@@ -342,6 +373,17 @@ struct gclient_s {
 		int		enemy;
 		int		amount;
 	} damage;
+
+	// to prevent switching back and forth too fast
+	int	lastSpecatorSwitchTime;
+
+	// tracks damage taken from individual shotgun pellets for damage plums
+	// int	shotgunDamagePlumDmg;
+	
+	// for push notification
+	int	teamKnockback;
+	int	teamKnockbackTime;
+	int	teamKnockbackClientNum;
 };
 
 
@@ -372,6 +414,8 @@ typedef struct {
 	int			time;					// in msec
 	int			previousTime;			// so movers can back up when blocked
 
+	int			realtime;			// real level.time that advances during timeouts
+
 	int			startTime;				// level.time the map was started
 	int			msec;					// current frame duration
 
@@ -389,7 +433,13 @@ typedef struct {
 	int			sortedClients[MAX_CLIENTS];		// sorted by score
 	int			follow1, follow2;		// clientNums for auto-follow spectators
 
+	int			followauto;			// clientnum for action auto-follow
+	int			followautoTime;			
+
 	int			snd_fry;				// sound index for standing in lava
+
+	int			snd_thaw;				// sound index for thawing (freezetag)
+
 
 	int			warmupModificationCount;	// for detecting if g_warmup is changed
 
@@ -472,6 +522,7 @@ void StopFollowing( gentity_t *ent, qboolean release );
 void BroadcastTeamChange( gclient_t *client, team_t oldTeam );
 qboolean SetTeam( gentity_t *ent, const char *s );
 void Cmd_FollowCycle_f( gentity_t *ent, int dir );
+void Cmd_FollowCycleNew_f( gentity_t *ent );
 void G_RevertVote( gclient_t *client );
 
 //
@@ -581,6 +632,8 @@ void Touch_DoorTrigger( gentity_t *ent, gentity_t *other, trace_t *trace );
 // g_trigger.c
 //
 void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace );
+void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace );
+
 
 
 //
@@ -671,6 +724,14 @@ void ClientCommand( int clientNum );
 void ClientThink( int clientNum );
 void ClientEndFrame( gentity_t *ent );
 void G_RunClient( gentity_t *ent );
+int G_FreezeThawSound(void);
+void G_ClientThawNow( gentity_t *ent, int thawedBy );
+void G_ClientSetFrozenState( gentity_t *ent );
+void G_FrozenPlayerDamage(gentity_t *targPlayer, gentity_t *targ, gentity_t *attacker,
+	       gentity_t *inflictor, vec3_t dir, int damage, int mod);
+void G_FrozenTouchTriggers( gentity_t *ent );
+void P_WorldEffectsFrozen( gentity_t *ent );
+
 
 //
 // g_team.c
@@ -974,6 +1035,10 @@ void	trap_BotResetWeaponState(int weaponstate);
 int		trap_GeneticParentsAndChildSelection(int numranks, float *ranks, int *parent1, int *parent2, int *child);
 
 void	trap_SnapVector( float *v );
+
+qboolean G_IsTeamGametype(void);
+qboolean G_IsElimTeamGT(void);
+qboolean G_IsElimGT(void);
 
 // extension interface
 

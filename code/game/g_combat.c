@@ -572,6 +572,38 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	}
 
+	self->client->frozen = FROZEN_NOT;
+	if (g_freeze.integer) {
+		self->client->frozen = FROZEN_DIED;
+		self->client->freezetag_thawedBy = -1;
+		self->client->freezetag_thawed = 0.0;
+		
+		if (meansOfDeath != MOD_LAVA
+				&& meansOfDeath != MOD_SLIME
+				&& meansOfDeath != MOD_TRIGGER_HURT
+				&& meansOfDeath != MOD_CRUSH
+				&& meansOfDeath != MOD_UNKNOWN
+				&& meansOfDeath != MOD_WATER
+				&& meansOfDeath != MOD_TARGET_LASER
+				&& meansOfDeath != MOD_TELEFRAG
+#ifdef MISSIONPACK
+				&& meansOfDeath != MOD_JUICED
+#endif
+		   ) {
+			self->client->frozen = FROZEN_ONMAP;
+			G_CreateFrozenPlayer(self);
+			if (self->frozenPlayer) {
+				G_AddEvent(self->frozenPlayer, EV_DEATH3, killer ); // EV_FREEZE not recognized in default (OSP) modes
+			}
+			trap_UnlinkEntity(self);
+		}
+		if (self->health > GIB_HEALTH || self->client->ps.stats[STAT_HEALTH] > GIB_HEALTH) {
+			// make sure no body is left behind
+			self->health = GIB_HEALTH;
+			self->client->ps.stats[STAT_HEALTH] = GIB_HEALTH;
+		}
+	}
+
 	self->takedamage = qtrue;	// can still be gibbed
 
 	self->s.weapon = WP_NONE;
@@ -974,6 +1006,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			attacker->client->ps.persistant[PERS_HITS]--;
 		} else {
 			attacker->client->ps.persistant[PERS_HITS]++;
+			attacker->client->ps.persistant[PERS_DAMAGE_DONE] += damage;
 		}
 		attacker->client->ps.persistant[PERS_ATTACKEE_ARMOR] = (targ->health<<8)|(client->ps.stats[STAT_ARMOR]);
 #else

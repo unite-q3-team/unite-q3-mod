@@ -162,6 +162,23 @@ G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, 
 
 // G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
+G_CVAR( g_lavaDamage,     "g_lavaDamage", "10", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_slimeDamage,     "g_slimeDamage", "4", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_altFlags, "g_altFlags", "0", CVAR_SERVERINFO, 0, qfalse, qfalse )
+
+
+// ftmod
+G_CVAR( g_freeze, "g_freeze", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freezeBounce, "g_freezeBounce", "0.4", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTime, "g_thawTime", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_autoThawTime, "g_autoThawTime", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 
 
 #undef G_CVAR

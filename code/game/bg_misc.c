@@ -1499,3 +1499,83 @@ void BG_PlayerStateToEntityStateExtraPolate( playerState_t *ps, entityState_t *s
 	s->loopSound = ps->loopSound;
 	s->generic1 = ps->generic1;
 }
+
+/*
+============
+BG_TeamName
+KK-OAX Copied from Tremulous
+============
+*/
+char *BG_TeamName( team_t team )
+{
+  if( team == TEAM_SPECTATOR )
+    return "spectator";
+  if( team == TEAM_RED )
+    return "Red";
+  if( team == TEAM_BLUE )
+    return "Blue";
+  if( team == TEAM_FREE )
+    return "Free For All";
+  return "<team>";
+}
+
+char *BG_MovementToString( movement_t movement )
+{
+	switch (movement) {
+	case MOVEMENT_QL:
+		return "QL"; // lol
+	case MOVEMENT_CPM_CPMA:
+		return "CPMA";
+	case MOVEMENT_CPM_DEFRAG:
+		return "CPMD";
+	case MOVEMENT_RM:
+		return "RM";
+	default:
+		return "VQ3";
+	}
+}
+
+movement_t BG_MovementFromString( const char *s )
+{
+	movement_t i;
+	for (i = 0; i < MOVEMENT_NUM_MOVEMENTS; i++) {
+		if (Q_stricmp(BG_MovementToString(i), s) == 0) {
+			return i;
+		}
+	}
+	return MOVEMENT_VQ3;
+}
+
+qboolean BG_IsTeamGametype(gametype_t gametype) {
+	return gametype >= GT_TEAM
+#ifdef WITH_MULTITOURNAMENT
+		&& gametype != GT_MULTITOURNAMENT
+#endif
+		;
+}
+
+qboolean BG_IsElimTeamGT(gametype_t gametype) {
+	return gametype == GT_FFA; // fix me
+}
+
+qboolean BG_IsElimGT(gametype_t gametype) {
+	return BG_IsElimTeamGT(gametype);
+}
+
+// qboolean replace1( const char match, const char replace, char *str )
+// {
+// 	qboolean	res = qfalse;
+
+// 	if ( !str ) 
+// 		return res;
+
+// 	while ( *str ) {
+// 		if ( *str == match ) {
+// 			*str = replace;
+// 			res = qtrue;
+// 		}
+// 		str++;
+// 	}
+
+// 	return res;
+// }

@@ -925,6 +925,100 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 	// leave it where it was
 }
 
+/*
+=================
+Cmd_FollowCycleNew_f
+KK-OAX Modified to trap arguments.
+=================
+*/
+void Cmd_FollowCycleNew_f( gentity_t *ent ) {
+	int		clientnum;
+	int		original;
+    int     count;
+    char    args[11];
+    int     dir;
+
+    if( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+        dir = 1;
+    }
+    
+    trap_Argv( 0, args, sizeof( args ) );
+    if( Q_strequal( args, "followprev" )) {
+        dir = -1;
+    } else if( Q_strequal( args, "follownext" )) {
+        dir = 1;
+    } else {
+        dir = 1;
+    }
+    
+	// if they are playing a tournement game, count as a loss
+	if ( (g_gametype.integer == GT_TOURNAMENT )
+		&& ent->client->sess.sessionTeam == TEAM_FREE ) {
+		ent->client->sess.losses++;
+	}
+#ifdef WITH_MULTITOURNAMENT
+	G_MultiTrnSpecLoss(ent);
+#endif
+
+	// first set them to spectator
+	if ( ent->client->sess.spectatorState == SPECTATOR_NOT ) {
+		SetTeam( ent, "spectator" );
+	}
+
+	if ( dir != 1 && dir != -1 ) {
+		G_Error( "Cmd_FollowCycle_f: bad dir %i", dir );
+	}
+
+	clientnum = ent->client->sess.spectatorClient;
+	original = clientnum;
+        count = 0;
+	do {
+		clientnum += dir;
+                count++;
+		if ( clientnum >= level.maxclients ) {
+			clientnum = 0;
+		}
+		if ( clientnum < 0 ) {
+			clientnum = level.maxclients - 1;
+		}
+                
+                if(count>level.maxclients) //We have looked at all clients at least once and found nothing
+                    return; //We might end up in an infinite loop here. Stop it!
+                
+		// can only follow connected clients
+		if ( level.clients[ clientnum ].pers.connected != CON_CONNECTED ) {
+			continue;
+		}
+
+		// can't follow another spectator
+		if ( (level.clients[ clientnum ].sess.sessionTeam == TEAM_SPECTATOR) /*|| level.clients[ clientnum ].isEliminated*/) {
+			continue;
+		}
+
+                //Stop players from spectating players on the enemy team in elimination modes.
+                if ( G_IsElimTeamGT()/* && g_elimination_lockspectator.integer*/
+                    &&  ((ent->client->sess.sessionTeam == TEAM_RED && level.clients[ clientnum ].sess.sessionTeam == TEAM_BLUE) ||
+                         (ent->client->sess.sessionTeam == TEAM_BLUE && level.clients[ clientnum ].sess.sessionTeam == TEAM_RED) ) ) {
+                    continue;
+                }
+
+#ifdef WITH_MULTITOURNAMENT
+		// only cycle through players in the current current game if specOnlyCurrentGameId is set
+		if (g_gametype.integer == GT_MULTITOURNAMENT && ent->client->sess.gameId >= 0
+				&& ent->client->sess.specOnlyCurrentGameId
+				&& level.clients[ clientnum ].sess.gameId != ent->client->sess.gameId) {
+			continue;
+		}
+#endif
+
+		// this is good, we can use it
+		ent->client->sess.spectatorClient = clientnum;
+		ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
+		return;
+	} while ( clientnum != original );
+
+	// leave it where it was
+}
 
 /*
 ==================

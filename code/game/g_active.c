@@ -125,8 +125,13 @@ void P_WorldEffects( gentity_t *ent ) {
 	//
 	if (waterlevel && 
 		(ent->watertype&(CONTENTS_LAVA|CONTENTS_SLIME)) ) {
-		if (ent->health > 0
-			&& ent->pain_debounce_time <= level.time	) {
+		if ((ent->health > 0 || ent->client->frozen == FROZEN_ONMAP)
+			&& ent->client->lavaDmgTime <= level.time ) {
+
+			// apply damage every 500ms
+			ent->client->lavaDmgTime = level.time + 250;
+			// make sure pain sounds are synchronized w/ actual damage application
+			ent->pain_debounce_time = level.time + 250;
 
 			if ( envirosuit ) {
 				G_AddEvent( ent, EV_POWERUP_BATTLESUIT, 0 );
@@ -145,7 +150,342 @@ void P_WorldEffects( gentity_t *ent ) {
 	}
 }
 
+/*
+=============
+P_WorldEffectsFrozen
 
+Check for lava / slime damage for frozen players
+=============
+*/
+void P_WorldEffectsFrozen( gentity_t *ent ) {
+	vec3_t point;
+	int cont;
+
+	if (!ent->inuse) {
+		return;
+	}
+
+	point[0] = ent->r.currentOrigin[0];
+	point[1] = ent->r.currentOrigin[1];
+	point[2] = ent->r.currentOrigin[2] + MINS_Z + 1;	
+	cont = trap_PointContents( point, ent-g_entities );
+
+	if (cont & CONTENTS_LAVA) {
+		G_Damage (ent, NULL, NULL, NULL, NULL, 
+			g_lavaDamage.integer*3, 0, MOD_LAVA);
+	} else if (cont & CONTENTS_SLIME) {
+		G_Damage (ent, NULL, NULL, NULL, NULL, 
+			g_slimeDamage.integer*3, 0, MOD_SLIME);
+	} 
+}
+
+void G_FrozenTouchTriggers( gentity_t *ent ) {
+	int		i, num;
+	int		touch[MAX_GENTITIES];
+	gentity_t	*hit;
+	trace_t		trace;
+	vec3_t		mins, maxs;
+	static vec3_t	range = { 40, 40, 52 };
+
+	if (!ent->inuse) {
+		return;
+	}
+
+	VectorSubtract( ent->r.currentOrigin, range, mins );
+	VectorAdd( ent->r.currentOrigin, range, maxs );
+
+	num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+
+	// can't use ent->absmin, because that has a one unit pad
+	VectorAdd( ent->r.currentOrigin, ent->r.mins, mins );
+	VectorAdd( ent->r.currentOrigin, ent->r.maxs, maxs );
+
+	for ( i=0 ; i<num ; i++ ) {
+		hit = &g_entities[touch[i]];
+
+		if ( !hit->touch) {
+			continue;
+		}
+		if ( !( hit->r.contents & CONTENTS_TRIGGER ) ) {
+			continue;
+		}
+
+		// WE ONLY CARE ABOUT TRIGGER_HURT!
+		if (hit->touch != hurt_touch) {
+			continue;
+		}
+		
+		if ( !trap_EntityContact( mins, maxs, hit ) ) {
+			continue;
+		}
+
+		memset( &trace, 0, sizeof(trace) );
+
+		if ( hit->touch ) {
+			hit->touch (hit, ent, &trace);
+		}
+	}
+}
+
+void G_FrozenPlayerKnockback(gentity_t *frozenRemnant, int damage, vec3_t dir) {
+	int knockback = damage;
+	float mass;
+	vec3_t kvel;
+
+	if (g_freezeKnockback.value <= 0) {
+		return;
+	}
+
+	if (knockback > 200) {
+		knockback = 200;
+	}
+	mass = 200;
+
+	//VectorClear(frozenRemnant->s.pos.trDelta);
+	frozenRemnant->s.pos.trType = TR_GRAVITY;
+	frozenRemnant->s.pos.trTime = level.time;
+	VectorCopy(frozenRemnant->r.currentOrigin, frozenRemnant->s.pos.trBase);
+	frozenRemnant->s.groundEntityNum = -1;
+
+	VectorNormalize(dir);
+	VectorScale(dir, g_freezeKnockback.value * (float)knockback / mass, kvel);
+	VectorAdd(frozenRemnant->s.pos.trDelta, kvel, frozenRemnant->s.pos.trDelta);
+}
+
+void G_FrozenPlayerDamage(gentity_t *targPlayer, gentity_t *targ, gentity_t *attacker,
+	       gentity_t *inflictor, vec3_t dir, int damage, int mod) {
+	gclient_t *client = targPlayer->client;
+	// client gets killed by the environment
+	if ( mod == MOD_SUICIDE
+			|| mod == MOD_FALLING
+			|| mod == MOD_LAVA
+			|| mod == MOD_SLIME
+			|| mod == MOD_TRIGGER_HURT
+			|| mod == MOD_CRUSH
+			|| mod == MOD_UNKNOWN
+			|| mod == MOD_WATER
+			|| mod == MOD_TARGET_LASER
+			|| mod == MOD_TELEFRAG
+#ifdef MISSIONPACK
+			 || mod == MOD_JUICED
+#endif
+	   ) {
+		// we were killed by the environment, destroy the remnant
+		if (targPlayer->frozenPlayer && targPlayer->frozenPlayer->frozenPlayer
+				&& targPlayer->frozenPlayer->frozenPlayer == targPlayer
+				&& targPlayer->frozenPlayer->die) {
+			targPlayer->frozenPlayer->die(targPlayer->frozenPlayer, inflictor, attacker, 100000, mod);
+		}
+		targPlayer->takedamage = qfalse;
+		return;
+	}
+	G_FrozenPlayerKnockback(targPlayer->frozenPlayer, damage, dir);
+	if (g_freezeHealth.integer <= 0) {
+		return;
+	}
+	if (attacker && attacker->client
+			&& targPlayer->frozenPlayer
+			&& targPlayer->frozenPlayer->frozenPlayer == targPlayer
+			&& OnSameTeam(attacker, targPlayer)) {
+		// only allow friends to "attack" a frozen player for melting
+		client->freezetag_thawed += (float)damage/(float)g_freezeHealth.integer;
+		if (client->freezetag_thawed >= 1.0) {
+			client->freezetag_thawed = 1.0;
+			if (targPlayer->frozenPlayer->die) {
+				// this will thaw the client as well
+				targPlayer->frozenPlayer->die(targPlayer->frozenPlayer, inflictor, attacker, damage, mod);
+			}
+		}
+	}
+}
+
+#define FREEZETAG_THAWRATE(thawTime) ((float)(1000.0 / (float)thawTime / (float)sv_fps.integer)/1000.0)
+void G_ClientAcceleratedThaw(gentity_t *player) {
+	gclient_t *client = player->client;
+	gentity_t *frozenRemnant;
+	int i,e;
+	gentity_t *te;
+	vec3_t mins, maxs;
+	vec3_t v;
+	int entityList[MAX_GENTITIES];
+	int numListedEntities;
+	int friend = -1;
+
+	if (client->sess.sessionTeam == TEAM_FREE
+			|| !player->frozenPlayer
+			|| !player->frozenPlayer->frozenPlayer
+			|| player->frozenPlayer->frozenPlayer != player
+			) {
+		return;
+	}
+
+	frozenRemnant = player->frozenPlayer;
+
+	for ( i = 0; i < 3 ; ++i) {
+		mins[i] = frozenRemnant->r.currentOrigin[i] - g_thawRadius.integer;
+		maxs[i] = frozenRemnant->r.currentOrigin[i] + g_thawRadius.integer;
+	}
+
+	numListedEntities = trap_EntitiesInBox( mins, maxs, entityList, MAX_GENTITIES );
+	for ( e = 0 ; e < numListedEntities ; e++ ) {
+		if (e >= MAX_CLIENTS) {
+			continue;
+		}
+		te = &g_entities[entityList[ e ]];
+
+		if (!te->client 
+				|| te->client->sess.sessionTeam != client->sess.sessionTeam
+				|| te->client->ps.pm_type == PM_DEAD) {
+			continue;
+		}
+
+		// find the distance from the edge of the bounding box
+		for ( i = 0 ; i < 3 ; i++ ) {
+			if ( frozenRemnant->r.currentOrigin[i] < frozenRemnant->r.absmin[i] ) {
+				v[i] = frozenRemnant->r.absmin[i] - frozenRemnant->r.currentOrigin[i];
+			} else if ( frozenRemnant->r.currentOrigin[i] > frozenRemnant->r.absmax[i] ) {
+				v[i] = frozenRemnant->r.currentOrigin[i] - frozenRemnant->r.absmax[i];
+			} else {
+				v[i] = 0;
+			}
+		}
+
+		if ( VectorLength( v ) > g_thawRadius.integer) {
+			continue;
+		}
+
+		friend = te - g_entities;
+
+		if (client->freezetag_thawed == -1 ||
+				client->freezetag_thawed == friend) {
+			break;
+		}
+
+	}
+	if (friend == -1) {
+		client->freezetag_thawedBy = -1;
+		frozenRemnant->s.loopSound = 0;
+		return;
+	}
+	frozenRemnant->s.loopSound = G_FreezeThawSound();
+	client->freezetag_thawedBy = friend;
+	if (client->sess.spectatorState == SPECTATOR_FOLLOW
+			&& level.time - client->lastSpecatorSwitchTime > 1000) {
+		client->sess.spectatorClient = friend;
+		client->lastSpecatorSwitchTime = level.time;
+	}
+	client->freezetag_thawed += FREEZETAG_THAWRATE(g_thawTime.integer);
+}
+
+void G_ClientSetFrozenState( gentity_t *ent ) {
+	if (!ent->client->frozen) {
+		ent->client->ps.stats[STAT_FROZENSTATE] = 0;
+		return;
+	}
+	// we pack all these things into 1 field because we're running out of fields in  EF_* and PMF_*
+	ent->client->ps.stats[STAT_FROZENSTATE] = (unsigned int)(0xff*ent->client->freezetag_thawed) << 2;
+	ent->client->ps.stats[STAT_FROZENSTATE] |= FROZENSTATE_FROZEN;
+
+	if (ent->client->freezetag_thawedBy != -1 || ent->client->frozen == FROZEN_REMNANTDESTROYED) {
+		ent->client->ps.stats[STAT_FROZENSTATE] |= FROZENSTATE_THAWING;
+	}
+	if (ent->frozenPlayer && ent->frozenPlayer->frozenPlayer 
+			&& ent->frozenPlayer->frozenPlayer == ent) {
+		// generic1 is transmitted as a 1-byte field
+		ent->frozenPlayer->s.generic1 = (unsigned int)(0x7f*ent->client->freezetag_thawed) << 1;
+		// to make the ice shell look like it's melting
+		ent->frozenPlayer->s.generic1 |= (ent->client->ps.stats[STAT_FROZENSTATE] & FROZENSTATE_THAWING) ? 1 : 0;
+	}
+}
+
+void G_ClientThawNow( gentity_t *ent, int thawedBy ) {
+	ent->client->freezetag_thawedBy = thawedBy;
+	ent->client->freezetag_thawed = 1.0;
+	G_ClientSetFrozenState(ent);
+	// if (G_IsElimTeamGT()) {
+	// 	EliminationRespawnClient(ent);
+	// 	G_SendTeamPlayerCounts();
+	// } else {
+		// ClientRespawn(ent);
+		ClientSpawn(ent);
+	// }
+	if (thawedBy >= 0 && thawedBy < MAX_CLIENTS) {
+		gentity_t *thawingEnt = &g_entities[thawedBy];
+		if (thawingEnt->client->pers.connected == CON_CONNECTED) {
+			trap_SendServerCommand( ent - g_entities, va("cp \"Thawed by %s\"", thawingEnt->client->pers.netname) );
+
+			// if (G_IsElimTeamGT()
+			// 		&& level.roundNumber == level.roundNumberStarted) {
+			// 	//AwardMessage(thawingEnt, EAWARD_THAWBUDDY, ++(thawingEnt->client->pers.awardCounts[EAWARD_THAWBUDDY]));
+			// }
+			// adding score for thawing makes no sense for GT_TEAM
+			if (G_IsTeamGametype() && g_gametype.integer != GT_TEAM) {
+				AddScore( thawingEnt, ent->r.currentOrigin, 1 );
+			}
+		}
+	}
+}
+
+void G_UpdatePlayerFromFrozenRemnant(gentity_t *player) {
+	gentity_t *frozen;
+	if (/*player->client->isEliminated
+			|| */!player->frozenPlayer
+			|| player->frozenPlayer->frozenPlayer != player) {
+		return;
+	}
+	frozen = player->frozenPlayer;
+	VectorCopy(frozen->r.currentOrigin, player->client->ps.origin);
+	VectorCopy(frozen->s.pos.trDelta, player->client->ps.velocity);
+	player->client->ps.gravity = DEFAULT_GRAVITY;
+	VectorCopy(frozen->r.currentOrigin, player->r.currentOrigin);
+	VectorCopy(frozen->r.currentOrigin, player->s.origin);
+}
+
+void G_ClientThaw( gentity_t *ent ) {
+	gclient_t *client = ent->client;
+
+	if (!g_freeze.integer 
+			|| client->sess.sessionTeam == TEAM_SPECTATOR
+			|| !client->frozen
+			|| client->freezetag_thawed >= 1.0) {
+		return;
+	}
+
+	if (client->frozen == FROZEN_ONMAP) {
+		G_UpdateFrozenPlayer(ent);
+		G_UpdatePlayerFromFrozenRemnant(ent);
+		G_ClientAcceleratedThaw(ent);
+
+		if (g_autoThawTime.integer > 0) {
+			client->freezetag_thawed += FREEZETAG_THAWRATE(g_autoThawTime.integer);
+		}
+	} else if (client->frozen == FROZEN_REMNANTDESTROYED) {
+		if (g_thawTimeDestroyedRemnant.integer > 0) {
+			client->freezetag_thawed += FREEZETAG_THAWRATE(g_thawTimeDestroyedRemnant.integer);
+		}
+	} else if (client->frozen == FROZEN_DIED) {
+		if (g_thawTimeDied.integer > 0) {
+			client->freezetag_thawed += FREEZETAG_THAWRATE(g_thawTimeDied.integer);
+		}
+	}
+
+	if (client->freezetag_thawed >= 1.0) {
+		client->freezetag_thawed = 1.0;
+	}
+	G_ClientSetFrozenState(ent);
+
+
+	if (client->freezetag_thawed >= 1.0) {
+		G_ClientThawNow(ent, ent->client->freezetag_thawedBy);
+	}
+}
+
+int G_FreezeThawSound(void) {
+	if (!g_freeze.integer) {
+		return 0;
+	}
+	return G_SoundIndex("sound/player/melt.wav");
+}
 
 /*
 ===============
@@ -333,6 +673,16 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 	}
 }
 
+#define CLIENTINACTIVITY_SUSPENDTIME (15 * 1000)
+void ClientInactivitySuspend(gclient_t *client) {
+	if (client->inactivityLastSuspend > 0 && client->inactivityLastSuspend < level.realtime) {
+		// delay inactivity action while it's suspended (e.g. when a client is eliminated)
+		client->inactivityTime += level.realtime - client->inactivityLastSuspend;
+	}
+	client->inactivityLastSuspend = level.realtime;
+	// make sure that someone gets a warning when they are un-suspended
+	client->inactivityWarning = qfalse;
+}
 
 
 /*
@@ -803,6 +1153,12 @@ void ClientThink_real( gentity_t *ent ) {
 		return;
 	}
 
+	if ( client->ps.stats[STAT_HEALTH] <= 0 
+			&& (client->respawnTime > level.time
+				|| client->frozen)) {
+		ClientInactivitySuspend(client);
+	}
+
 	// spectators don't do much
 	if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		if ( client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
@@ -988,26 +1344,47 @@ void ClientThink_real( gentity_t *ent ) {
 	// check for respawning
 	if ( client->ps.stats[STAT_HEALTH] <= 0 ) {
 		// wait for the attack button to be pressed
-		if ( level.time > client->respawnTime ) {
-			// forcerespawn is to prevent users from waiting out powerups
-			if ( g_forcerespawn.integer > 0 && 
-				( level.time - client->respawnTime ) > g_forcerespawn.integer * 1000 ) {
-				respawn( ent );
-				return;
-			}
-		
-			// pressing attack or use is the normal respawn method
-			if ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) {
-				respawn( ent );
-			}
+		// forcerespawn is to prevent users from waiting out powerups
+		// In Last man standing, we force a quick respawn, since
+		// the player must be able to loose health
+		// pressing attack or use is the normal respawn method
+		if ( ( ( level.time > client->respawnTime ) && (!g_freeze.integer || G_IsFrozenPlayerFinalized(ent)) )
+			&&
+			( 
+			  ( ( g_forcerespawn.integer > 0 ) && 
+				( level.time - client->respawnTime  > g_forcerespawn.integer * 1000 ) 
+			  ) 
+			  ||
+			  ( 
+				  G_IsElimGT() &&
+				  ( level.time - client->respawnTime > 0 ) 
+			  ) 
+			  ||	
+			  ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) 
+			) 
+			) {
+
+			// ClientRespawn( ent );
+			ClientSpawn (ent);
 		}
 		return;
 	}
 
+	if (client->ps.groundEntityNum != ENTITYNUM_NONE || pm.waterlevel >= 2) {
+		client->lastGroundTime = level.time;
+	}
+
+        if ( pm.waterlevel <= 1 && pm.ps->groundEntityNum!=ENTITYNUM_NONE && client->lastSentFlyingTime+500>level.time) {
+			if ( ! (pm.ps->pm_flags & PMF_TIME_KNOCKBACK) ) {
+                            client->lastSentFlying = -1;
+			}
+	}
+
+        
 	// perform once-a-second actions
 	ClientTimerActions( ent, msec );
-}
 
+}
 
 /*
 ==================
@@ -1051,6 +1428,10 @@ SpectatorClientEndFrame
 */
 void SpectatorClientEndFrame( gentity_t *ent ) {
 	gclient_t	*cl;
+	int i, preservedScore[MAX_PERSISTANT]; //for keeping in elimination
+	int frozenState;
+
+	// G_UnnamedPlayerRename(ent);
 
 	// if we are doing a chase cam or a remote view, grab the latest info
 	if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
@@ -1063,12 +1444,28 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 			clientNum = level.follow1;
 		} else if ( clientNum == -2 ) {
 			clientNum = level.follow2;
+		} else if ( clientNum == -3 ) {
+			clientNum = level.followauto;
 		}
-		if ( (unsigned)clientNum < MAX_CLIENTS ) {
+		if ( clientNum >= 0 ) {
 			cl = &level.clients[ clientNum ];
 			if ( cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR ) {
 				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) | (ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
-				ent->client->ps = cl->ps;
+				//this is here LMS/Elimination goes wrong with player follow
+				if(ent->client->sess.sessionTeam!=TEAM_SPECTATOR){
+					frozenState = ent->client->ps.stats[STAT_FROZENSTATE];
+					for(i = 0; i < MAX_PERSISTANT; i++)
+						preservedScore[i] = ent->client->ps.persistant[i];
+					ent->client->ps = cl->ps;
+					for(i = 0; i < MAX_PERSISTANT; i++)
+						ent->client->ps.persistant[i] = preservedScore[i];
+					ent->client->ps.stats[STAT_FROZENSTATE] = frozenState;
+
+					ent->client->ps.persistant[PERS_HITS] = cl->ps.persistant[PERS_HITS];
+					ent->client->ps.persistant[PERS_DAMAGE_DONE] = cl->ps.persistant[PERS_DAMAGE_DONE];
+				}
+				else
+					ent->client->ps = cl->ps;
 				ent->client->ps.pm_flags |= PMF_FOLLOW;
 				ent->client->ps.eFlags = flags;
 				return;
@@ -1076,10 +1473,18 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 				// drop them to free spectators unless they are dedicated camera followers
 				if ( ent->client->sess.spectatorClient >= 0 ) {
 					ent->client->sess.spectatorState = SPECTATOR_FREE;
-					ClientBegin( ent->client - level.clients );
+					if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
+						ClientBegin( ent->client - level.clients );
+					} else if (G_IsElimTeamGT()) {
+						// don't call clientbegin on players that are part of a playing team in elimination
+						Cmd_FollowCycleNew_f(ent);
+					}
 				}
 			}
 		}
+	
+		
+			
 	}
 
 	if ( ent->client->sess.spectatorState == SPECTATOR_SCOREBOARD ) {
@@ -1110,6 +1515,22 @@ void ClientEndFrame( gentity_t *ent ) {
 		return;
 
 	ent->r.svFlags &= ~svf_self_portal2;
+
+	// thaw out frozen players (g_freeze)
+	if (g_freeze.integer) {
+		G_ClientThaw(ent);
+		//if (ent->client->frozen == FROZEN_ONMAP 
+		//		&& !ent->frozenPlayer_finalized
+		//		&& !ent->client->isEliminated) {
+		//	// make sure lava/slime damage gets applied
+		//	P_WorldEffects(ent);
+		//}
+		if (ent->client->frozen == FROZEN_ONMAP 
+				/*&& !ent->client->isEliminated*/) {
+			trap_UnlinkEntity(ent);
+			return;
+		}
+	}
 
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
 		SpectatorClientEndFrame( ent );

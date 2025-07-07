@@ -145,6 +145,28 @@ typedef enum {
 
 #define	PMF_ALL_TIMES	(PMF_TIME_WATERJUMP|PMF_TIME_LAND|PMF_TIME_KNOCKBACK)
 
+// ftmod
+// ps->stats[STAT_FROZENSTATE]
+#define FROZENSTATE_FROZEN	1
+#define FROZENSTATE_THAWING	2
+
+typedef enum {
+	MOVEMENT_VQ3 = 0,
+	// Defrag differs from CPMA in that slick has great acceleration. This also
+	// results in some fast acceleration after teleporting and getting hit with
+	// a weapon.
+	MOVEMENT_CPM_DEFRAG,
+	// RATMODE
+	MOVEMENT_RM,
+	MOVEMENT_CPM_CPMA,
+	//MOVEMENT_QL,
+	// Quake Live movement. From what I've been told, this is just VQ3 with
+	// CPMA's stepping, so that's what is implemented.
+	MOVEMENT_QL,
+
+	MOVEMENT_NUM_MOVEMENTS,
+} movement_t;
+
 #define	MAXTOUCH	32
 typedef struct {
 	// state (in / out)
@@ -172,6 +194,17 @@ typedef struct {
 	// for fixed msec Pmove
 	int			pmove_fixed;
 	int			pmove_msec;
+
+        //Sago's pmove
+        // int                     pmove_float;
+		// int						pmove_accurate;
+        
+        //Flags effecting movement (see dmflags)
+        // int                     pmove_flags;
+        //more flags affecting movement (see g_altFlags)
+        // int                     pmove_ratflags;
+        // Selects between VQ3, CPM, and RM.
+        movement_t              pmove_movement;
 
 	// callbacks to test the world
 	// these will be different functions during game and cgame
@@ -201,7 +234,8 @@ typedef enum {
 	STAT_ARMOR,				
 	STAT_DEAD_YAW,					// look this direction when dead (FIXME: get rid of?)
 	STAT_CLIENTS_READY,				// bit mask of clients wishing to exit the intermission (FIXME: configstring?)
-	STAT_MAX_HEALTH					// health / armor limit, changable by handicap
+	STAT_MAX_HEALTH,				// health / armor limit, changable by handicap
+	STAT_FROZENSTATE,				// used to store frozen/thawing state if g_freeze = 1
 } statIndex_t;
 
 
@@ -225,7 +259,8 @@ typedef enum {
 	PERS_DEFEND_COUNT,				// defend awards
 	PERS_ASSIST_COUNT,				// assist awards
 	PERS_GAUNTLET_FRAG_COUNT,		// kills with the gauntlet
-	PERS_CAPTURES					// captures
+	PERS_CAPTURES,					// captures
+	PERS_DAMAGE_DONE				
 } persEnum_t;
 
 
@@ -553,6 +588,36 @@ qboolean	BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 #define	MASK_OPAQUE				(CONTENTS_SOLID|CONTENTS_SLIME|CONTENTS_LAVA)
 #define	MASK_SHOT				(CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_CORPSE)
 
+//g_altFlags->integer
+// #define RAT_EASYPICKUP		(1 << 0)
+// #define RAT_POWERUPGLOWS 	(1 << 1)
+// #define RAT_SCREENSHAKE 	(1 << 2)
+// #define RAT_PREDICTMISSILES 	(1 << 3)
+// #define RAT_FASTSWITCH 		(1 << 4)
+// #define RAT_FASTWEAPONS 	(1 << 5)
+// // #define RAT_CROUCHSLIDE		(1 << 6)
+// #define RAT_RAMPJUMP 		(1 << 7)
+// #define RAT_ALLOWFORCEDMODELS 	(1 << 8)
+// #define RAT_FRIENDSWALLHACK 	(1 << 9)
+// #define RAT_SPECSHOWZOOM 	(1 << 10)
+// #define RAT_BRIGHTSHELL 	(1 << 11)
+// #define RAT_NEWSHOTGUN 		(1 << 12)
+// #define RAT_ADDITIVEJUMP 	(1 << 13)
+// #define RAT_NOTIMENUDGE 	(1 << 14)
+// #define RAT_FLAGINDICATOR 	(1 << 15)
+// #define RAT_REGULARFOOTSTEPS 	(1 << 16)
+// #define RAT_NOINVISWALLS 	(1 << 17)
+// #define RAT_NOBOBUP 		(1 << 18)
+// #define RAT_FASTSWIM 		(1 << 19)
+// #define RAT_SWINGGRAPPLE	(1 << 20)
+// #define RAT_BRIGHTOUTLINE	(1 << 21)
+// #define RAT_BRIGHTMODEL		(1 << 22)
+// #define RAT_SMOOTHSTAIRS	(1 << 23)
+// #define RAT_NOOVERBOUNCE	(1 << 24)
+#define RAT_FREEZETAG		(1 << 25)
+// #define RAT_CROUCHSLIDE		(1 << 26)
+// #define RAT_SLIDEMODE		(1 << 27)
+// #define RAT_FORCETAUNTS		(1 << 28)
 
 //
 // entityState_t->eType
@@ -643,6 +708,18 @@ char *BG_StripColor( char *string );
 void Q_strcpy( char *dst, const char *src );
 char *Q_stradd( char *dst, const char *src );
 int Q_sscanf( const char *buffer, const char *fmt, ... );
+
+//KK-OAX
+//bg_misc.c
+char *BG_TeamName( team_t team );
+
+char *BG_MovementToString( movement_t movement );
+movement_t BG_MovementFromString( const char *s );
+const char *BG_EntityTypeToString(int eType);
+
+qboolean BG_IsTeamGametype(gametype_t gametype);
+qboolean BG_IsElimTeamGT(gametype_t gametype);
+qboolean BG_IsElimGT(gametype_t gametype);
 
 qboolean replace1( const char match, const char replace, char *str );
 

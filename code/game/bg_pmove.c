@@ -1269,7 +1269,7 @@ static void PM_CheckDuck (void)
 
 	pm->mins[2] = MINS_Z;
 
-	if (pm->ps->pm_type == PM_DEAD)
+	if (pm->ps->pm_type == PM_DEAD && !(pm->ps->stats[STAT_FROZENSTATE] & FROZENSTATE_FROZEN))
 	{
 		pm->maxs[2] = -8;
 		pm->ps->viewheight = DEAD_VIEWHEIGHT;
@@ -1949,6 +1949,10 @@ void PmoveSingle (pmove_t *pmove) {
 		PM_NoclipMove ();
 		PM_DropTimers ();
 		return;
+	}
+	// ftmod
+	if (pm->ps->pm_type == PM_FREEZE) {
+		return;		// no movement at all
 	}
 
 	if (pm->ps->pm_type == PM_FREEZE) {
