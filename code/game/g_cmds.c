@@ -2056,6 +2056,8 @@ void ClientCommand( int clientNum ) {
 
 	else if (Q_stricmp (cmd, "killplayer") == 0)
 		killplayer_f( ent );
+	else if (Q_stricmp (cmd, "svfps") == 0)
+		Cmd_svfps_f( ent );
 
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );

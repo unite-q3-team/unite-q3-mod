@@ -10,6 +10,7 @@ QA_SRC = \
  cmds/player \
  cmds/pos \
  cmds/shit \
+ cmds/serverutils \
  g_freeze \
 
 CG_SRC = \

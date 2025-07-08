@@ -11,6 +11,7 @@ void checkauth_f(gentity_t *ent);
 void plsauth_f(gentity_t *ent);
 void deauth_f(gentity_t *ent);
 void killplayer_f(gentity_t *ent);
+void Cmd_svfps_f(gentity_t *ent);
 
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);
