@@ -11,31 +11,113 @@ void getpos_f(gentity_t *ent) {
 
 void setpos_f(gentity_t *ent) {
     vec3_t origin, angles;
-	char		buffer[MAX_TOKEN_CHARS];
-	int			i;
-    if (!ent->client)
-        return;
+    char buffer[MAX_TOKEN_CHARS];
+    int argc, id1, id2;
+    gentity_t *target1 = NULL, *target2 = NULL;
+    int i;
+    int zoffset = 100;
 
-    if (ent->authed == qfalse){
-        // trap_SendServerCommand( ent-g_entities, "print \"^3lol no\n\"");
-        return;
-    }
-
-    if (trap_Argc() != 4){
-        trap_SendServerCommand( ent-g_entities, "print \"^3Usage: setpos x y z\n\"");
+    if (!ent->client || !ent->authed) {
         return;
     }
 
-	VectorClear( angles );
-	for ( i = 0 ; i < 3 ; i++ ) {
-		trap_Argv( i + 1, buffer, sizeof( buffer ) );
-		origin[i] = atof( buffer );
-	}
+    argc = trap_Argc();
 
-    angles[YAW] = ent->client->ps.viewangles[YAW];
-    TeleportPlayer( ent, origin, angles );
+    VectorClear(angles);
 
-    // VectorCopy(ent->client->ps.origin, plr_vec);
+    if (argc == 2) {
+        // setpos <id> — телепортируем себя к игроку
+        trap_Argv(1, buffer, sizeof(buffer));
+        id1 = atoi(buffer);
+        if (id1 < 0 || id1 >= MAX_CLIENTS) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Invalid ID\n\"");
+            return;
+        }
 
-    // trap_SendServerCommand(ent - g_entities, "print \"^3Teleported...\n\"");
+        target1 = &g_entities[id1];
+        if (!target1->inuse || !target1->client) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Player not found\n\"");
+            return;
+        }
+
+        VectorCopy(target1->client->ps.origin, origin);
+        angles[YAW] = ent->client->ps.viewangles[YAW];
+        angles[PITCH] = ent->client->ps.viewangles[PITCH];
+        origin[2] = origin[2] + zoffset;
+        target1->speed = 0;
+        TeleportPlayer(ent, origin, angles);
+
+    } else if (argc == 3) {
+        // setpos <id_src> <id_dest> — телепортируем одного игрока к другому
+        trap_Argv(1, buffer, sizeof(buffer));
+        id1 = atoi(buffer);
+        trap_Argv(2, buffer, sizeof(buffer));
+        id2 = atoi(buffer);
+
+        if (id1 < 0 || id1 >= MAX_CLIENTS || id2 < 0 || id2 >= MAX_CLIENTS) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Invalid ID\n\"");
+            return;
+        }
+
+        target1 = &g_entities[id1];
+        target2 = &g_entities[id2];
+
+        if (!target1->inuse || !target1->client ||
+            !target2->inuse || !target2->client) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Player not found\n\"");
+            return;
+        }
+
+        VectorCopy(target2->client->ps.origin, origin);
+        origin[2] = origin[2] + zoffset;
+        angles[PITCH] = target1->client->ps.viewangles[PITCH];
+        angles[YAW] = target1->client->ps.viewangles[YAW];
+        target1->speed = 0;
+        TeleportPlayer(target1, origin, angles);
+
+    } else if (argc == 4) {
+        // setpos x y z — телепортируем себя по координатам
+        for (i = 0; i < 3; i++) {
+            trap_Argv(i + 1, buffer, sizeof(buffer));
+            origin[i] = atof(buffer);
+        }
+        origin[2] = origin[2] + zoffset;
+        angles[YAW] = ent->client->ps.viewangles[YAW];
+        angles[PITCH] = ent->client->ps.viewangles[PITCH];
+        target1->speed = 0;
+        TeleportPlayer(ent, origin, angles);
+
+    } else if (argc == 5) {
+        // setpos <id> x y z — телепортируем указанного игрока по координатам
+        trap_Argv(1, buffer, sizeof(buffer));
+        id1 = atoi(buffer);
+        if (id1 < 0 || id1 >= MAX_CLIENTS) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Invalid ID\n\"");
+            return;
+        }
+
+        target1 = &g_entities[id1];
+        if (!target1->inuse || !target1->client) {
+            trap_SendServerCommand(ent - g_entities, "print \"^3Player not found\n\"");
+            return;
+        }
+
+        for (i = 0; i < 3; i++) {
+            trap_Argv(i + 2, buffer, sizeof(buffer));
+            origin[i] = atof(buffer);
+        }
+
+        angles[YAW] = target1->client->ps.viewangles[YAW];
+        angles[PITCH] = target1->client->ps.viewangles[PITCH];
+        target1->speed = 0;
+        TeleportPlayer(target1, origin, angles);
+
+    } else {
+        trap_SendServerCommand(ent - g_entities, "print \"^3Usage:\n\"");
+        trap_SendServerCommand(ent - g_entities, "print \"^3  setpos x y z\n\"");
+        trap_SendServerCommand(ent - g_entities, "print \"^3  setpos <id>\n\"");
+        trap_SendServerCommand(ent - g_entities, "print \"^3  setpos <id_src> <id_dest>\n\"");
+        trap_SendServerCommand(ent - g_entities, "print \"^3  setpos <id> x y z\n\"");
+        return;
+    }
 }
