@@ -479,9 +479,6 @@ Touch_Item
 void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 	int			respawn;
 	qboolean	predict;
-	
-	if (g_instagib.integer && ent->item->giType != IT_TEAM)
-		return;
 
 	if (!other->client)
 		return;
@@ -493,15 +490,14 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		if ( other->freezeState )
 			return;
 	//freeze
+	
 	}
-
 	// the same pickup rules are used for client side and server side
 	if ( !BG_CanItemBeGrabbed( g_gametype.integer, &ent->s, &other->client->ps ) ) {
 		return;
 	}
-	
-	if (dbg_events.integer)
-		G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
+
+	G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
 
 	predict = other->client->pers.predictItemPickup;
 
@@ -619,19 +615,11 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		ent->nextthink = 0;
 		ent->think = 0;
 	} else {
-		ent->nextthink = level.time + respawn * 1000;
-//freeze
-		if (g_freeze.integer) {
-			if ( ent->item->giType == IT_WEAPON && g_dmflags.integer & 256 && !ent->freeAfterEvent ) {
-				ent->nextthink = level.time;
-			}
-		}
-//freeze
+		ent->nextthink = level.time + respawn;
 		ent->think = RespawnItem;
 	}
 	trap_LinkEntity( ent );
 }
-
 
 
 //======================================================================
@@ -699,6 +687,7 @@ Spawns an item and tosses it forward
 gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle ) {
 	vec3_t	velocity;
 	vec3_t	angles;
+
 	VectorCopy( ent->s.apos.trBase, angles );
 	angles[YAW] += angle;
 	angles[PITCH] = 0;	// always forward
@@ -743,14 +732,6 @@ void FinishSpawningItem( gentity_t *ent ) {
 	ent->s.modelindex = ent->item - bg_itemlist;		// store item number in modelindex
 	ent->s.modelindex2 = 0; // zero indicates this isn't a dropped item
 
-	//freeze
-	if (g_freeze.integer)
-	{
-		if ( g_dmflags.integer & 256 ) { // Я ебал, хз че за флаг
-			ent->s.modelindex2 = 255;
-		}
-	}
-	//freeze
 	ent->r.contents = CONTENTS_TRIGGER;
 	ent->touch = Touch_Item;
 	// using an item causes it to respawn
@@ -794,9 +775,6 @@ void FinishSpawningItem( gentity_t *ent ) {
 
 
 qboolean	itemRegistered[MAX_ITEMS];
-qboolean	Registered( gitem_t *item ) {
-	return ( item && itemRegistered[ item - bg_itemlist ] );
-}
 
 /*
 ==================
@@ -888,35 +866,18 @@ ClearRegisteredItems
 ==============
 */
 void ClearRegisteredItems( void ) {
-	int i;
 	memset( itemRegistered, 0, sizeof( itemRegistered ) );
 
-	if ( g_instagib.integer ) {
-		RegisterItem( BG_FindItemForWeapon( WP_RAILGUN ) );
-		if ( g_instagib.integer & 2 ) {
-			RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
-		}
-	} else {
-		for ( i = 1; i < WP_NUM_WEAPONS; i++ ) {
-			if ( g_startWeapons.integer & (1 << i) ) {
-				RegisterItem( BG_FindItemForWeapon( i ) );
-			}
-		}
-	}
-
+	// players always start with the base weapon
+	RegisterItem( BG_FindItemForWeapon( WP_MACHINEGUN ) );
+	RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
 #ifdef MISSIONPACK
-	if ( g_gametype.integer == GT_HARVESTER ) {
+	if( g_gametype.integer == GT_HARVESTER ) {
 		RegisterItem( BG_FindItem( "Red Cube" ) );
 		RegisterItem( BG_FindItem( "Blue Cube" ) );
 	}
 #endif
-//freeze
-	if (g_freeze.integer)
-	RegisterWeapon();
-//freeze
 }
-
-
 
 /*
 ===============
@@ -990,12 +951,12 @@ void G_SpawnItem( gentity_t *ent, gitem_t *item ) {
 	G_SpawnFloat( "wait", "0", &ent->wait );
 
 	RegisterItem( item );
-
+	
 	if ( G_ItemDisabled( item ) ) {
 		ent->tag = TAG_DONTSPAWN;
 		return;
 	}
-
+	
 	ent->item = item;
 	// some movers spawn on the second frame, so delay item
 	// spawns until the third frame so they can ride trains
@@ -1043,12 +1004,6 @@ void G_BounceItem( gentity_t *ent, trace_t *trace ) {
 		SnapVector( trace->endpos );
 		G_SetOrigin( ent, trace->endpos );
 		ent->s.groundEntityNum = trace->entityNum;
-		if (g_freeze.integer) {
-			if ( ent->pain_debounce_time < level.time - 700 ) {
-				ent->pain_debounce_time = level.time;
-				G_AddEvent( ent, EV_FALL_SHORT, 0 );
-			}
-		}
 		return;
 	}
 
@@ -1093,6 +1048,7 @@ void G_RunItem( gentity_t *ent ) {
 	} else {
 		mask = MASK_PLAYERSOLID & ~CONTENTS_BODY;//MASK_SOLID;
 	}
+
 	//freeze
 	if (g_freeze.integer) {
 		if ( is_body_freeze( ent ) )
@@ -1100,6 +1056,7 @@ void G_RunItem( gentity_t *ent ) {
 	}
 	else
 	//freeze
+
 	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, 
 		ent->r.ownerNum, mask );
 
@@ -1124,16 +1081,16 @@ void G_RunItem( gentity_t *ent ) {
 		if (ent->item && ent->item->giType == IT_TEAM) {
 			Team_FreeEntity(ent);
 		} else {
-//freeze
-		if (g_freeze.integer) {
-			if ( is_body( ent ) ) {
-				if ( level.time - ent->timestamp > 10000 ) {
-					Body_free( ent );
+			//freeze
+			if (g_freeze.integer) {
+				if ( is_body( ent ) ) {
+					if ( level.time - ent->timestamp > 10000 ) {
+						Body_free( ent );
+					}
+					return;
 				}
-				return;
 			}
-		}
-//freeze
+			//freeze
 			G_FreeEntity( ent );
 		}
 		return;

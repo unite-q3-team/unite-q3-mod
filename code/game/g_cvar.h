@@ -61,7 +61,7 @@ G_CVAR( g_teamChangeCooldown, "g_teamChangeCooldown", "5000", CVAR_ARCHIVE, 0, q
 G_CVAR( g_debugMove, "g_debugMove", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugDamage, "g_debugDamage", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugAlloc, "g_debugAlloc", "0", 0, 0, qfalse, qfalse )
-G_CVAR( g_debugFreeze, "g_debugFreeze", "262143", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_debugFreeze, "g_debugFreeze", "262142", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_motd, "g_motd", "", 0, 0, qfalse, qfalse )
 G_CVAR( g_blood, "com_blood", "1", 0, 0, qfalse, qfalse )
 
@@ -155,11 +155,11 @@ G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qt
 G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
-G_CVAR( g_items, "g_items", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
 
-G_CVAR( g_wpflags, "g_wpflags", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+// G_CVAR( g_wpflags, "g_wpflags", "255", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
 
-G_CVAR( g_spawnItems, "g_spawnItems", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+// G_CVAR( g_spawnItems, "g_spawnItems", "19", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 // G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
 
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
@@ -171,15 +171,21 @@ G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, 
 
 //freeze
 G_CVAR( g_freeze, "g_freeze", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
-G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
-G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_freezeBounce, "g_freezeBounce", "0.4", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTime, "g_thawTime", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_autoThawTime, "g_autoThawTime", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAuto_bounds, "g_thawTimeAuto_bounds", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAuto_tp, "g_thawTimeAuto_tp", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+G_CVAR( g_thawTimeAuto, "g_thawTimeAuto", "90000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+// G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+// G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_freezeBounce, "g_freezeBounce", "0.4", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_thawTime, "g_thawTime", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 

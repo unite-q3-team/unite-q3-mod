@@ -67,7 +67,7 @@ void TossClientItems( gentity_t *self ) {
 	gentity_t	*drop;
 
 	// drop the weapon if not a gauntlet or machinegun
-	if (!g_items.integer || g_instagib.integer)
+	if (!g_items_deathDrop.integer || g_instagib.integer)
 		return;
 	weapon = self->s.weapon;
 
@@ -651,22 +651,6 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 
 	// remove powerups
 	memset( self->client->ps.powerups, 0, sizeof(self->client->ps.powerups) );
-
-	// //freeze
-	// if (g_freeze.integer) {
-	// 	    if ( g_debugFreeze.integer & (1 << 16) ) {
-    //     Com_Printf( "player_die: player_freeze called → freezeState = %d\n", self->freezeState );
-    // }
-
-	// player_freeze( self, attacker, meansOfDeath );
-	// if ( self->freezeState ) {
-	// 	G_AddEvent( self, EV_DEATH1 + ( rand() % 3 ), killer );
-	// 	trap_LinkEntity( self );
-	// 	return;
-	// }
-	// self->r.maxs[ 2 ] = -8;
-	// }
-	//freeze
 
 	// never gib in a nodrop
 	if ( (self->health <= GIB_HEALTH && !(contents & CONTENTS_NODROP) && g_blood.integer) || meansOfDeath == MOD_SUICIDE) {

@@ -506,6 +506,13 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	// don't forget to reset times
 	trap_SetConfigstring( CS_INTERMISSION, "" );
 
+	if (g_freeze.integer)
+	{
+	trap_SetConfigstring( CS_OSP_FREEZE_GAME_TYPE, "1");
+	}
+	trap_SetConfigstring( CS_OSP_CUSTOM_CLIENT2, "1");
+	trap_SetConfigstring( XQ3E_ALLOW_FEATURES, "1");
+
 	if ( g_gametype.integer != GT_SINGLE_PLAYER ) {
 		// launch rotation system on first map load
 		if ( trap_Cvar_VariableIntegerValue( SV_ROTATION ) == 0 ) {
@@ -1486,6 +1493,7 @@ static void G_WarmupEnd( void )
 	trap_SetConfigstring( CS_SCORES2, "0" );
 	trap_SetConfigstring( CS_WARMUP, "" );
 	trap_SetConfigstring( CS_LEVEL_START_TIME, va( "%i", level.startTime ) );
+
 	
 	client = level.clients;
 	for ( i = 0; i < level.maxclients; i++, client++ ) {

@@ -162,20 +162,12 @@ static void player_free( gentity_t *ent ) {
 void Body_free( gentity_t *self ) {
     int i;
     gentity_t *ent;
-
     if ( self->freezeState ) {
         player_free( self->target_ent );
-        if ( g_debugFreeze.integer & (1 << 9) ) {
-            Com_Printf( "Body_free: called player_free on target_ent %d\n", self->target_ent ? self->target_ent->s.number : -1 );
-        }
     }
 
     self->s.powerups = 0;
     G_FreeEntity( self );
-
-    if ( g_debugFreeze.integer & (1 << 9) ) {
-        Com_Printf( "Body_free: entity %d freed\n", self->s.number );
-    }
 }
 
 
@@ -193,13 +185,9 @@ static void Body_Explode( gentity_t *self ) {
         if ( is_spectator( e->client ) ) continue;
 
         if ( !self->count ) {
-            self->count = level.time + ((g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF) ? 2000 : 3000);
+            self->count = level.time + ((g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF || g_gametype.integer == GT_TEAM) ? 2000 : 3000);
             G_Sound( self, CHAN_AUTO, self->noise_index );
             self->activator = e;
-
-            if ( g_debugFreeze.integer & (1 << 5) ) {
-                Com_Printf( "Body_Explode: trigger started for body %d by player %d\n", self->s.number, e->s.number );
-            }
         } else if ( self->count < level.time ) {
             // simplified case fallback
             tent = G_TempEntity( self->target_ent->r.currentOrigin, EV_OBITUARY );
@@ -216,13 +204,9 @@ static void Body_Explode( gentity_t *self ) {
             e->client->sess.wins++;
             G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
 
-            if ( g_debugFreeze.integer & (1 << 5) ) {
-                Com_Printf( "Body_Explode: player %d triggered death of %d\n", e->s.number, self->target_ent->s.number );
-            }
         }
         return;
     }
-
     self->count = 0;
 }
 
@@ -240,18 +224,12 @@ static void Body_WorldEffects( gentity_t *self ) {
     point[2] -= 23;
     contents = trap_PointContents( point, -1 );
 
-    if ( (contents & (CONTENTS_LAVA | CONTENTS_SLIME)) && (level.time - self->timestamp > 5000) ) {
-        if ( g_debugFreeze.integer & (1 << 6) ) {
-            Com_Printf( "Body_WorldEffects: body %d damaged by lava/slime\n", self->s.number );
-        }
+    if ( (contents & (CONTENTS_LAVA | CONTENTS_SLIME)) && (level.time - self->timestamp > g_thawTimeAuto_lava.integer) ) {
         G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
         return;
     }
 
-    if ( self->s.pos.trType == TR_STATIONARY && (contents & CONTENTS_NODROP) && (level.time - self->timestamp > 5000) ) {
-        if ( g_debugFreeze.integer & (1 << 6) ) {
-            Com_Printf( "Body_WorldEffects: body %d removed from NODROP\n", self->s.number );
-        }
+    if ( self->s.pos.trType == TR_STATIONARY && (contents & CONTENTS_NODROP) && (level.time - self->timestamp > g_thawTimeAuto_bounds.integer) ) {
         Body_free( self );
         return;
     }
@@ -263,10 +241,6 @@ static void Body_WorldEffects( gentity_t *self ) {
 
     if ( previous_waterlevel != self->waterlevel ) {
         G_AddEvent( self, (self->waterlevel ? EV_WATER_TOUCH : EV_WATER_LEAVE), 0 );
-        if ( g_debugFreeze.integer & (1 << 6) ) {
-            Com_Printf( "Body_WorldEffects: body %d waterlevel changed %d -> %d\n",
-                self->s.number, previous_waterlevel, self->waterlevel );
-        }
     }
 
     VectorAdd( self->r.currentOrigin, self->r.mins, mins );
@@ -286,21 +260,17 @@ static void Body_WorldEffects( gentity_t *self ) {
             self->s.pos.trType = TR_GRAVITY;
             self->s.pos.trTime = level.time;
 
-            if ( g_debugFreeze.integer & (1 << 6) ) {
-                Com_Printf( "Body_WorldEffects: body %d pushed by trigger\n", self->s.number );
-            }
             break;
 
         case ET_TELEPORT_TRIGGER:
-            if ( !(hit->spawnflags & 1) ) {
-                G_TempEntity( self->r.currentOrigin, EV_PLAYER_TELEPORT_OUT );
-                Body_free( self );
-                if ( g_debugFreeze.integer & (1 << 6) ) {
-                    Com_Printf( "Body_WorldEffects: body %d teleported out\n", self->s.number );
-                }
-                return;
-            }
-            break;
+		if ( !(hit->spawnflags & 1) ) {
+			if ( g_thawTimeAuto_tp.integer ) {
+				G_TempEntity( self->r.currentOrigin, EV_PLAYER_TELEPORT_OUT );
+				player_free( self );
+			}
+			return;
+		}
+		break;
         }
     }
 }
@@ -372,34 +342,19 @@ static void Body_think( gentity_t *self ) {
         return;
     }
     if ( level.intermissiontime || level.intermissionQueued ) {
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: intermission active, skipping\n" );
-        }
         return;
     }
 
-    if ( level.time - self->timestamp > 150000 || 
-         ( ( g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF ) &&
-           level.time - self->timestamp > 60000 ) ) {
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: expired, freeing player %d and tossing body %d\n",
-                self->target_ent->s.number, self->s.number );
-        }
-        player_free( self->target_ent );
-        TossBody( self );
-        return;
-    }
+	if ( g_thawTimeAuto.integer > 0 && level.time - self->timestamp > g_thawTimeAuto.integer ) {
+		player_free( self->target_ent );
+		TossBody( self );
+		return;
+	}
 
     if ( self->freezeState ) {
         if ( !self->target_ent->freezeState ) {
-            if ( g_debugFreeze.integer & (1 << 10) ) {
-                Com_Printf( "Body_think: target_ent thawed, tossing body %d\n", self->s.number );
-            }
             TossBody( self );
             return;
-        }
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: frozen state active, exploding and processing world effects\n" );
         }
         Body_Explode( self );
         if ( self->last_move_time < level.time - 1000 ) {
@@ -410,15 +365,9 @@ static void Body_think( gentity_t *self ) {
     }
 
     if ( level.time - self->timestamp > 6500 ) {
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: old unfrozen body %d, freeing\n", self->s.number );
-        }
         Body_free( self );
     } else {
         self->s.pos.trBase[2] -= 1;
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: anim drop on z-axis for body %d\n", self->s.number );
-        }
     }
 }
 
@@ -426,23 +375,11 @@ static void Body_think( gentity_t *self ) {
 static void Body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod ) {
     gentity_t *tent;
 
-    if ( g_debugFreeze.integer & (1 << 11) ) {
-        Com_Printf( "Body_die: body %d died (health=%d, mod=%d, attacker=%d)\n",
-            self->s.number, self->health, mod, attacker ? attacker->s.number : -1 );
-    }
-
     if ( self->health > GIB_HEALTH ) {
-        if ( g_debugFreeze.integer & (1 << 11) ) {
-            Com_Printf( "Body_die: body %d not gibbed (health > %d)\n", self->s.number, GIB_HEALTH );
-        }
         return;
     }
 
     if ( self->freezeState && !g_blood.integer ) {
-        if ( g_debugFreeze.integer & (1 << 11) ) {
-            Com_Printf( "Body_die: frozen body %d without blood — freeing player %d and tossing\n",
-                self->s.number, self->target_ent ? self->target_ent->s.number : -1 );
-        }
         player_free( self->target_ent );
         TossBody( self );
         return;
@@ -451,16 +388,9 @@ static void Body_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker
     tent = G_TempEntity( self->r.currentOrigin, EV_GIB_PLAYER );
     if ( self->freezeState ) {
         tent->s.eventParm = 255;
-        if ( g_debugFreeze.integer & (1 << 11) ) {
-            Com_Printf( "Body_die: frozen body %d gibbed (eventParm=255)\n", self->s.number );
-        }
     }
 
     Body_free( self );
-
-    if ( g_debugFreeze.integer & (1 << 11) ) {
-        Com_Printf( "Body_die: body %d freed\n", self->s.number );
-    }
 }
 
 
@@ -583,8 +513,8 @@ static void CopyToBody( gentity_t *ent ) {
     body = G_Spawn();
     body->classname = "freezebody";
     body->s = ent->s;
-    body->s.eFlags = 0;
-    body->s.powerups = 1 << PW_BATTLESUIT;
+    body->s.eFlags = EF_DEAD;
+ 	body->s.powerups = 1 << PW_BATTLESUIT;
     body->s.number = body - g_entities;
 	body->s.weapon = WP_NONE;
 	body->s.eFlags &= ~EF_FIRING; 
@@ -689,22 +619,12 @@ static qboolean NearbyBody( gentity_t *targ ) {
 
 void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
     if ( level.warmupTime ) {
-        if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_freeze: skipped due to warmup (ent %d)\n", self->s.number );
-        }
         return;
     }
     if ( g_gametype.integer != GT_TEAM && g_gametype.integer != GT_CTF ) {
-        if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_freeze: gametype not supported (%d)\n", g_gametype.integer );
-        }
         return;
     }
-    if ( self != attacker && OnSameTeam( self, attacker ) ) {
-        if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_freeze: same team (%d vs %d), no freeze\n",
-                self->client->sess.sessionTeam, attacker->client->sess.sessionTeam );
-        }
+    if ( self != attacker && OnSameTeam( self, attacker ) ) { // don't freeze when teamkilled (disabled)
         // return;
     }
     if ( self != attacker && g_gametype.integer == GT_CTF && redflag && blueflag ) {
@@ -714,16 +634,10 @@ void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
 
         if ( self->client->sess.sessionTeam == TEAM_RED ) {
             if ( VectorLength( dist1 ) < VectorLength( dist2 ) ) {
-                if ( g_debugFreeze.integer & (1 << 16) ) {
-                    Com_Printf( "player_freeze: red too close to redflag, skip freeze\n" );
-                }
                 return;
             }
         } else if ( self->client->sess.sessionTeam == TEAM_BLUE ) {
             if ( VectorLength( dist2 ) < VectorLength( dist1 ) ) {
-                if ( g_debugFreeze.integer & (1 << 16) ) {
-                    Com_Printf( "player_freeze: blue too close to blueflag, skip freeze\n" );
-                }
                 return;
             }
         }
@@ -929,157 +843,157 @@ void CheckDelay ( void ) {
 
 void SP_target_location( gentity_t *self );
 
-void locationSpawn( gentity_t *ent, gitem_t *item ) {
-	gentity_t	*e;
+// void locationSpawn( gentity_t *ent, gitem_t *item ) {
+// 	gentity_t	*e;
 
-	switch ( item->giType ) {
-	case IT_AMMO:
-		return;
-	case IT_ARMOR:
-		if ( Q_stricmp( item->classname, "item_armor_shard" ) ) {
-			break;
-		}
-		return;
-	case IT_HEALTH:
-		if ( !Q_stricmp( item->classname, "item_health_mega" ) ) {
-			break;
-		}
-		return;
-	case IT_PERSISTANT_POWERUP:
-		return;
-	case IT_TEAM:
-		if ( item->giTag == PW_BLUEFLAG ) {
-			VectorCopy( ent->r.currentOrigin, blueflag );
-		} else if ( item->giTag == PW_REDFLAG ) {
-			VectorCopy( ent->r.currentOrigin, redflag );
-		}
-	}
+// 	switch ( item->giType ) {
+// 	case IT_AMMO:
+// 		return;
+// 	case IT_ARMOR:
+// 		if ( Q_stricmp( item->classname, "item_armor_shard" ) ) {
+// 			break;
+// 		}
+// 		return;
+// 	case IT_HEALTH:
+// 		if ( !Q_stricmp( item->classname, "item_health_mega" ) ) {
+// 			break;
+// 		}
+// 		return;
+// 	case IT_PERSISTANT_POWERUP:
+// 		return;
+// 	case IT_TEAM:
+// 		if ( item->giTag == PW_BLUEFLAG ) {
+// 			VectorCopy( ent->r.currentOrigin, blueflag );
+// 		} else if ( item->giTag == PW_REDFLAG ) {
+// 			VectorCopy( ent->r.currentOrigin, redflag );
+// 		}
+// 	}
 
-	e = G_Spawn();
-	e->classname = "target_location";
-	e->message = item->pickup_name;
-	e->count = 255;
-	VectorCopy( ent->r.currentOrigin, e->s.origin );
+// 	e = G_Spawn();
+// 	e->classname = "target_location";
+// 	e->message = item->pickup_name;
+// 	e->count = 255;
+// 	VectorCopy( ent->r.currentOrigin, e->s.origin );
 
-	SP_target_location( e );
-}
+// 	SP_target_location( e );
+// }
 
-void Weapon_GrapplingHook_Fire(	gentity_t *ent );
+// void Weapon_GrapplingHook_Fire(	gentity_t *ent );
 
-void Hook_Fire( gentity_t *ent ) {
-	gclient_t	*client;
-	usercmd_t	*ucmd;
+// void Hook_Fire( gentity_t *ent ) {
+// 	gclient_t	*client;
+// 	usercmd_t	*ucmd;
 
-	// if ( g_grapple.integer < 1 ) {
-	// 	return;
-	// }
+// 	// if ( g_grapple.integer < 1 ) {
+// 	// 	return;
+// 	// }
 
-	client = ent->client;
-	if ( client->ps.weapon == WP_GRAPPLING_HOOK ) {
-		return;
-	}
-	if ( client->ps.pm_type != PM_NORMAL ) {
-		return;
-	}
+// 	client = ent->client;
+// 	if ( client->ps.weapon == WP_GRAPPLING_HOOK ) {
+// 		return;
+// 	}
+// 	if ( client->ps.pm_type != PM_NORMAL ) {
+// 		return;
+// 	}
 
-	ucmd = &client->pers.cmd;
-	if ( client->hook && !( ucmd->buttons & 32 ) ) {
-		Weapon_HookFree( client->hook );
-	}
-	if ( !client->hook && ( ucmd->buttons & 32 ) ) {
-		if ( ent->timestamp > level.time - 400 ) {
-			return;
-		}
-		client->fireHeld = qfalse;
-		Weapon_GrapplingHook_Fire( ent );
-	}
-}
+// 	ucmd = &client->pers.cmd;
+// 	if ( client->hook && !( ucmd->buttons & 32 ) ) {
+// 		Weapon_HookFree( client->hook );
+// 	}
+// 	if ( !client->hook && ( ucmd->buttons & 32 ) ) {
+// 		if ( ent->timestamp > level.time - 400 ) {
+// 			return;
+// 		}
+// 		client->fireHeld = qfalse;
+// 		Weapon_GrapplingHook_Fire( ent );
+// 	}
+// }
 
 char *ConcatArgs( int start );
 
-void Cmd_Drop_f( gentity_t *ent ) {
-	char	*name;
-	gitem_t	*it;
-	gentity_t	*drop;
-	int	quantity;
-	int	j;
+// void Cmd_Drop_f( gentity_t *ent ) {
+// 	char	*name;
+// 	gitem_t	*it;
+// 	gentity_t	*drop;
+// 	int	quantity;
+// 	int	j;
 
-	if ( is_spectator( ent->client ) ) {
-		return;
-	}
-	if ( ent->health <= 0 ) {
-		return;
-	}
-	name = ConcatArgs( 1 );
-	it = BG_FindItem( name );
-	if ( !Registered( it ) ) {
-		return;
-	}
+// 	if ( is_spectator( ent->client ) ) {
+// 		return;
+// 	}
+// 	if ( ent->health <= 0 ) {
+// 		return;
+// 	}
+// 	name = ConcatArgs( 1 );
+// 	it = BG_FindItem( name );
+// 	if ( !Registered( it ) ) {
+// 		return;
+// 	}
 
-	j = it->giTag;
-	switch ( it->giType ) {
-	case IT_WEAPON:
-		if ( g_dmflags.integer & 256 ) {
-			return;
-		}
-		if ( !( ent->client->ps.stats[ STAT_WEAPONS ] & ( 1 << j ) ) ) {
-			return;
-		}
-		if ( ent->client->ps.weaponstate != WEAPON_READY ) {
-			return;
-		}
-		if ( j == ent->s.weapon ) {
-			return;
-		}
-		if ( j > WP_MACHINEGUN && j != WP_GRAPPLING_HOOK && ent->client->ps.ammo[ j ] ) {
-			drop = Drop_Item( ent, it, 0 );
-			drop->count = 1;
-			drop->s.otherEntityNum = ent->s.clientNum + 1;
-			ent->client->ps.stats[ STAT_WEAPONS ] &= ~( 1 << j );
-			ent->client->ps.ammo[ j ] -= 1;
-		}
-		break;
-	case IT_AMMO:
-		quantity = ent->client->ps.ammo[ j ];
-		if ( !quantity ) {
-			return;
-		}
-		if ( quantity > it->quantity ) {
-			quantity = it->quantity;
-		}
-		drop = Drop_Item( ent, it, 0 );
-		drop->count = quantity;
-		drop->s.otherEntityNum = ent->s.clientNum + 1;
-		ent->client->ps.ammo[ j ] -= quantity;
-		break;
-	case IT_POWERUP:
-		if ( ent->client->ps.powerups[ j ] > level.time ) {
-			drop = Drop_Item( ent, it, 0 );
-			drop->count = ( ent->client->ps.powerups[ j ] - level.time ) / 1000;
-			if ( drop->count < 1 ) {
-				drop->count = 1;
-			}
-			drop->s.otherEntityNum = ent->s.clientNum + 1;
-			ent->client->ps.powerups[ j ] = 0;
-		}
-		break;
-	case IT_HOLDABLE:
-		if ( j == HI_KAMIKAZE ) {
-			return;
-		}
-		if ( bg_itemlist[ ent->client->ps.stats[ STAT_HOLDABLE_ITEM ] ].giTag == j ) {
-			drop = Drop_Item( ent, it, 0 );
-			drop->s.otherEntityNum = ent->s.clientNum + 1;
-			ent->client->ps.stats[ STAT_HOLDABLE_ITEM ] = 0;
-		}
-		break;
-	}
-}
+// 	j = it->giTag;
+// 	switch ( it->giType ) {
+// 	case IT_WEAPON:
+// 		if ( g_dmflags.integer & 256 ) {
+// 			return;
+// 		}
+// 		if ( !( ent->client->ps.stats[ STAT_WEAPONS ] & ( 1 << j ) ) ) {
+// 			return;
+// 		}
+// 		if ( ent->client->ps.weaponstate != WEAPON_READY ) {
+// 			return;
+// 		}
+// 		if ( j == ent->s.weapon ) {
+// 			return;
+// 		}
+// 		if ( j > WP_MACHINEGUN && j != WP_GRAPPLING_HOOK && ent->client->ps.ammo[ j ] ) {
+// 			drop = Drop_Item( ent, it, 0 );
+// 			drop->count = 1;
+// 			drop->s.otherEntityNum = ent->s.clientNum + 1;
+// 			ent->client->ps.stats[ STAT_WEAPONS ] &= ~( 1 << j );
+// 			ent->client->ps.ammo[ j ] -= 1;
+// 		}
+// 		break;
+// 	case IT_AMMO:
+// 		quantity = ent->client->ps.ammo[ j ];
+// 		if ( !quantity ) {
+// 			return;
+// 		}
+// 		if ( quantity > it->quantity ) {
+// 			quantity = it->quantity;
+// 		}
+// 		drop = Drop_Item( ent, it, 0 );
+// 		drop->count = quantity;
+// 		drop->s.otherEntityNum = ent->s.clientNum + 1;
+// 		ent->client->ps.ammo[ j ] -= quantity;
+// 		break;
+// 	case IT_POWERUP:
+// 		if ( ent->client->ps.powerups[ j ] > level.time ) {
+// 			drop = Drop_Item( ent, it, 0 );
+// 			drop->count = ( ent->client->ps.powerups[ j ] - level.time ) / 1000;
+// 			if ( drop->count < 1 ) {
+// 				drop->count = 1;
+// 			}
+// 			drop->s.otherEntityNum = ent->s.clientNum + 1;
+// 			ent->client->ps.powerups[ j ] = 0;
+// 		}
+// 		break;
+// 	case IT_HOLDABLE:
+// 		if ( j == HI_KAMIKAZE ) {
+// 			return;
+// 		}
+// 		if ( bg_itemlist[ ent->client->ps.stats[ STAT_HOLDABLE_ITEM ] ].giTag == j ) {
+// 			drop = Drop_Item( ent, it, 0 );
+// 			drop->s.otherEntityNum = ent->s.clientNum + 1;
+// 			ent->client->ps.stats[ STAT_HOLDABLE_ITEM ] = 0;
+// 		}
+// 		break;
+// 	}
+// }
 
-void Cmd_Ready_f( gentity_t *ent ) {
-	ent->readyBegin = qtrue;
-	trap_SendServerCommand( ent - g_entities, "print \"ready\n\"" );
-}
+// void Cmd_Ready_f( gentity_t *ent ) {
+// 	ent->readyBegin = qtrue;
+// 	trap_SendServerCommand( ent - g_entities, "print \"ready\n\"" );
+// }
 
 // void voteInvalid( gentity_t *ent ) {
 // 	char	msg[ 256 ];
@@ -1144,198 +1058,198 @@ void Cmd_Ready_f( gentity_t *ent ) {
 // 	return qfalse;
 // }
 
-int G_ItemDisabled( gitem_t *item );
+// int G_ItemDisabled( gitem_t *item );
 
-qboolean WeaponDisabled( gitem_t *item ) {
-	if ( g_weaponlimit.integer & 1 ) {
-		if ( !Q_stricmp( item->classname, "ammo_bullets" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 2 ) {
-		if ( !Q_stricmp( item->classname, "weapon_shotgun" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_shells" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 4 ) {
-		if ( !Q_stricmp( item->classname, "weapon_grenadelauncher" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_grenades" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 8 ) {
-		if ( !Q_stricmp( item->classname, "weapon_rocketlauncher" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_rockets" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 16 ) {
-		if ( !Q_stricmp( item->classname, "weapon_lightning" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_lightning" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 32 ) {
-		if ( !Q_stricmp( item->classname, "weapon_railgun" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_slugs" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 64 ) {
-		if ( !Q_stricmp( item->classname, "weapon_plasmagun" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_cells" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 128 ) {
-		if ( !Q_stricmp( item->classname, "weapon_bfg" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_bfg" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 256 ) {
-		if ( !Q_stricmp( item->classname, "weapon_nailgun" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_nails" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 512 ) {
-		if ( !Q_stricmp( item->classname, "weapon_prox_launcher" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_mines" ) ) {
-			return qtrue;
-		}
-	}
-	if ( g_weaponlimit.integer & 1024 ) {
-		if ( !Q_stricmp( item->classname, "weapon_chaingun" ) ) {
-			return qtrue;
-		}
-		if ( !Q_stricmp( item->classname, "ammo_belt" ) ) {
-			return qtrue;
-		}
-	}
-
-	if ( G_ItemDisabled( item ) ) {
-		return qtrue;
-	}
-	return qfalse;
-}
-
-void RegisterWeapon( void ) {
-	if ( g_wpflags.integer & 2 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_SHOTGUN ) );
-	}
-	if ( g_wpflags.integer & 4 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_GRENADE_LAUNCHER ) );
-	}
-	if ( g_wpflags.integer & 8 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_ROCKET_LAUNCHER ) );
-	}
-	if ( g_wpflags.integer & 16 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_LIGHTNING ) );
-	}
-	if ( g_wpflags.integer & 32 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_RAILGUN ) );
-	}
-	if ( g_wpflags.integer & 64 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_PLASMAGUN ) );
-	}
-	if ( g_wpflags.integer & 128 ) {
-		RegisterItem( BG_FindItemForWeapon( WP_BFG ) );
-	}
-// #ifdef MISSIONPACK
-// 	if ( g_wpflags.integer & 256 ) {
-// 		RegisterItem( BG_FindItemForWeapon( WP_NAILGUN ) );
+// qboolean WeaponDisabled( gitem_t *item ) {
+// 	if ( g_weaponlimit.integer & 1 ) {
+// 		if ( !Q_stricmp( item->classname, "ammo_bullets" ) ) {
+// 			return qtrue;
+// 		}
 // 	}
-// 	if ( g_wpflags.integer & 512 ) {
-// 		RegisterItem( BG_FindItemForWeapon( WP_PROX_LAUNCHER ) );
+// 	if ( g_weaponlimit.integer & 2 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_shotgun" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_shells" ) ) {
+// 			return qtrue;
+// 		}
 // 	}
-// 	if ( g_wpflags.integer & 1024 ) {
-// 		RegisterItem( BG_FindItemForWeapon( WP_CHAINGUN ) );
+// 	if ( g_weaponlimit.integer & 4 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_grenadelauncher" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_grenades" ) ) {
+// 			return qtrue;
+// 		}
 // 	}
-// #endif
-	// if ( g_grapple.integer > 0 ) {
-	// 	RegisterItem( BG_FindItemForWeapon( WP_GRAPPLING_HOOK ) );
-	// }
+// 	if ( g_weaponlimit.integer & 8 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_rocketlauncher" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_rockets" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 16 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_lightning" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_lightning" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 32 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_railgun" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_slugs" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 64 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_plasmagun" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_cells" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 128 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_bfg" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_bfg" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 256 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_nailgun" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_nails" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 512 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_prox_launcher" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_mines" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
+// 	if ( g_weaponlimit.integer & 1024 ) {
+// 		if ( !Q_stricmp( item->classname, "weapon_chaingun" ) ) {
+// 			return qtrue;
+// 		}
+// 		if ( !Q_stricmp( item->classname, "ammo_belt" ) ) {
+// 			return qtrue;
+// 		}
+// 	}
 
-	VectorClear( redflag );
-	VectorClear( blueflag );
-}
-
-void SpawnWeapon( gclient_t *client ) {
-	int	i;
-
-	if ( g_weaponlimit.integer & 1 && !( g_wpflags.integer & 1 ) ) {
-		client->ps.stats[ STAT_WEAPONS ] &= ~( 1 << WP_MACHINEGUN );
-		client->ps.ammo[ WP_MACHINEGUN ] = 0;
-	}
-	if ( g_wpflags.integer & 2 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_SHOTGUN;
-		client->ps.ammo[ WP_SHOTGUN ] = 10;
-	}
-	if ( g_wpflags.integer & 4 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_GRENADE_LAUNCHER;
-		client->ps.ammo[ WP_GRENADE_LAUNCHER ] = 5;
-	}
-	if ( g_wpflags.integer & 8 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_ROCKET_LAUNCHER;
-		client->ps.ammo[ WP_ROCKET_LAUNCHER ] = 5;
-	}
-	if ( g_wpflags.integer & 16 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_LIGHTNING;
-		client->ps.ammo[ WP_LIGHTNING ] = 60;
-	}
-	if ( g_wpflags.integer & 32 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_RAILGUN;
-		client->ps.ammo[ WP_RAILGUN ] = 10;
-	}
-	if ( g_wpflags.integer & 64 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_PLASMAGUN;
-		client->ps.ammo[ WP_PLASMAGUN ] = 30;
-	}
-	if ( g_wpflags.integer & 128 ) {
-		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_BFG;
-		client->ps.ammo[ WP_BFG ] = 15;
-	}
-// #ifdef MISSIONPACK
-// 	if ( g_wpflags.integer & 256 ) {
-// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_NAILGUN;
-// 		client->ps.ammo[ WP_NAILGUN ] = 20;
+// 	if ( G_ItemDisabled( item ) ) {
+// 		return qtrue;
 // 	}
-// 	if ( g_wpflags.integer & 512 ) {
-// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_PROX_LAUNCHER;
-// 		client->ps.ammo[ WP_PROX_LAUNCHER ] = 10;
-// 	}
-// 	if ( g_wpflags.integer & 1024 ) {
-// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_CHAINGUN;
-// 		client->ps.ammo[ WP_CHAINGUN ] = 100;
-// 	}
-// #endif
+// 	return qfalse;
+// }
 
-	if ( g_dmflags.integer & 1024 ) {
-		for ( i = 0; i < MAX_WEAPONS; i++ ) {
-			client->ps.ammo[ i ] = 999;
-		}
-	}
-}
+// void RegisterWeapon( void ) {
+// 	if ( g_wpflags.integer & 2 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_SHOTGUN ) );
+// 	}
+// 	if ( g_wpflags.integer & 4 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_GRENADE_LAUNCHER ) );
+// 	}
+// 	if ( g_wpflags.integer & 8 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_ROCKET_LAUNCHER ) );
+// 	}
+// 	if ( g_wpflags.integer & 16 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_LIGHTNING ) );
+// 	}
+// 	if ( g_wpflags.integer & 32 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_RAILGUN ) );
+// 	}
+// 	if ( g_wpflags.integer & 64 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_PLASMAGUN ) );
+// 	}
+// 	if ( g_wpflags.integer & 128 ) {
+// 		RegisterItem( BG_FindItemForWeapon( WP_BFG ) );
+// 	}
+// // #ifdef MISSIONPACK
+// // 	if ( g_wpflags.integer & 256 ) {
+// // 		RegisterItem( BG_FindItemForWeapon( WP_NAILGUN ) );
+// // 	}
+// // 	if ( g_wpflags.integer & 512 ) {
+// // 		RegisterItem( BG_FindItemForWeapon( WP_PROX_LAUNCHER ) );
+// // 	}
+// // 	if ( g_wpflags.integer & 1024 ) {
+// // 		RegisterItem( BG_FindItemForWeapon( WP_CHAINGUN ) );
+// // 	}
+// // #endif
+// 	// if ( g_grapple.integer > 0 ) {
+// 	// 	RegisterItem( BG_FindItemForWeapon( WP_GRAPPLING_HOOK ) );
+// 	// }
+
+// 	VectorClear( redflag );
+// 	VectorClear( blueflag );
+// }
+
+// void SpawnWeapon( gclient_t *client ) {
+// 	int	i;
+
+// 	if ( g_weaponlimit.integer & 1 && !( g_wpflags.integer & 1 ) ) {
+// 		client->ps.stats[ STAT_WEAPONS ] &= ~( 1 << WP_MACHINEGUN );
+// 		client->ps.ammo[ WP_MACHINEGUN ] = 0;
+// 	}
+// 	if ( g_wpflags.integer & 2 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_SHOTGUN;
+// 		client->ps.ammo[ WP_SHOTGUN ] = 10;
+// 	}
+// 	if ( g_wpflags.integer & 4 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_GRENADE_LAUNCHER;
+// 		client->ps.ammo[ WP_GRENADE_LAUNCHER ] = 5;
+// 	}
+// 	if ( g_wpflags.integer & 8 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_ROCKET_LAUNCHER;
+// 		client->ps.ammo[ WP_ROCKET_LAUNCHER ] = 5;
+// 	}
+// 	if ( g_wpflags.integer & 16 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_LIGHTNING;
+// 		client->ps.ammo[ WP_LIGHTNING ] = 60;
+// 	}
+// 	if ( g_wpflags.integer & 32 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_RAILGUN;
+// 		client->ps.ammo[ WP_RAILGUN ] = 10;
+// 	}
+// 	if ( g_wpflags.integer & 64 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_PLASMAGUN;
+// 		client->ps.ammo[ WP_PLASMAGUN ] = 30;
+// 	}
+// 	if ( g_wpflags.integer & 128 ) {
+// 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_BFG;
+// 		client->ps.ammo[ WP_BFG ] = 15;
+// 	}
+// // #ifdef MISSIONPACK
+// // 	if ( g_wpflags.integer & 256 ) {
+// // 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_NAILGUN;
+// // 		client->ps.ammo[ WP_NAILGUN ] = 20;
+// // 	}
+// // 	if ( g_wpflags.integer & 512 ) {
+// // 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_PROX_LAUNCHER;
+// // 		client->ps.ammo[ WP_PROX_LAUNCHER ] = 10;
+// // 	}
+// // 	if ( g_wpflags.integer & 1024 ) {
+// // 		client->ps.stats[ STAT_WEAPONS ] |= 1 << WP_CHAINGUN;
+// // 		client->ps.ammo[ WP_CHAINGUN ] = 100;
+// // 	}
+// // #endif
+
+// 	if ( g_dmflags.integer & 1024 ) {
+// 		for ( i = 0; i < MAX_WEAPONS; i++ ) {
+// 			client->ps.ammo[ i ] = 999;
+// 		}
+// 	}
+// }
 
 int RaySphereIntersections( vec3_t origin, float radius, vec3_t point, vec3_t dir, vec3_t intersections[ 2 ] );
 
