@@ -2040,6 +2040,10 @@ void ClientCommand( int clientNum ) {
 		Cmd_GameCommand_f( ent );
 	else if (Q_stricmp (cmd, "setviewpos") == 0)
 		Cmd_SetViewpos_f( ent );
+	else if (Q_stricmp (cmd, "getpos") == 0)
+		getpos_f( ent );
+	else if (Q_stricmp (cmd, "setpos") == 0)
+		setpos_f( ent );
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)

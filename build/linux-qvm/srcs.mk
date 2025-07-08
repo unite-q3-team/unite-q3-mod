@@ -8,6 +8,7 @@ QA_SRC = \
  g_trigger g_unlagged g_utils g_weapon \
  cmds/cmds \
  cmds/player \
+ cmds/pos \
  g_freeze \
 
 CG_SRC = \

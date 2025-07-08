@@ -1,4 +1,4 @@
-// code/game/clcmds/player.c
+// code/game/cmds/player.c
 #include "cmds.h"
 
 void AlignString(char *dest, int destSize, const char *src, int width, qboolean leftAlign) {

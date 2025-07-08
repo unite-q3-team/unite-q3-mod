@@ -1,4 +1,4 @@
-// code/game/clcmds/cmds.c
+// code/game/cmds/cmds.c
 #include "cmds.h"
 
 void Cmd_NewTest_f(gentity_t *ent) {
