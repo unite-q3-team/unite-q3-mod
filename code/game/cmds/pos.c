@@ -17,6 +17,11 @@ void setpos_f(gentity_t *ent) {
     if (!ent->client)
         return;
 
+    if (ent->authed == qfalse){
+        // trap_SendServerCommand( ent-g_entities, "print \"^3lol no\n\"");
+        return;
+    }
+
     if (trap_Argc() != 4){
         trap_SendServerCommand( ent-g_entities, "print \"^3Usage: setpos x y z\n\"");
         return;
@@ -28,10 +33,10 @@ void setpos_f(gentity_t *ent) {
 		origin[i] = atof( buffer );
 	}
 
-    angles[YAW] = 0;
+    angles[YAW] = ent->client->ps.viewangles[YAW];
     TeleportPlayer( ent, origin, angles );
 
     // VectorCopy(ent->client->ps.origin, plr_vec);
 
-    trap_SendServerCommand(ent - g_entities, "print \"^3Teleported...\n\"");
+    // trap_SendServerCommand(ent - g_entities, "print \"^3Teleported...\n\"");
 }

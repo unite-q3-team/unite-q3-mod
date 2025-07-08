@@ -2044,6 +2044,16 @@ void ClientCommand( int clientNum ) {
 		getpos_f( ent );
 	else if (Q_stricmp (cmd, "setpos") == 0)
 		setpos_f( ent );
+	else if (Q_stricmp (cmd, "hi") == 0)
+		hi_f( ent );
+
+	else if (Q_stricmp (cmd, "auth") == 0)
+		plsauth_f( ent );
+	else if (Q_stricmp (cmd, "deauth") == 0)
+		deauth_f( ent );
+	else if (Q_stricmp (cmd, "checkauth") == 0)
+		checkauth_f( ent );
+
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)

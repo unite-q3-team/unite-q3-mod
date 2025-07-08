@@ -174,6 +174,8 @@ struct gentity_s {
 	qboolean	freezeState;
 	qboolean	readyBegin;
 	//freeze
+
+	qboolean	authed;
 };
 
 

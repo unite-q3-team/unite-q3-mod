@@ -183,5 +183,6 @@ G_CVAR( g_autoThawTime, "g_autoThawTime", "60", CVAR_ARCHIVE, 0, qfalse, qfalse 
 
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
+G_CVAR( _ath, "_ath", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 #undef G_CVAR
