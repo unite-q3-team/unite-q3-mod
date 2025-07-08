@@ -257,64 +257,6 @@ Finds the spawn function for the entity and calls it,
 returning qfalse if not found
 ===============
 */
-// qboolean G_CallSpawn( gentity_t *ent ) {
-// 	spawn_t	*s;
-// 	gitem_t	*item;
-
-// 	if ( !ent->classname ) {
-// 		G_Printf ("G_CallSpawn: NULL classname\n");
-// 		return qfalse;
-// 	}
-
-// 	// check item spawn functions
-// 	if ( g_items.integer )
-// 	{
-// 		if ( !g_instagib.integer ) {
-// 			for ( item = bg_itemlist + 1; item->classname; item++ ) {
-// 				if ( !strcmp( item->classname, ent->classname ) ) {
-
-// 					switch ( item->giType ) {
-// 						case IT_HEALTH:
-// 							if (!(g_spawnItems.integer & ITEMMASK_HEALTH))
-// 								return qfalse;
-// 							break;
-// 						case IT_ARMOR:
-// 							if (!(g_spawnItems.integer & ITEMMASK_ARMOR))
-// 								return qfalse;
-// 							break;
-// 						case IT_WEAPON:
-// 							if (!(g_spawnItems.integer & ITEMMASK_WEAPONS))
-// 								return qfalse;
-// 							break;
-// 						case IT_AMMO:
-// 							if (!(g_spawnItems.integer & ITEMMASK_AMMO))
-// 								return qfalse;
-// 							break;
-// 						case IT_POWERUP:
-// 							if (!(g_spawnItems.integer & ITEMMASK_POWERUP))
-// 								return qfalse;
-// 							break;
-// 						default:
-// 							break;
-// 					}
-
-// 					G_SpawnItem( ent, item );
-// 					return qtrue;
-// 				}
-// 			}
-// 		}
-// 	}
-// 	// check normal spawn functions
-// 	for ( s = spawns; s->name; s++ ) {
-// 		if ( !strcmp( s->name, ent->classname ) ) {
-// 			s->spawn( ent );
-// 			return qtrue;
-// 		}
-// 	}
-// 	G_Printf( "%s doesn't have a spawn function\n", ent->classname );
-// 	return qfalse;
-// }
-
 qboolean G_CallSpawn( gentity_t *ent ) {
 	spawn_t	*s;
 	gitem_t	*item;
@@ -327,12 +269,6 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	// check item spawn functions
 	for ( item=bg_itemlist+1 ; item->classname ; item++ ) {
 		if ( !strcmp(item->classname, ent->classname) ) {
-//freeze
-			locationSpawn( ent, item );
-			if ( WeaponDisabled( item ) ) {
-				return qfalse;
-			}
-//freeze
 			G_SpawnItem( ent, item );
 			return qtrue;
 		}
@@ -349,7 +285,6 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	G_Printf ("%s doesn't have a spawn function\n", ent->classname);
 	return qfalse;
 }
-
 
 /*
 =============
@@ -473,20 +408,18 @@ void G_SpawnGEntityFromSpawnVars( void ) {
 	}
 	// check for "notteam" flag (GT_FFA, GT_TOURNAMENT, GT_SINGLE_PLAYER)
 	if ( g_gametype.integer >= GT_TEAM ) {
-	G_SpawnInt( "notteam", "0", &i );
-
-	if ( !g_freeze.integer ) {
-		if ( i ) {
-			G_FreeEntity( ent );
-			return;
+		G_SpawnInt( "notteam", "0", &i );
+		if ( !g_freeze.integer ) {
+			if ( i ) {
+				G_FreeEntity( ent );
+				return;
+			}
+		} else {
+			if ( i && !( ent->classname && !Q_stricmp( ent->classname, "info_player_deathmatch" ) ) ) {
+				G_FreeEntity( ent );
+				return;
+			}
 		}
-	} else {
-		if ( i && !( ent->classname && !Q_stricmp( ent->classname, "info_player_deathmatch" ) ) ) {
-			G_FreeEntity( ent );
-			return;
-		}
-	}
-
 	} else {
 		G_SpawnInt( "notfree", "0", &i );
 		if ( i ) {
@@ -647,7 +580,7 @@ void SP_worldspawn( void ) {
 	G_SpawnString( "enableDust", "0", &s );
 	trap_Cvar_Set( "g_enableDust", s );
 
-	G_SpawnString( "enableBreath", "1", &s );
+	G_SpawnString( "enableBreath", "0", &s );
 	trap_Cvar_Set( "g_enableBreath", s );
 
 	g_entities[ENTITYNUM_WORLD].s.number = ENTITYNUM_WORLD;
