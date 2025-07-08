@@ -119,3 +119,38 @@ void Cmd_Plrlist_f(gentity_t *ent) {
 void Cmd_From_f(gentity_t *ent){
 
 }
+
+void killplayer_f(gentity_t *ent){
+    char buf[MAX_TOKEN_CHARS];
+    gentity_t *victim;
+
+    if (!ent->client) return;
+
+    if (trap_Argc() != 2) {
+        trap_SendServerCommand(ent - g_entities, "print \"^3Usage: killplayer <id>\n\"");
+        return;
+    }
+
+    trap_Argv(1, buf, sizeof(buf));
+    victim = &g_entities[atoi(buf)];
+
+    if (!victim->client){
+        trap_SendServerCommand(ent - g_entities, "print \"^1Invalid client!\n\"");
+        return;
+    }
+
+	if ((g_freeze.integer && is_spectator(victim->client)) || (!g_freeze.integer && victim->client->sess.sessionTeam == TEAM_SPECTATOR)) {
+        trap_SendServerCommand(ent - g_entities, "print \"^1Can't kill a spectator!\n\"");
+		return;
+	}
+
+    if (victim->health <= 0){
+        trap_SendServerCommand(ent - g_entities, "print \"^1Can't kill already dead person\n\"");
+        return;
+    }
+
+    victim->flags &= ~FL_GODMODE;
+    victim->client->ps.stats[STAT_HEALTH] = victim->health = -999;
+
+    player_die(victim, victim, victim, 100000, (g_freeze.integer ? MOD_BFG_SPLASH : MOD_SUICIDE));
+}

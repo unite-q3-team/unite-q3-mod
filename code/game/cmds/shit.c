@@ -2,7 +2,7 @@
 #include "cmds.h"
 
 void hi_f(gentity_t *ent) {
-    trap_SendServerCommand(-1, va("cp %s^3: ^3Hi!\"^3", ent->client->pers.netname));
+    trap_SendServerCommand(-1, va("cp \"%s^3: ^3Hi!\"^3", ent->client->pers.netname));
 }
 
 void checkauth_f(gentity_t *ent) {

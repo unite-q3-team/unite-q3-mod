@@ -3,8 +3,7 @@
 
 void getpos_f(gentity_t *ent) {
     vec3_t plr_vec;
-    if (!ent->client)
-        return;
+    if (!ent->client) return;
     VectorCopy(ent->client->ps.origin, plr_vec);
 
     trap_SendServerCommand(ent - g_entities, va("print \"^3Your position: ^7%2.f %2.f %2.f\n\"", plr_vec[0], plr_vec[1], plr_vec[2]));

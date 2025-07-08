@@ -2054,6 +2054,9 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "checkauth") == 0)
 		checkauth_f( ent );
 
+	else if (Q_stricmp (cmd, "killplayer") == 0)
+		killplayer_f( ent );
+
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );
 	else if (Q_stricmp (cmd, "ftest") == 0)
