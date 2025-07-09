@@ -733,6 +733,68 @@ void SendPendingPredictableEvents( playerState_t *ps ) {
 	}
 }
 
+void PushApartPlayers(gentity_t *ent) {
+    int i, pass, numPlayers = level.numConnectedClients;
+    gentity_t *other;
+    vec3_t dir, impulse;
+    float dist, pushAmount;
+    const int passes = 6;
+    float basePushImpulseScale = 64.0f;
+    float basePushAmountMax = 4.0f;
+
+    for (pass = 0; pass < passes; pass++) {
+        float radius = 16.0f - pass * 2.0f;  // 16, 14, ..., 6
+        float pushImpulseScale = basePushImpulseScale / (pass + 1);
+
+        for (i = 0; i < numPlayers; i++) {
+            other = &g_entities[level.sortedClients[i]];
+            if (other == ent) continue;
+            if (!other->client || other->client->ps.pm_type == PM_DEAD) continue;
+            if (other->client->noclip) continue;
+
+            if (ent->r.absmin[0] > other->r.absmax[0] ||
+                ent->r.absmax[0] < other->r.absmin[0] ||
+                ent->r.absmin[1] > other->r.absmax[1] ||
+                ent->r.absmax[1] < other->r.absmin[1] ||
+                ent->r.absmin[2] > other->r.absmax[2] ||
+                ent->r.absmax[2] < other->r.absmin[2]) {
+                continue;
+            }
+
+            VectorSubtract(other->r.currentOrigin, ent->r.currentOrigin, dir);
+            dir[2] = 0;
+            dist = VectorLength(dir);
+
+            if (dist < 0.01f) {
+                VectorSet(dir, 1, 0, 0);
+                dist = 1.0f;
+            }
+
+            if (dist > radius)
+                continue;
+
+            // Мягкая нижняя граница
+            if (dist < 4.0f)
+                dist = 4.0f;
+
+            VectorNormalize(dir);
+
+            pushAmount = basePushAmountMax * (1.0f - (dist / radius));
+            if (pushAmount < 0.5f)
+                continue;
+
+            VectorScale(dir, pushAmount * pushImpulseScale, impulse);
+            VectorAdd(other->client->ps.velocity, impulse, other->client->ps.velocity);
+        }
+    }
+}
+
+
+
+
+
+
+
 /*
 ==============
 ClientThink
@@ -968,7 +1030,7 @@ void ClientThink_real( gentity_t *ent ) {
 #else
 		Pmove (&pm);
 #endif
-
+		
 	// save results of pmove
 	if ( ent->client->ps.eventSequence != oldEventSequence ) {
 		ent->eventTime = level.time;
@@ -996,6 +1058,8 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// link entity now, after any personal teleporters have been used
 	trap_LinkEntity (ent);
+
+	PushApartPlayers(ent);
 	if ( !ent->client->noclip ) {
 		G_TouchTriggers( ent );
 	}

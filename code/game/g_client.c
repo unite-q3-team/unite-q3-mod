@@ -255,18 +255,54 @@ __search:
 	return spot;
 }
 
+static qboolean PointTakenByOpposingTeam( const gentity_t *ent, const vec3_t point, float radius ) {
+	vec3_t delta;
+	float dist;
+	int i;
+	for ( i = 0; i < level.maxclients; i++ ) {
+		gentity_t *other = &g_entities[i];
+
+		if ( !other->inuse || !other->client )
+			continue;
+
+		if ( other == ent )
+			continue;
+
+		if ( other->client->ps.stats[STAT_HEALTH] <= 0 )
+			continue;
+
+		if ( other->client->sess.sessionTeam == ent->client->sess.sessionTeam )
+			continue;
+
+		VectorSubtract( point, other->r.currentOrigin, delta );
+		dist = VectorLength( delta );
+
+		if ( dist < radius )
+			return qtrue;
+	}
+
+	return qfalse;
+}
+
+
 static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t origin, vec3_t angles ) {
 	gentity_t *spot;
 	vec3_t delta;
-	float minEnemyDist;
 	float bestDist = -1.0f;
+	float dist, minEnemyDist;
 	gentity_t *bestSpot = NULL;
-	int i, j;
 	qboolean isBot;
-	float dist;
+	int i, j;
 
 	if ( !ent || !ent->client ) {
-		G_Error("SelectFurthestSpawnFromEnemies: invalid ent");
+		if ( level.numSpawnSpots > 0 ) {
+			int randIndex = rand() % level.numSpawnSpots;
+			spot = level.spawnSpots[randIndex];
+			VectorCopy( spot->s.origin, origin );
+			origin[2] += 9.0f;
+			VectorCopy( spot->s.angles, angles );
+			return spot;
+		}
 		return NULL;
 	}
 
@@ -292,16 +328,12 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 		for ( j = 0; j < level.maxclients; j++ ) {
 			gentity_t *enemy = &g_entities[j];
 
-			if ( !enemy->inuse || !enemy->client )
+			if ( !enemy->inuse || !enemy->client || enemy == ent )
 				continue;
 
-			if ( enemy == ent )
+			if ( g_gametype.integer > GT_SINGLE_PLAYER &&
+			     enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
 				continue;
-
-			if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
-				if ( enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
-					continue;
-			}
 
 			if ( enemy->client->ps.stats[STAT_HEALTH] <= 0 )
 				continue;
@@ -319,18 +351,86 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 		}
 	}
 
-	if ( !bestSpot ) {
-		G_Error("SelectFurthestSpawnFromEnemies: couldn't find valid spawn");
-		return NULL;
+	if ( bestSpot ) {
+		VectorCopy( bestSpot->s.origin, origin );
+		origin[2] += 9.0f;
+		VectorCopy( bestSpot->s.angles, angles );
+		return bestSpot;
 	}
 
-	VectorCopy( bestSpot->s.origin, origin );
-	origin[2] += 9.0f;
-	VectorCopy( bestSpot->s.angles, angles );
+	bestDist = 9999999.0f;
+	bestSpot = NULL;
 
-	return bestSpot;
+	for ( i = 0; i < level.numSpawnSpots; i++ ) {
+		spot = level.spawnSpots[i];
+
+		if ( SpotWouldTelefrag(spot) )
+			continue;
+
+		minEnemyDist = 9999999.0f;
+
+		for ( j = 0; j < level.maxclients; j++ ) {
+			gentity_t *other = &g_entities[j];
+
+			if ( !other->inuse || !other->client || other == ent )
+				continue;
+
+			if ( other->client->ps.stats[STAT_HEALTH] <= 0 )
+				continue;
+
+			if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
+				if ( other->client->sess.sessionTeam != ent->client->sess.sessionTeam )
+					continue;
+			} else {
+				if ( other->client->sess.sessionTeam == ent->client->sess.sessionTeam )
+					continue;
+			}
+
+			VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
+			dist = VectorLength( delta );
+
+			if ( dist < bestDist ) {
+				bestDist = dist;
+				bestSpot = spot;
+			}
+		}
+	}
+
+	if ( bestSpot ) {
+		VectorCopy( bestSpot->s.origin, origin );
+		origin[2] += 9.0f;
+		VectorCopy( bestSpot->s.angles, angles );
+		return bestSpot;
+	}
+
+	if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
+		for ( i = 0; i < level.numSpawnSpots; i++ ) {
+			spot = level.spawnSpots[i];
+
+			// if ( SpotWouldTelefrag(spot) )
+			// 	continue;
+
+			if ( PointTakenByOpposingTeam(ent, spot->s.origin, 64.0f) )
+				continue;
+
+			VectorCopy( spot->s.origin, origin );
+			origin[2] += 9.0f;
+			VectorCopy( spot->s.angles, angles );
+			return spot;
+		}
+	}
+
+	if ( level.numSpawnSpots > 0 ) {
+		int randIndex = rand() % level.numSpawnSpots;
+		spot = level.spawnSpots[randIndex];
+		VectorCopy( spot->s.origin, origin );
+		origin[2] += 9.0f;
+		VectorCopy( spot->s.angles, angles );
+		return spot;
+	}
+
+	return NULL;
 }
-
 
 
 /*
@@ -1201,7 +1301,6 @@ void ClientBegin( int clientNum ) {
 	// count current clients and rank for scoreboard
 	CalculateRanks();
 }
-
 
 /*
 ===========
