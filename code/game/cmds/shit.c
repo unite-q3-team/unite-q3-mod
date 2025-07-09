@@ -28,6 +28,10 @@ void plsauth_f(gentity_t *ent) {
         trap_SendServerCommand(ent - g_entities, "print \"^3Usage: auth <pass>\n\"");
         return;
     }
+
+    // зачем нам авторизовывать уже авторизованного клиента?
+    if (ent->authed) return;
+
     trap_Argv(1, buf, sizeof(buf));
 
     // Проверяем, есть ли пароли в _ath.string
