@@ -122,11 +122,11 @@ qboolean CheckGauntletAttack( gentity_t *ent ) {
 	}
 #endif
 	//freeze
-	if (g_freeze.integer) { // Хуета
-		if ( g_dmflags.integer & 1024 && !( g_weaponlimit.integer & 2048 ) ) {
-			s_quadFactor = 8;
-		}
-	}
+	// if (g_freeze.integer) { // Хуета
+	// 	if ( g_dmflags.integer & 1024 && !( g_weaponlimit.integer & 2048 ) ) {
+	// 		s_quadFactor = 8;
+	// 	}
+	// }
 	//freeze
 	damage = g_gauntlet_damage.integer * s_quadFactor;
 	G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_GAUNTLET );

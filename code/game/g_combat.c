@@ -41,11 +41,11 @@ void AddScore( gentity_t *ent, vec3_t origin, int score ) {
 	ScorePlum(ent, origin, score);
 	//
 	ent->client->ps.persistant[PERS_SCORE] += score;
-	if ( g_gametype.integer == GT_TEAM ) {
+	if ( g_gametype.integer == GT_TEAM && !g_freeze.integer) {
 		AddTeamScore( origin, ent->client->ps.persistant[PERS_TEAM], score );
 	}
 	if(!g_freeze.integer) {
-		if ( g_gametype.integer == GT_TEAM )
+		if ( g_gametype.integer == GT_TEAM && !g_freeze.integer)
 			level.teamScores[ ent->client->ps.persistant[PERS_TEAM] ] += score;
 	}
 	else
@@ -609,8 +609,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
         if ( client->sess.spectatorClient == self->s.number ) {
             Cmd_Score_f( g_entities + i );
         }
-    } // ← вот этот блок должен завершаться до //freeze
-
+    }
     //freeze
     if (g_freeze.integer) {
         if ( g_debugFreeze.integer & (1 << 16) ) {
@@ -626,7 +625,6 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
         }
         self->r.maxs[ 2 ] = -8;
     }
-
 
 	self->takedamage = qtrue;	// can still be gibbed
 
@@ -1014,10 +1012,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		damage = 1;
 	}
 
-	 if(targ == attacker && (g_dmflags.integer & DF_NO_SELF_DAMAGE) )
+	 if( targ == attacker && (g_dmflags.integer & DF_NO_SELF_DAMAGE) )
             damage = 0;
 	
-	if ( g_selfDamage.integer && targ == attacker) {
+	if ( !g_selfDamage.integer && targ == attacker) {
 		damage = 0;
 	}
 

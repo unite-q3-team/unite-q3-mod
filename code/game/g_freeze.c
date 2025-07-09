@@ -82,11 +82,6 @@ qboolean Set_Client( gentity_t *ent ) {
         result = qtrue;
     }
 
-    // 1 << 2 == 4
-    if ( g_debugFreeze.integer & (1 << 2) ) {
-        Com_Printf( "Set_Client: ent %d => %s\n", ent->s.number, result ? "qtrue" : "qfalse" );
-    }
-
     return result;
 }
 
@@ -150,12 +145,7 @@ static void player_free( gentity_t *ent ) {
         ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
         ent->client->ps.pm_time = 100;
     }
-
     ent->client->inactivityTime = level.time + g_inactivity.integer * 1000;
-
-    if ( g_debugFreeze.integer & (1 << 4) ) {
-        Com_Printf( "player_free: ent %d unfrozen and prepped for respawn\n", ent->s.number );
-    }
 }
 
 
@@ -185,7 +175,7 @@ static void Body_Explode( gentity_t *self ) {
         if ( is_spectator( e->client ) ) continue;
 
         if ( !self->count ) {
-            self->count = level.time + ((g_dmflags.integer & 1024 || g_gametype.integer == GT_CTF || g_gametype.integer == GT_TEAM) ? 2000 : 3000);
+            self->count = level.time + (g_thawTime.integer);
             G_Sound( self, CHAN_AUTO, self->noise_index );
             self->activator = e;
         } else if ( self->count < level.time ) {
@@ -322,22 +312,11 @@ static void TossBody( gentity_t *self ) {
 static void Body_think( gentity_t *self ) {
     self->nextthink = level.time + FRAMETIME;
 
-    if ( g_debugFreeze.integer & (1 << 10) ) {
-        Com_Printf( "Body_think: body %d tick @ %d\n", self->s.number, level.time );
-    }
-
     if ( !self->target_ent || !self->target_ent->client || !self->target_ent->inuse ) {
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: target_ent invalid, freeing body %d\n", self->s.number );
-        }
         Body_free( self );
         return;
     }
     if ( self->s.otherEntityNum != self->target_ent->s.number ) {
-        if ( g_debugFreeze.integer & (1 << 10) ) {
-            Com_Printf( "Body_think: mismatch target_ent num (%d != %d), freeing body %d\n",
-                self->s.otherEntityNum, self->target_ent->s.number, self->s.number );
-        }
         Body_free( self );
         return;
     }
@@ -345,7 +324,7 @@ static void Body_think( gentity_t *self ) {
         return;
     }
 
-	if ( g_thawTimeAuto.integer > 0 && level.time - self->timestamp > g_thawTimeAuto.integer ) {
+	if ( g_thawTimeAutoRevive.integer > 0 && level.time - self->timestamp > g_thawTimeAutoRevive.integer ) {
 		player_free( self->target_ent );
 		TossBody( self );
 		return;
@@ -513,7 +492,6 @@ static void CopyToBody( gentity_t *ent ) {
     body = G_Spawn();
     body->classname = "freezebody";
     body->s = ent->s;
-    body->s.eFlags = EF_DEAD;
  	body->s.powerups = 1 << PW_BATTLESUIT;
     body->s.number = body - g_entities;
 	body->s.weapon = WP_NONE;
@@ -572,10 +550,6 @@ static void CopyToBody( gentity_t *ent ) {
     body->count = 0;
 
     trap_LinkEntity( body );
-
-    if ( g_debugFreeze.integer & (1 << 14) ) {
-        Com_Printf( "CopyToBody: body %d created from ent %d\n", body->s.number, ent->s.number );
-    }
 }
 
 static qboolean NearbyBody( gentity_t *targ ) {
@@ -583,36 +557,23 @@ static qboolean NearbyBody( gentity_t *targ ) {
     vec3_t delta;
 
     if ( g_gametype.integer == GT_CTF ) {
-        if ( g_debugFreeze.integer & (1 << 15) ) {
-            Com_Printf( "NearbyBody: skipped (gametype CTF)\n" );
-        }
         return qfalse;
     }
 
     spot = NULL;
     while ( ( spot = G_Find( spot, FOFS( classname ), "freezebody" ) ) != NULL ) {
-        if ( g_debugFreeze.integer & (1 << 15) ) {
-            Com_Printf( "NearbyBody: checking spot %d (team %d, freezeState %d)\n",
-                spot->s.number, spot->spawnflags, spot->freezeState );
-        }
 
         if ( !spot->freezeState ) continue;
         if ( spot->spawnflags != targ->client->sess.sessionTeam ) continue;
 
         VectorSubtract( spot->s.pos.trBase, targ->s.pos.trBase, delta );
-        if ( VectorLength( delta ) > 100 ) continue;
+        if ( VectorLength( delta ) > g_thawRadius.integer ) continue;
 
         if ( level.time - spot->timestamp > 400 ) {
-            if ( g_debugFreeze.integer & (1 << 15) ) {
-                Com_Printf( "NearbyBody: valid nearby body found (ent %d)\n", spot->s.number );
-            }
             return qtrue;
         }
     }
 
-    if ( g_debugFreeze.integer & (1 << 15) ) {
-        Com_Printf( "NearbyBody: no valid frozen body near ent %d\n", targ->s.number );
-    }
     return qfalse;
 }
 
@@ -645,15 +606,13 @@ void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
 
     switch ( mod ) {
     case MOD_UNKNOWN:
-    case MOD_WATER:
+    // case MOD_WATER: //lol
     case MOD_CRUSH:
+    // Надо убрать стак в моделях перед тем как запрещать это
     case MOD_TELEFRAG:
-    case MOD_SUICIDE:
+    // case MOD_SUICIDE:
     case MOD_TARGET_LASER:
     case MOD_GRAPPLE:
-        if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_freeze: skipped due to mod = %d\n", mod );
-        }
         return;
     }
 
@@ -667,11 +626,6 @@ void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
     self->r.contents = 0;
     self->health = GIB_HEALTH;
 
-    if ( g_debugFreeze.integer & (1 << 16) ) {
-        Com_Printf( "player_freeze: player %d frozen by %d (mod %d)\n",
-            self->s.number, attacker ? attacker->s.number : -1, mod );
-    }
-
     if ( attacker->client && self != attacker && NearbyBody( self ) ) {
         attacker->client->ps.persistant[ PERS_DEFEND_COUNT ]++;
         attacker->client->ps.eFlags &= ~( EF_AWARD_IMPRESSIVE | EF_AWARD_EXCELLENT |
@@ -680,9 +634,6 @@ void player_freeze( gentity_t *self, gentity_t *attacker, int mod ) {
         attacker->client->ps.eFlags |= EF_AWARD_DEFEND;
         attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 
-        if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_freeze: attacker %d awarded DEFEND\n", attacker->s.number );
-        }
     }
 }
 
@@ -724,6 +675,7 @@ void team_wins( int team ) {
 		e = g_entities + i;
 		cl = e->client;
 		if ( !e->inuse ) continue;
+        
 		if ( e->freezeState ) {
 			if ( !( g_dmflags.integer & 128 ) || cl->sess.sessionTeam != team ) {
 				player_free( e );
@@ -763,23 +715,24 @@ void team_wins( int team ) {
 
 		
 	}
-
-	if ( level.numPlayingClients < 2 || g_gametype.integer == GT_CTF ) {
+	
+	// ignore ctf, no scores from here
+	if ( level.numPlayingClients < 2 || g_gametype.integer == GT_CTF) {
 		return;
 	}
 
 	te = G_TempEntity( vec3_origin, EV_GLOBAL_TEAM_SOUND );
 	if ( team == TEAM_RED ) {
-		teamstr = "^1Red";
+		teamstr = "^1RED";
 		te->s.eventParm = GTS_BLUE_CAPTURE;
 	} else {
-		teamstr = "^4Blue";
+		teamstr = "^4BLUE";
 		te->s.eventParm = GTS_RED_CAPTURE;
 	}
 	te->r.svFlags |= SVF_BROADCAST;
 
-	trap_SendServerCommand( -1, va( "cp \"" S_COLOR_MAGENTA "%s " S_COLOR_WHITE "^3team scores!\n\"", teamstr ) );
-	trap_SendServerCommand( -1, va( "print \"%s ^3team scores!\n\"", teamstr ) );
+	trap_SendServerCommand( -1, va( "cp \"" S_COLOR_MAGENTA "%s " S_COLOR_WHITE "^3Team scores!\n\"", teamstr ) );
+	trap_SendServerCommand( -1, va( "print \"%s ^3Team scores!\n\"", teamstr ) );
 
 	AddTeamScore( vec3_origin, team, 1 );
 	Team_ForceGesture( team );

@@ -123,8 +123,6 @@ void AddTeamScore( vec3_t origin, team_t team, int score ) {
 		return;
 	}
 	
-
-	if (!g_freeze.integer){
 		eventParm = -1;
 		otherTeam = OtherTeam( team );
 
@@ -151,10 +149,6 @@ void AddTeamScore( vec3_t origin, team_t team, int score ) {
 		}
 
 		level.teamScores[ team ] += score;
-	} else {
-		
-	}
-
 }
 
 /*

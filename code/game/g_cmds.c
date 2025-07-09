@@ -513,7 +513,7 @@ void Cmd_Kill_f(gentity_t *ent) {
 	ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 
 	player_die(ent, ent, ent, 100000,
-		(g_freeze.integer ? MOD_BFG_SPLASH : MOD_SUICIDE));
+		(MOD_SUICIDE));
 }
 
 
@@ -2058,6 +2058,9 @@ void ClientCommand( int clientNum ) {
 		killplayer_f( ent );
 	else if (Q_stricmp (cmd, "svfps") == 0)
 		Cmd_svfps_f( ent );
+	else if (Q_stricmp (cmd, "restart") == 0)
+		map_restart_f( ent );
+	
 
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );

@@ -105,17 +105,15 @@ G_CVAR( g_fallDamage,     "g_fallDamage",     "1", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_startWeapon,     "g_startWeapon",     "5", 0, 0, qfalse, qfalse )
 G_CVAR( g_startWeapons,     "g_startWeapons",     "511", 0, 0, qfalse, qfalse )
-G_CVAR( g_weaponlimit,     "g_weaponlimit",     "1023", 0, 0, qfalse, qfalse )
 
-
-G_CVAR( g_start_ammo_mg,          "g_start_ammo_mg",          "200",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_shotgun,     "g_start_ammo_shotgun",     "25",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_grenade,     "g_start_ammo_grenade",     "15",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_rocket,      "g_start_ammo_rocket",      "50",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_lightning,   "g_start_ammo_lightning",   "400",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_railgun,     "g_start_ammo_railgun",     "25",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_plasmagun,   "g_start_ammo_plasmagun",   "200",  0, 0, qfalse, qfalse )
-G_CVAR( g_start_ammo_bfg,         "g_start_ammo_bfg",         "20",  0, 0, qfalse, qfalse )
+G_CVAR( g_mg_start_ammo,          "g_mg_start_ammo",          "200",  0, 0, qfalse, qfalse )
+G_CVAR( g_sg_start_ammo,     "g_sg_start_ammo",     "25",  0, 0, qfalse, qfalse )
+G_CVAR( g_gl_start_ammo,     "g_gl_start_ammo",     "15",  0, 0, qfalse, qfalse )
+G_CVAR( g_rl_start_ammo,      "g_rl_start_ammo",      "50",  0, 0, qfalse, qfalse )
+G_CVAR( g_lg_start_ammo,   "g_lg_start_ammo",   "200",  0, 0, qfalse, qfalse )
+G_CVAR( g_rg_start_ammo,     "g_rg_start_ammo",     "25",  0, 0, qfalse, qfalse )
+G_CVAR( g_pg_start_ammo,   "g_pg_start_ammo",   "200",  0, 0, qfalse, qfalse )
+G_CVAR( g_bfg_start_ammo,         "g_bfg_start_ammo",         "20",  0, 0, qfalse, qfalse )
 #ifdef MISSIONPACK
 G_CVAR( g_start_ammo_nailgun,     "g_start_ammo_nailgun",     "100",  0, 0, qfalse, qfalse )
 G_CVAR( g_start_ammo_proxlauncher,"g_start_ammo_proxlauncher","100",  0, 0, qfalse, qfalse )
@@ -155,11 +153,11 @@ G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qt
 G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
-G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
-
-// G_CVAR( g_wpflags, "g_wpflags", "255", CVAR_ARCHIVE | CVAR_LATCH, 0, qfalse, qfalse )
+G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // G_CVAR( g_spawnItems, "g_spawnItems", "19", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_spawn_weapons, "g_spawn_weapons", "1023", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+
 // G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
 
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
@@ -170,25 +168,31 @@ G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, 
 // G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
 //freeze
-G_CVAR( g_freeze, "g_freeze", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
-
+G_CVAR( g_freeze, "g_freeze", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_thawTime, "g_thawTime", "2000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAutoRevive, "g_thawTimeAutoRevive", "90000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_bounds, "g_thawTimeAuto_bounds", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_tp, "g_thawTimeAuto_tp", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
-
-G_CVAR( g_thawTimeAuto, "g_thawTimeAuto", "90000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawRadius, "g_thawRadius", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 // G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeBounce, "g_freezeBounce", "0.4", CVAR_ARCHIVE, 0, qfalse, qfalse )
-// G_CVAR( g_thawTime, "g_thawTime", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
-// G_CVAR( g_thawRadius, "g_thawRadius", "125", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+G_CVAR( g_newSpawns, "g_newSpawns", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
 G_CVAR( _ath, "_ath", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+//XQ3E
+G_CVAR( g_x_drawDamage, "g_x_drawDamage", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_x_unfreezeFoe, "g_x_unfreezeFoe", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_x_drawHitbox, "g_x_drawHitbox", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
+
 
 #undef G_CVAR

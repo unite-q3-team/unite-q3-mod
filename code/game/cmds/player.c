@@ -124,7 +124,7 @@ void killplayer_f(gentity_t *ent){
     char buf[MAX_TOKEN_CHARS];
     gentity_t *victim;
 
-    if (!ent->client) return;
+    if (!ent->client || !ent->authed) return;
 
     if (trap_Argc() != 2) {
         trap_SendServerCommand(ent - g_entities, "print \"^3Usage: killplayer <id>\n\"");
@@ -152,5 +152,5 @@ void killplayer_f(gentity_t *ent){
     victim->flags &= ~FL_GODMODE;
     victim->client->ps.stats[STAT_HEALTH] = victim->health = -999;
 
-    player_die(victim, victim, victim, 100000, (g_freeze.integer ? MOD_BFG_SPLASH : MOD_SUICIDE));
+    player_die(victim, victim, victim, 100000, (MOD_SUICIDE));
 }

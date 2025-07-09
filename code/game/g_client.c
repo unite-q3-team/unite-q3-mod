@@ -255,6 +255,83 @@ __search:
 	return spot;
 }
 
+static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t origin, vec3_t angles ) {
+	gentity_t *spot;
+	vec3_t delta;
+	float minEnemyDist;
+	float bestDist = -1.0f;
+	gentity_t *bestSpot = NULL;
+	int i, j;
+	qboolean isBot;
+	float dist;
+
+	if ( !ent || !ent->client ) {
+		G_Error("SelectFurthestSpawnFromEnemies: invalid ent");
+		return NULL;
+	}
+
+	isBot = (ent->r.svFlags & SVF_BOT) == SVF_BOT;
+
+	for ( i = 0; i < level.numSpawnSpots; i++ ) {
+		spot = level.spawnSpots[i];
+
+		if ( spot->fteam != TEAM_FREE && level.numSpawnSpotsFFA > 0 )
+			continue;
+
+		if ( SpotWouldTelefrag(spot) )
+			continue;
+
+		if ( (spot->flags & FL_NO_BOTS) && isBot )
+			continue;
+
+		if ( (spot->flags & FL_NO_HUMANS) && !isBot )
+			continue;
+
+		minEnemyDist = 9999999.0f;
+
+		for ( j = 0; j < level.maxclients; j++ ) {
+			gentity_t *enemy = &g_entities[j];
+
+			if ( !enemy->inuse || !enemy->client )
+				continue;
+
+			if ( enemy == ent )
+				continue;
+
+			if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
+				if ( enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
+					continue;
+			}
+
+			if ( enemy->client->ps.stats[STAT_HEALTH] <= 0 )
+				continue;
+
+			VectorSubtract( spot->s.origin, enemy->r.currentOrigin, delta );
+			dist = VectorLength( delta );
+
+			if ( dist < minEnemyDist )
+				minEnemyDist = dist;
+		}
+
+		if ( minEnemyDist > bestDist ) {
+			bestDist = minEnemyDist;
+			bestSpot = spot;
+		}
+	}
+
+	if ( !bestSpot ) {
+		G_Error("SelectFurthestSpawnFromEnemies: couldn't find valid spawn");
+		return NULL;
+	}
+
+	VectorCopy( bestSpot->s.origin, origin );
+	origin[2] += 9.0f;
+	VectorCopy( bestSpot->s.angles, angles );
+
+	return bestSpot;
+}
+
+
 
 /*
 ===========
@@ -264,7 +341,12 @@ Chooses a player start, deathmatch start, etc
 ============
 */
 gentity_t *SelectSpawnPoint( gentity_t *ent, vec3_t avoidPoint, vec3_t origin, vec3_t angles ) {
-	return SelectRandomFurthestSpawnPoint( ent, avoidPoint, origin, angles );
+	if ( !g_newSpawns.integer ) {
+		return SelectRandomFurthestSpawnPoint( ent, avoidPoint, origin, angles );
+
+	} else {
+		return SelectFurthestSpawnFromEnemies( ent, origin, angles );
+	}
 }
 
 
@@ -526,28 +608,28 @@ void AssignStartingWeapons(gclient_t *client) {
                     client->ps.ammo[WP_GAUNTLET] = -1;
                     break;
                 case WP_MACHINEGUN:
-                    client->ps.ammo[i] = (g_gametype.integer == GT_TEAM) ? g_start_ammo_mg.integer / 2 : g_start_ammo_mg.integer;
+                    client->ps.ammo[i] = (g_gametype.integer == GT_TEAM) ? g_mg_start_ammo.integer / 2 : g_mg_start_ammo.integer;
                     break;
                 case WP_SHOTGUN:
-                    client->ps.ammo[i] = g_start_ammo_shotgun.integer;
+                    client->ps.ammo[i] = g_sg_start_ammo.integer;
                     break;
                 case WP_GRENADE_LAUNCHER:
-                    client->ps.ammo[i] = g_start_ammo_grenade.integer;
+                    client->ps.ammo[i] = g_gl_start_ammo.integer;
                     break;
                 case WP_ROCKET_LAUNCHER:
-                    client->ps.ammo[i] = g_start_ammo_rocket.integer;
+                    client->ps.ammo[i] = g_rl_start_ammo.integer;
                     break;
                 case WP_LIGHTNING:
-                    client->ps.ammo[i] = g_start_ammo_lightning.integer;
+                    client->ps.ammo[i] = g_lg_start_ammo.integer;
                     break;
                 case WP_RAILGUN:
-                    client->ps.ammo[i] = g_start_ammo_railgun.integer;
+                    client->ps.ammo[i] = g_rg_start_ammo.integer;
                     break;
                 case WP_PLASMAGUN:
-                    client->ps.ammo[i] = g_start_ammo_plasmagun.integer;
+                    client->ps.ammo[i] = g_pg_start_ammo.integer;
                     break;
                 case WP_BFG:
-                    client->ps.ammo[i] = g_start_ammo_bfg.integer;
+                    client->ps.ammo[i] = g_bfg_start_ammo.integer;
                     break;
 #ifdef MISSIONPACK
                 case WP_NAILGUN:
@@ -884,7 +966,7 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	}
 
 	trap_SetConfigstring( CS_PLAYERS+clientNum, s );
-
+	
 	// this is not the userinfo, more like the configstring actually
 	G_LogPrintf( "ClientUserinfoChanged: %i %s\n", clientNum, s );
 
@@ -1207,7 +1289,7 @@ void ClientSpawn(gentity_t *ent) {
 	saved = client->pers;
 	savedSess = client->sess;
 	savedPing = client->ps.ping;
-//	savedAreaBits = client->areabits;
+// savedAreaBits = client->areabits;
 	accuracy_hits = client->accuracy_hits;
 	accuracy_shots = client->accuracy_shots;
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
@@ -1220,7 +1302,7 @@ void ClientSpawn(gentity_t *ent) {
 	client->pers = saved;
 	client->sess = savedSess;
 	client->ps.ping = savedPing;
-//	client->areabits = savedAreaBits;
+	// client->areabits = savedAreaBits;
 	client->accuracy_hits = accuracy_hits;
 	client->accuracy_shots = accuracy_shots;
 	client->lastkilled_client = -1;
@@ -1306,11 +1388,8 @@ void ClientSpawn(gentity_t *ent) {
 
 
 	// Устанавливаем оружие, форсим если можно, иначе лучшее
-	
 	client->ps.weapon = WP_NONE;
-
 	SetInitialWeapon(client);
-
 
 	// don't allow full run speed for a bit
 	client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
@@ -1330,43 +1409,24 @@ void ClientSpawn(gentity_t *ent) {
 		if ( !isSpectator )
 			trap_LinkEntity( ent );
 		// fire the targets of the spawn point
-	//freeze
-		if ( !( g_dmflags.integer & 1024 ) ) // Wtf?
-	//freeze
 		G_UseTargets( spawnPoint, ent );
 
-		// select the highest weapon number available, after any
-		// spawn given items have fired
-		// Если g_startWeapon валидно и разрешено — ставим его
-			if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS
-				&& (client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer)) )
-			{
-				client->ps.weapon = g_startWeapon.integer;
-			}
-			else
-			{
-				// Иначе ставим лучшее из разрешённых
-				client->ps.weapon = 1; // или 0, если есть WP_NONE
-				for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
-					if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
-						client->ps.weapon = i;
-						break;
-					}
+		if (g_startWeapon.integer >= 0 && g_startWeapon.integer < WP_NUM_WEAPONS
+			&& (client->ps.stats[STAT_WEAPONS] & (1 << g_startWeapon.integer)) )
+		{
+			client->ps.weapon = g_startWeapon.integer;
+		}
+		else
+		{
+			// Иначе ставим лучшее из разрешённых
+			client->ps.weapon = 1; // или 0, если есть WP_NONE
+			for (i = WP_NUM_WEAPONS - 1; i > 0; i--) {
+				if (client->ps.stats[STAT_WEAPONS] & (1 << i)) {
+					client->ps.weapon = i;
+					break;
 				}
 			}
-		//freeze
-			// if ( client->ps.stats[ STAT_WEAPONS ] & ( 1 << WP_ROCKET_LAUNCHER ) ) {
-			// 	client->ps.weapon = WP_ROCKET_LAUNCHER;
-			// }
-
-			// if ( g_start_armor.integer > 0 ) { // Вроде это лишнее
-			// 	client->ps.stats[ STAT_ARMOR ] += g_start_armor.integer;
-			// 	if ( client->ps.stats[ STAT_ARMOR ] > client->ps.stats[ STAT_MAX_HEALTH ] * 2 ) {
-			// 		client->ps.stats[ STAT_ARMOR ] = client->ps.stats[ STAT_MAX_HEALTH ] * 2;
-			// 	}
-			// }
-		//freeze
-
+		}
 	}
 
 	// run a client frame to drop exactly to the floor,

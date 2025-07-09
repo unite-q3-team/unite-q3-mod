@@ -9,8 +9,7 @@
 //==================================================================
 
 // the "gameversion" client command will print this plus compile date
-// #define	GAMEVERSION	"baseq3"
-#define	GAMEVERSION	"q3unite-freeze_v2"
+#define	GAMEVERSION	"baseq3" // lol
 
 #define BODY_QUEUE_SIZE		8
 

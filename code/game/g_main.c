@@ -134,6 +134,19 @@ void QDECL G_Error( const char *fmt, ... ) {
 	trap_Error( text );
 }
 
+/*
+XQ3E Config String
+*/
+void UpdateXQ3EFeaturesConfigString(void) {
+	char configStr[256];
+	Com_sprintf(configStr, sizeof(configStr),
+		"\\xmode\\config\\x_hck_dmg_draw\\%d\\x_hck_team_unfreezing_foe\\%d\\x_hck_ps_enemy_hitbox\\%d",
+		g_x_drawDamage.integer,
+		g_x_unfreezeFoe.integer,
+		g_x_drawHitbox.integer
+	);
+	trap_SetConfigstring(1000, configStr);
+}
 
 /*
 ================
@@ -506,12 +519,11 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	// don't forget to reset times
 	trap_SetConfigstring( CS_INTERMISSION, "" );
 
-	if (g_freeze.integer)
-	{
+	if (g_freeze.integer) {
 	trap_SetConfigstring( CS_OSP_FREEZE_GAME_TYPE, "1");
 	}
 	trap_SetConfigstring( CS_OSP_CUSTOM_CLIENT2, "1");
-	trap_SetConfigstring( XQ3E_ALLOW_FEATURES, "1");
+	UpdateXQ3EFeaturesConfigString();
 
 	if ( g_gametype.integer != GT_SINGLE_PLAYER ) {
 		// launch rotation system on first map load

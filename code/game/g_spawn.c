@@ -269,6 +269,14 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	// check item spawn functions
 	for ( item=bg_itemlist+1 ; item->classname ; item++ ) {
 		if ( !strcmp(item->classname, ent->classname) ) {
+
+			// Weapon and Ammo filter
+			if ( item->giType == IT_WEAPON || item->giType == IT_AMMO ) {
+				int mask = 1 << item->giTag;
+				if ( !(g_spawn_weapons.integer & mask) ) {
+					return qfalse;
+				}
+			}
 			G_SpawnItem( ent, item );
 			return qtrue;
 		}
@@ -277,14 +285,16 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	// check normal spawn functions
 	for ( s=spawns ; s->name ; s++ ) {
 		if ( !strcmp(s->name, ent->classname) ) {
-			// found it
 			s->spawn(ent);
 			return qtrue;
 		}
 	}
+
 	G_Printf ("%s doesn't have a spawn function\n", ent->classname);
 	return qfalse;
 }
+
+
 
 /*
 =============
