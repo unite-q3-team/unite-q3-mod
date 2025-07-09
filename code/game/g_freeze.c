@@ -192,6 +192,7 @@ static void Body_Explode( gentity_t *self ) {
 
             AddScore( e, self->s.pos.trBase, 1 );
             e->client->sess.wins++;
+            e->client->ps.persistant[PERS_ASSIST_COUNT]++; // assist award
             G_Damage( self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
 
         }
