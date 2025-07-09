@@ -13,7 +13,7 @@ all: dirs $(PK3)
 
 # Create necessary directories for the build
 dirs:
-	mkdir -p vm/game vm/cgame vm/ui vm/game/cmds vm/game/svcmds  # Create directories if they do not exist
+	mkdir -p vm/game vm/cgame vm/ui vm/game/cmds vm/game/svcmds vm/game/cmds/osp  # Create directories if they do not exist
 
 .PHONY: all dirs testc  # Declare 'all', 'dirs', and 'testc' as phony targets
 
@@ -46,6 +46,7 @@ vm/cgame.qvm: $(cg_asm)
 # Define rules for generating assembly files from C sources
 vm/game/cmds/%.asm: $(QADIR)/cmds/%.c; $(qa_cc)  # Generate assembly for game/cmds from C
 vm/game/svcmds/%.asm: $(QADIR)/svcmds/%.c; $(qa_cc)  # Generate assembly for game/svcmds from C
+vm/game/cmds/osp/%.asm: $(QADIR)/cmds/osp/%.c; $(qa_cc)  # Generate assembly for game/svcmds from C
 vm/game/%.asm: $(QADIR)/%.c; $(qa_cc)  # Generate assembly for game from C
 # vm/game/%.asm: ../../code/game/%.c; $(qa_cc)
 vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C

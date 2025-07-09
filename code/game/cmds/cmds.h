@@ -1,4 +1,4 @@
-// code/game/clcmds/testcmd.h
+// code/game/cmds/testcmd.h
 #include "../g_local.h"
 
 void Cmd_NewTest_f(gentity_t *ent);

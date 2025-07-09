@@ -2079,5 +2079,4 @@ void ClientCommand( int clientNum ) {
 		Com_Printf("@ ^ unknown command\n");
 		trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
 	}
-
 }
