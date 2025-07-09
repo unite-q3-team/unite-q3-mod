@@ -162,7 +162,7 @@ void fteam_f(gentity_t *ent){
     if (!ent->authed) return;
 
 	if ( trap_Argc() < 3 ) {
-		G_Printf("^3Usage:\n fteam <player> <team>\n");
+		trap_SendServerCommand(ent - g_entities, "print \"^3Usage:\n   ^3fteam <player> <team>\n\"");
 		return;
 	}
 
