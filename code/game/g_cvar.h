@@ -183,7 +183,7 @@ G_CVAR( g_thawRadius, "g_thawRadius", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_thawTimeDestroyedRemnant, "g_thawTimeDestroyedRemnant", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_thawTimeDied, "g_thawTimeDied", "60", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
-G_CVAR( g_newSpawns, "g_newSpawns", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_newSpawns, "g_newSpawns", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
