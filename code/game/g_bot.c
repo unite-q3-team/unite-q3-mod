@@ -26,6 +26,7 @@ typedef struct {
 static botSpawnQueue_t	botSpawnQueue[BOT_SPAWN_QUEUE_DEPTH];
 
 vmCvar_t bot_minplayers;
+vmCvar_t bot_minplayersWait;
 
 extern gentity_t	*podium1;
 extern gentity_t	*podium2;
@@ -396,7 +397,7 @@ void G_CheckMinimumPlayers( void ) {
 		return;
 
 	//only check once each 10 seconds
-	if ( checkminimumplayers_time > level.time - 10000 )
+	if ( checkminimumplayers_time > level.time - bot_minplayersWait.integer )
 		return;
 
 	if ( level.time - level.startTime < 2000 )
@@ -972,6 +973,7 @@ void G_InitBots( qboolean restart ) {
 	G_LoadArenas();
 
 	trap_Cvar_Register( &bot_minplayers, "bot_minplayers", "0", CVAR_SERVERINFO );
+	trap_Cvar_Register( &bot_minplayersWait, "bot_minplayersWait", "10000", CVAR_ARCHIVE );
 
 	if( g_gametype.integer == GT_SINGLE_PLAYER ) {
 		arenainfo = G_GetArenaInfoByMap( mapname );
