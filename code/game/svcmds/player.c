@@ -42,9 +42,9 @@ void Cmd_svPlrlist_f(void) {
     // Инициализация буфера
     buffer[0] = '\0';
     Q_strcat(buffer, sizeof(buffer),
-        va(" ^3Map^7 ^1: ^2%s\n\n  ^3ID ^1: ^3Players                          Nudge   Rate  Snaps  MOD  CC\n", g_mapname.string));
+        va(" Map: %s\n\n  ID : Players                          Nudge   Rate  Snaps  MOD  CC\n", g_mapname.string));
     Q_strcat(buffer, sizeof(buffer),
-        "^1----------------------------------------------------------------------\n");
+        "----------------------------------------------------------------------\n");
 
     // Основной цикл
     for (i = 0; i < level.maxclients; i++) {
@@ -58,16 +58,16 @@ void Cmd_svPlrlist_f(void) {
         // Определение команды
         switch (cl->sess.sessionTeam) {
         case TEAM_RED:
-            strcpy(teamChar, "^1R");
+            strcpy(teamChar, "R");
             break;
         case TEAM_BLUE:
-            strcpy(teamChar, "^4B");
+            strcpy(teamChar, "B");
             break;
         case TEAM_SPECTATOR:
-            strcpy(teamChar, "^3S");
+            strcpy(teamChar, "S");
             break;
         case TEAM_FREE:
-            strcpy(teamChar, "^7F");
+            strcpy(teamChar, "F");
             break;
         default:
             strcpy(teamChar, " ");
@@ -87,12 +87,12 @@ void Cmd_svPlrlist_f(void) {
 
         osp_str = GetUserinfoString(userinfo, "osp_client", "");
         if (osp_str[0] != '\0') {
-            mod_str = "^3OSP";
+            mod_str = "OSP";
         } else {
-            mod_str = "^1---";
+            mod_str = "---";
         }
 
-        cc_str = "^1??";
+        cc_str = "??";
 
         // Выравнивание данных
         svAlignString(rate_aligned, sizeof(rate_aligned), rate_buf, 6, qfalse);
@@ -105,12 +105,12 @@ void Cmd_svPlrlist_f(void) {
 
         // Добавление строки в буфер
         Q_strcat(buffer, sizeof(buffer),
-            va("%s ^7%2d ^1:^7 %s ^7%5d %6s   %4s %s %s\n",
+            va("%s %2d : %s %5d %6s   %4s %s %s\n",
                 teamChar, i, name_padded, nudge, rate_aligned, snaps_aligned, mod_aligned, cc_str));
     }
 
         Q_strcat(buffer, sizeof(buffer),
-            va("\n^3Total players: ^7%d\n", activePlayers));
+            va("\nTotal players: %d\n", activePlayers));
 
     // SendServerCommandInChunks(ent, va("\n%s\n", buffer));
     trap_Print( va("\n%s\n", buffer));
