@@ -742,6 +742,12 @@ void PushApartPlayers(gentity_t *ent) {
     float basePushImpulseScale = 64.0f;
     float basePushAmountMax = 4.0f;
 
+	if (!ent || !ent->client ||
+		ent->client->sess.sessionTeam == TEAM_SPECTATOR || // Это не точно
+		ent->client->ps.pm_type == PM_SPECTATOR	) {
+			return;
+		}
+
     for (pass = 0; pass < passes; pass++) {
         float radius = 16.0f - pass * 2.0f;  // 16, 14, ..., 6
         float pushImpulseScale = basePushImpulseScale / (pass + 1);
@@ -773,7 +779,6 @@ void PushApartPlayers(gentity_t *ent) {
             if (dist > radius)
                 continue;
 
-            // Мягкая нижняя граница
             if (dist < 4.0f)
                 dist = 4.0f;
 
