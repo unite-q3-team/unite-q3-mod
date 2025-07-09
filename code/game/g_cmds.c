@@ -2066,6 +2066,9 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "restart") == 0)
 		map_restart_f( ent );
 	
+	else if (Q_stricmp (cmd, "getstatsinfo") == 0)
+		osptest( ent );
+	
 
 	else if (Q_stricmp (cmd, "stats") == 0)
 		Cmd_Stats_f( ent );

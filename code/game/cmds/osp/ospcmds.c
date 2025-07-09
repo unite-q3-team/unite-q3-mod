@@ -2,5 +2,6 @@
 #include "ospcmds.h"
 
 void osptest(gentity_t *ent){
-    trap_SendServerCommand(ent - g_entities, "print \"^3yesss\n\"");
+    trap_SendServerCommand(ent - g_entities, "print \"^3xd\n\"");
+    trap_SendServerCommand(ent - g_entities, "statsinfo 1");
 }
