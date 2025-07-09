@@ -1,7 +1,7 @@
 // code/game/svcmds/player.c
-#include "cmds.h"
+#include "svcmds.h"
 
-void AlignString(char *dest, int destSize, const char *src, int width, qboolean leftAlign) {
+void svAlignString(char *dest, int destSize, const char *src, int width, qboolean leftAlign) {
     int len;
     int pad;
 
@@ -95,9 +95,9 @@ void Cmd_svPlrlist_f(void) {
         cc_str = "^1??";
 
         // Выравнивание данных
-        AlignString(rate_aligned, sizeof(rate_aligned), rate_buf, 6, qfalse);
-        AlignString(snaps_aligned, sizeof(snaps_aligned), snaps_buf, 4, qfalse);
-        AlignString(mod_aligned, sizeof(mod_aligned), mod_str, 6, qfalse);
+        svAlignString(rate_aligned, sizeof(rate_aligned), rate_buf, 6, qfalse);
+        svAlignString(snaps_aligned, sizeof(snaps_aligned), snaps_buf, 4, qfalse);
+        svAlignString(mod_aligned, sizeof(mod_aligned), mod_str, 6, qfalse);
         // AlignString(cc_aligned, sizeof(cc_aligned), cc_str, 6, qfalse);
 
         // Форматирование имени

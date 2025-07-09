@@ -12,6 +12,7 @@ QA_SRC = \
  cmds/shit \
  cmds/serverutils \
  svcmds/svcmds \
+ svcmds/player \
  g_freeze \
 
 CG_SRC = \
