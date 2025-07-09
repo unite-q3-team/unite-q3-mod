@@ -1528,6 +1528,7 @@ void ClientDisconnect( int clientNum ) {
 	G_RevertVote( ent->client );
 
 	G_LogPrintf( "ClientDisconnect: %i\n", clientNum );
+	ent->authed = qfalse;
 
 	// if we are playing in tourney mode and losing, give a win to the other player
 	if ( (g_gametype.integer == GT_TOURNAMENT )

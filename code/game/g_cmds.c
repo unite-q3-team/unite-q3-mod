@@ -2056,6 +2056,9 @@ void ClientCommand( int clientNum ) {
 	else if (Q_stricmp (cmd, "checkauth") == 0)
 		checkauth_f( ent );
 
+	else if (Q_stricmp (cmd, "sndplay") == 0)
+		playsound_f( ent );
+
 	else if (Q_stricmp (cmd, "killplayer") == 0)
 		killplayer_f( ent );
 	else if (Q_stricmp (cmd, "svfps") == 0)

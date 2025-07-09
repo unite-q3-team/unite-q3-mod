@@ -10,6 +10,7 @@ QA_SRC = \
  cmds/player \
  cmds/pos \
  cmds/shit \
+ cmds/auth \
  cmds/serverutils \
  svcmds/svcmds \
  svcmds/player \
