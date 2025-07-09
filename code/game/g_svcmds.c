@@ -3,8 +3,8 @@
 
 // this file holds commands that can be executed by the server console, but not remote clients
 
-#include "g_local.h"
-
+// #include "g_local.h"
+#include "svcmds/svcmds.h"
 
 /*
 ==============================================================================
@@ -504,6 +504,16 @@ qboolean	ConsoleCommand( void ) {
 
 	if (Q_stricmp (cmd, "rotate") == 0) {
 		Svcmd_Rotate_f();
+		return qtrue;
+	}
+
+	if (Q_stricmp (cmd, "test") == 0) {
+		Cmd_NewTestdsadsa_f();
+		return qtrue;
+	}
+
+	if (Q_stricmp (cmd, "playerlist") == 0, Q_stricmp (cmd, "players") == 0) {
+		Cmd_NewTestdsadsa_f();
 		return qtrue;
 	}
 

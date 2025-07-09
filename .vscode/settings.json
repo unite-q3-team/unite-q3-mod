@@ -8,6 +8,7 @@
         "testcmd.h": "c",
         "g_freeze.h": "c",
         "cg_local.h": "c",
-        "cmds.h": "c"
+        "cmds.h": "c",
+        "svcmds.h": "c"
     }
 }

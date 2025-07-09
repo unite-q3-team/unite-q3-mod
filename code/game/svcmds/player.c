@@ -1,4 +1,4 @@
-// code/game/cmds/player.c
+// code/game/svcmds/player.c
 #include "cmds.h"
 
 void AlignString(char *dest, int destSize, const char *src, int width, qboolean leftAlign) {
@@ -19,8 +19,7 @@ void AlignString(char *dest, int destSize, const char *src, int width, qboolean 
     dest[width] = '\0';
 }
 
-
-void Cmd_Plrlist_f(gentity_t *ent) {
+void Cmd_svPlrlist_f(void) {
     char buffer[8192];
     int i;
     gclient_t *cl;
@@ -113,68 +112,6 @@ void Cmd_Plrlist_f(gentity_t *ent) {
         Q_strcat(buffer, sizeof(buffer),
             va("\n^3Total players: ^7%d\n", activePlayers));
 
-    SendServerCommandInChunks(ent, va("\n%s\n", buffer));
-}
-
-void Cmd_From_f(gentity_t *ent){
-
-}
-
-void killplayer_f(gentity_t *ent){
-    char buf[MAX_TOKEN_CHARS];
-    gentity_t *victim;
-
-    if (!ent->client || !ent->authed) return;
-
-    if (trap_Argc() != 2) {
-        trap_SendServerCommand(ent - g_entities, "print \"^3Usage: killplayer <id>\n\"");
-        return;
-    }
-
-    trap_Argv(1, buf, sizeof(buf));
-    victim = &g_entities[atoi(buf)];
-
-    if (!victim->client){
-        trap_SendServerCommand(ent - g_entities, "print \"^1Invalid client!\n\"");
-        return;
-    }
-
-	if ((g_freeze.integer && is_spectator(victim->client)) || (!g_freeze.integer && victim->client->sess.sessionTeam == TEAM_SPECTATOR)) {
-        trap_SendServerCommand(ent - g_entities, "print \"^1Can't kill a spectator!\n\"");
-		return;
-	}
-
-    if (victim->health <= 0){
-        trap_SendServerCommand(ent - g_entities, "print \"^1Can't kill already dead person\n\"");
-        return;
-    }
-
-    victim->flags &= ~FL_GODMODE;
-    victim->client->ps.stats[STAT_HEALTH] = victim->health = -999;
-
-    player_die(victim, victim, victim, 100000, (MOD_SUICIDE));
-}
-
-void fteam_f(gentity_t *ent){
-	gentity_t	*victim;
-	char		str[MAX_TOKEN_CHARS];
-
-    if (!ent->authed) return;
-
-	if ( trap_Argc() < 3 ) {
-		G_Printf("^3Usage:\n fteam <player> <team>\n");
-		return;
-	}
-
-	trap_Argv( 1, str, sizeof( str ) );
-    victim = &g_entities[atoi(str)];
-
-    if (!victim->client){
-        trap_SendServerCommand(ent - g_entities, "print \"^1Invalid client!\n\"");
-        return;
-    }
-
-	// set the team
-	trap_Argv( 2, str, sizeof( str ) );
-	SetTeam( &g_entities[victim->client - level.clients], str );
+    // SendServerCommandInChunks(ent, va("\n%s\n", buffer));
+    trap_Print( va("\n%s\n", buffer));
 }

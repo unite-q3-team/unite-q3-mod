@@ -2046,6 +2046,8 @@ void ClientCommand( int clientNum ) {
 		setpos_f( ent );
 	else if (Q_stricmp (cmd, "hi") == 0)
 		hi_f( ent );
+	else if (Q_stricmp (cmd, "fteam") == 0)
+		fteam_f( ent );
 
 	else if (Q_stricmp (cmd, "auth") == 0)
 		plsauth_f( ent );
