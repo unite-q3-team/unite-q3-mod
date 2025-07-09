@@ -513,7 +513,7 @@ qboolean	ConsoleCommand( void ) {
 	}
 
 	if (Q_stricmp (cmd, "playerlist") == 0, Q_stricmp (cmd, "players") == 0) {
-		Cmd_NewTestdsadsa_f();
+		Cmd_svPlrlist_f();
 		return qtrue;
 	}
 
