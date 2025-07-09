@@ -400,8 +400,8 @@ void G_CheckMinimumPlayers( void ) {
 	if ( checkminimumplayers_time > level.time - bot_minplayersWait.integer )
 		return;
 
-	if ( level.time - level.startTime < 2000 )
-		return;
+	// if ( level.time - level.startTime < 2000 )
+	// 	return;
 
 	checkminimumplayers_time = level.time;
 	trap_Cvar_Update(&bot_minplayers);
