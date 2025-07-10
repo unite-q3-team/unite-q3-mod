@@ -159,6 +159,8 @@ static void ftmod_playerFree(gentity_t *ent) {
 
     if (g_freezeForceRevive.integer)
         ClientSpawn(ent);
+        
+    CalculateRanks();
 }
 
 void ftmod_bodyFree(gentity_t *self) {
