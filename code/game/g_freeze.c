@@ -157,9 +157,11 @@ static void ftmod_playerFree(gentity_t *ent) {
     }
     ent->client->inactivityTime = level.time + g_inactivity.integer * 1000;
 
-    if (g_freezeForceRevive.integer)
+    if (g_freezeForceRevive.integer) {
         ClientSpawn(ent);
-        
+        G_TempEntity(ent->client->ps.origin, EV_PLAYER_TELEPORT_IN);
+    }
+
     CalculateRanks();
 }
 
