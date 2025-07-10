@@ -749,10 +749,12 @@ static void PM_WalkMove( void ) {
 	if ( pm->waterlevel ) {
 		float	waterScale;
 
-		waterScale = pm->waterlevel / 3.0;
-		waterScale = 1.0 - ( 1.0 - pm_swimScale ) * waterScale;
-		if ( wishspeed > pm->ps->speed * waterScale ) {
-			wishspeed = pm->ps->speed * waterScale;
+		if (pm->waterlevel != 1) {
+			waterScale = pm->waterlevel / 3.0;
+			waterScale = 1.0 - ( 1.0 - pm_swimScale ) * waterScale;
+			if ( wishspeed > pm->ps->speed * waterScale ) {
+				wishspeed = pm->ps->speed * waterScale;
+			}
 		}
 	}
 
