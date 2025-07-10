@@ -500,7 +500,7 @@ Cmd_Kill_f
 =================
 */
 void Cmd_Kill_f(gentity_t *ent) {
-	if ((g_freeze.integer && is_spectator(ent->client)) ||
+	if ((g_freeze.integer && ftmod_isSpectator(ent->client)) ||
 		(!g_freeze.integer && ent->client->sess.sessionTeam == TEAM_SPECTATOR)) {
 		return;
 	}
@@ -739,6 +739,9 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 	// get and distribute relevent paramters
 	ClientUserinfoChanged( clientNum );
 
+	//freeze
+	ent->freezeState = qfalse;
+
 	ClientBegin( clientNum );
 
 	return qtrue;
@@ -880,11 +883,11 @@ static void Cmd_Follow_f( gentity_t *ent ) {
 	}
 
 	// can't follow another spectator
-	if (ent->freezeState && (g_freeze.integer ? !is_spectator(ent->client) : ent->client->sess.sessionTeam != TEAM_SPECTATOR))
+	if (ent->freezeState && (g_freeze.integer ? !ftmod_isSpectator(ent->client) : ent->client->sess.sessionTeam != TEAM_SPECTATOR))
 		return;
 
 	if (g_freeze.integer) {
-		if (is_spectator(&level.clients[i])) {
+		if (ftmod_isSpectator(&level.clients[i])) {
 			return;
 		}
 	} else {
@@ -922,8 +925,8 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 
 	//freeze
 	if (g_freeze.integer) {
-		if ( ent->freezeState && !is_spectator( ent->client ) ) return;
-		if ( Set_Client( ent ) ) return;
+		if ( ent->freezeState && !ftmod_isSpectator( ent->client ) ) return;
+		if ( ftmod_setClient( ent ) ) return;
 	}
 	//freeze
 	// if they are playing a tournement game, count as a loss
@@ -973,7 +976,7 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 			continue;
 
 		if (g_freeze.integer) {
-			if (is_spectator(&level.clients[clientnum])) {
+			if (ftmod_isSpectator(&level.clients[clientnum])) {
 				continue;
 			}
 		} else {

@@ -249,9 +249,9 @@ void	G_TouchTriggers( gentity_t *ent ) {
 			continue;
 		}
 
-				// ignore most entities if a spectator
+		// ignore most entities if a spectator
 		if (g_freeze.integer) {
-			if (is_spectator(ent->client)) {
+			if (ftmod_isSpectator(ent->client)) {
 				if (hit->s.eType != ET_TELEPORT_TRIGGER &&
 					hit->touch != Touch_DoorTrigger) {
 					continue;
@@ -653,7 +653,6 @@ void ClientEvents( gentity_t *ent, int oldEventSequence ) {
 
 }
 
-#ifdef MISSIONPACK
 /*
 ==============
 StuckInOtherClient
@@ -661,40 +660,25 @@ StuckInOtherClient
 */
 static int StuckInOtherClient(gentity_t *ent) {
 	int i;
-	gentity_t	*ent2;
+	float stuck_offset = 2.0f;
+	gentity_t *ent2;
+	for (i = 0; i < MAX_CLIENTS; i++) {
+		ent2 = &g_entities[i];
 
-	ent2 = &g_entities[0];
-	for ( i = 0; i < MAX_CLIENTS; i++, ent2++ ) {
-		if ( ent2 == ent ) {
+		if (ent2 == ent || !ent2->inuse || !ent2->client || ent2->health <= 0)
 			continue;
-		}
-		if ( !ent2->inuse ) {
-			continue;
-		}
-		if ( !ent2->client ) {
-			continue;
-		}
-		if ( ent2->health <= 0 ) {
-			continue;
-		}
-		//
-		if (ent2->r.absmin[0] > ent->r.absmax[0])
-			continue;
-		if (ent2->r.absmin[1] > ent->r.absmax[1])
-			continue;
-		if (ent2->r.absmin[2] > ent->r.absmax[2])
-			continue;
-		if (ent2->r.absmax[0] < ent->r.absmin[0])
-			continue;
-		if (ent2->r.absmax[1] < ent->r.absmin[1])
-			continue;
-		if (ent2->r.absmax[2] < ent->r.absmin[2])
-			continue;
+
+		if (ent2->r.absmin[0] >= ent->r.absmax[0] - stuck_offset) continue;
+		if (ent2->r.absmin[1] >= ent->r.absmax[1] - stuck_offset) continue;
+		if (ent2->r.absmin[2] >= ent->r.absmax[2] - stuck_offset) continue;
+
+		if (ent2->r.absmax[0] <= ent->r.absmin[0] + stuck_offset) continue;
+		if (ent2->r.absmax[1] <= ent->r.absmin[1] + stuck_offset) continue;
+		if (ent2->r.absmax[2] <= ent->r.absmin[2] + stuck_offset) continue;
 		return qtrue;
 	}
 	return qfalse;
 }
-#endif
 
 void BotTestSolid(vec3_t origin);
 
@@ -734,38 +718,33 @@ void SendPendingPredictableEvents( playerState_t *ps ) {
 }
 
 void PushApartPlayers(gentity_t *ent) {
-    int i, pass, numPlayers = level.numConnectedClients;
-    gentity_t *other;
+    const int passes = 12;
+    const float basePushImpulseScale = 36.0f;
+    const float basePushAmountMax = 6.0f;
+
+    int i, pass;
     vec3_t dir, impulse;
     float dist, pushAmount;
-    const int passes = 6;
-    float basePushImpulseScale = 64.0f;
-    float basePushAmountMax = 4.0f;
+    float radius, pushImpulseScale;
 
-	if (!ent || !ent->client ||
-		ent->client->sess.sessionTeam == TEAM_SPECTATOR || // Это не точно
-		ent->client->ps.pm_type == PM_SPECTATOR	) {
-			return;
-		}
+    if (!ent || !ent->client) {
+        return;
+    }
 
     for (pass = 0; pass < passes; pass++) {
-        float radius = 16.0f - pass * 2.0f;  // 16, 14, ..., 6
-        float pushImpulseScale = basePushImpulseScale / (pass + 1);
+        radius = 16.0f - pass * 2.0f;
+        pushImpulseScale = basePushImpulseScale / (pass + 1);
 
-        for (i = 0; i < numPlayers; i++) {
-            other = &g_entities[level.sortedClients[i]];
-            if (other == ent) continue;
-            if (!other->client || other->client->ps.pm_type == PM_DEAD) continue;
-            if (other->client->noclip) continue;
-
-            if (ent->r.absmin[0] > other->r.absmax[0] ||
-                ent->r.absmax[0] < other->r.absmin[0] ||
-                ent->r.absmin[1] > other->r.absmax[1] ||
-                ent->r.absmax[1] < other->r.absmin[1] ||
-                ent->r.absmin[2] > other->r.absmax[2] ||
-                ent->r.absmax[2] < other->r.absmin[2]) {
+        for (i = 0; i < level.numConnectedClients; i++) {
+            gentity_t *other = &g_entities[level.sortedClients[i]];
+            if (other == ent || !other->client || other->client->ps.pm_type == PM_DEAD || other->client->noclip)
                 continue;
-            }
+
+            if (!G_TestEntityPosition(other))
+                continue;
+
+            if (!StuckInOtherClient(other))
+                continue;
 
             VectorSubtract(other->r.currentOrigin, ent->r.currentOrigin, dir);
             dir[2] = 0;
@@ -775,7 +754,6 @@ void PushApartPlayers(gentity_t *ent) {
                 VectorSet(dir, 1, 0, 0);
                 dist = 1.0f;
             }
-
             if (dist > radius)
                 continue;
 
@@ -784,7 +762,7 @@ void PushApartPlayers(gentity_t *ent) {
 
             VectorNormalize(dir);
 
-            pushAmount = basePushAmountMax * (1.0f - (dist / radius));
+            pushAmount = basePushAmountMax * (1.0f - dist / radius);
             if (pushAmount < 0.5f)
                 continue;
 
@@ -793,11 +771,6 @@ void PushApartPlayers(gentity_t *ent) {
         }
     }
 }
-
-
-
-
-
 
 
 /*
@@ -890,7 +863,7 @@ void ClientThink_real( gentity_t *ent ) {
 	// spectators don't do much
 	//freeze
 	if (g_freeze.integer) {
-		if (is_spectator(client)) {
+		if (ftmod_isSpectator(client)) {
 			if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
 				return;
 			}
@@ -1171,10 +1144,10 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 		cl = &level.clients[clientNum];
 		//freeze
 		if (g_freeze.integer) {
-			if (cl->pers.connected == CON_CONNECTED && !is_spectator(cl)) {
+			if (cl->pers.connected == CON_CONNECTED && !ftmod_isSpectator(cl)) {
 				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) |
 						(ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
-				Persistant_spectator(ent, cl);
+				ftmod_persistantSpectator(ent, cl);
 				ent->client->ps.pm_flags |= PMF_FOLLOW;
 				ent->client->ps.eFlags = flags;
 				return;
@@ -1233,7 +1206,7 @@ void ClientEndFrame( gentity_t *ent ) {
 	ent->r.svFlags &= ~svf_self_portal2;
 
 	if (g_freeze.integer) {
-		if (is_spectator(ent->client)) {
+		if (ftmod_isSpectator(ent->client)) {
 			SpectatorClientEndFrame(ent);
 			return;
 		}

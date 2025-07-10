@@ -155,7 +155,7 @@ G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
 G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
-// G_CVAR( g_spawnItems, "g_spawnItems", "19", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_spawn_items, "g_spawn_items", "63", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_spawn_weapons, "g_spawn_weapons", "1023", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 
 // G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
@@ -175,6 +175,7 @@ G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10000", CVAR_ARCHIVE, 0, qf
 G_CVAR( g_thawTimeAuto_bounds, "g_thawTimeAuto_bounds", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_tp, "g_thawTimeAuto_tp", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawRadius, "g_thawRadius", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freezeForceRevive, "g_freezeForceRevive", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )

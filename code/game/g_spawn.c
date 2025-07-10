@@ -267,7 +267,7 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 	}
 
 	// check item spawn functions
-	for ( item=bg_itemlist+1 ; item->classname ; item++ ) {
+	for ( item = bg_itemlist + 1; item->classname; item++ ) {
 		if ( !strcmp(item->classname, ent->classname) ) {
 
 			// Weapon and Ammo filter
@@ -277,22 +277,46 @@ qboolean G_CallSpawn( gentity_t *ent ) {
 					return qfalse;
 				}
 			}
+
+			// Group filter using g_spawn_items
+			switch ( item->giType ) {
+				case IT_HEALTH:
+					if ( !(g_spawn_items.integer & 1) ) return qfalse;
+					break;
+				case IT_ARMOR:
+					if ( !(g_spawn_items.integer & 2) ) return qfalse;
+					break;
+				case IT_WEAPON:
+					if ( !(g_spawn_items.integer & 4) ) return qfalse;
+					break;
+				case IT_AMMO:
+					if ( !(g_spawn_items.integer & 8) ) return qfalse;
+					break;
+				case IT_HOLDABLE:
+					if ( !(g_spawn_items.integer & 16) ) return qfalse;
+					break;
+				case IT_POWERUP:
+					if ( !(g_spawn_items.integer & 32) ) return qfalse;
+					break;
+			}
+
 			G_SpawnItem( ent, item );
 			return qtrue;
 		}
 	}
 
 	// check normal spawn functions
-	for ( s=spawns ; s->name ; s++ ) {
+	for ( s = spawns; s->name; s++ ) {
 		if ( !strcmp(s->name, ent->classname) ) {
 			s->spawn(ent);
 			return qtrue;
 		}
 	}
 
-	G_Printf ("%s doesn't have a spawn function\n", ent->classname);
+	G_Printf( "%s doesn't have a spawn function\n", ent->classname );
 	return qfalse;
 }
+
 
 
 

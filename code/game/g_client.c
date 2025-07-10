@@ -284,16 +284,18 @@ static qboolean PointTakenByOpposingTeam( const gentity_t *ent, const vec3_t poi
 	return qfalse;
 }
 
-
-static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t origin, vec3_t angles ) {
+static gentity_t *SelectFurthestSpawnFromEnemies(const gentity_t *ent, vec3_t origin, vec3_t angles) {
 	gentity_t *spot;
 	vec3_t delta;
-	float bestDist = -1.0f;
-	float dist, minEnemyDist;
-	gentity_t *bestSpot = NULL;
-	qboolean isBot;
+	float dist, minEnemyDist, minAllyDist;
+	float enemyDistThreshold = 1024.0f;
+	float allyDistThreshold = 512.0f;
 	int i, j;
-
+	qboolean isBot;
+	int livingEnemies = 0;
+	gentity_t *candidateSpots[MAX_SPAWN_POINTS];
+	int candidateCount = 0;
+	
 	if ( !ent || !ent->client ) {
 		if ( level.numSpawnSpots > 0 ) {
 			int randIndex = rand() % level.numSpawnSpots;
@@ -307,6 +309,43 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 	}
 
 	isBot = (ent->r.svFlags & SVF_BOT) == SVF_BOT;
+
+	for ( i = 0; i < level.maxclients; i++ ) {
+		gentity_t *enemy = &g_entities[i];
+
+		if ( !enemy->inuse || !enemy->client || enemy == ent )
+			continue;
+
+		if ( g_gametype.integer > GT_SINGLE_PLAYER &&
+			 enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
+			continue;
+
+		if ( enemy->client->ps.stats[STAT_HEALTH] <= 0 )
+			continue;
+
+		livingEnemies++;
+	}
+
+	if ( livingEnemies == 0 ) {
+		for ( i = 0; i < 10; i++ ) {
+			int index = Q_irand(0, level.numSpawnSpots - 1);
+			spot = level.spawnSpots[index];
+
+			if ( SpotWouldTelefrag(spot) )
+				continue;
+
+			if ( (spot->flags & FL_NO_BOTS) && isBot )
+				continue;
+
+			if ( (spot->flags & FL_NO_HUMANS) && !isBot )
+				continue;
+
+			VectorCopy( spot->s.origin, origin );
+			origin[2] += 9.0f;
+			VectorCopy( spot->s.angles, angles );
+			return spot;
+		}
+	}	
 
 	for ( i = 0; i < level.numSpawnSpots; i++ ) {
 		spot = level.spawnSpots[i];
@@ -324,50 +363,7 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 			continue;
 
 		minEnemyDist = 9999999.0f;
-
-		for ( j = 0; j < level.maxclients; j++ ) {
-			gentity_t *enemy = &g_entities[j];
-
-			if ( !enemy->inuse || !enemy->client || enemy == ent )
-				continue;
-
-			if ( g_gametype.integer > GT_SINGLE_PLAYER &&
-			     enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
-				continue;
-
-			if ( enemy->client->ps.stats[STAT_HEALTH] <= 0 )
-				continue;
-
-			VectorSubtract( spot->s.origin, enemy->r.currentOrigin, delta );
-			dist = VectorLength( delta );
-
-			if ( dist < minEnemyDist )
-				minEnemyDist = dist;
-		}
-
-		if ( minEnemyDist > bestDist ) {
-			bestDist = minEnemyDist;
-			bestSpot = spot;
-		}
-	}
-
-	if ( bestSpot ) {
-		VectorCopy( bestSpot->s.origin, origin );
-		origin[2] += 9.0f;
-		VectorCopy( bestSpot->s.angles, angles );
-		return bestSpot;
-	}
-
-	bestDist = 9999999.0f;
-	bestSpot = NULL;
-
-	for ( i = 0; i < level.numSpawnSpots; i++ ) {
-		spot = level.spawnSpots[i];
-
-		if ( SpotWouldTelefrag(spot) )
-			continue;
-
-		minEnemyDist = 9999999.0f;
+		minAllyDist = 9999999.0f;
 
 		for ( j = 0; j < level.maxclients; j++ ) {
 			gentity_t *other = &g_entities[j];
@@ -375,40 +371,42 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 			if ( !other->inuse || !other->client || other == ent )
 				continue;
 
-			if ( other->client->ps.stats[STAT_HEALTH] <= 0 )
-				continue;
-
-			if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
-				if ( other->client->sess.sessionTeam != ent->client->sess.sessionTeam )
-					continue;
+			if ( g_gametype.integer > GT_SINGLE_PLAYER &&
+				 other->client->sess.sessionTeam == ent->client->sess.sessionTeam ) {
+				VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
+				dist = VectorLength( delta );
+				if ( dist < minAllyDist )
+					minAllyDist = dist;
 			} else {
-				if ( other->client->sess.sessionTeam == ent->client->sess.sessionTeam )
+				if ( other->client->ps.stats[STAT_HEALTH] <= 0 )
 					continue;
+
+				VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
+				dist = VectorLength( delta );
+				if ( dist < minEnemyDist )
+					minEnemyDist = dist;
 			}
+		}
 
-			VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
-			dist = VectorLength( delta );
-
-			if ( dist < bestDist ) {
-				bestDist = dist;
-				bestSpot = spot;
+		if ( minEnemyDist >= enemyDistThreshold || minAllyDist <= allyDistThreshold ) {
+			if ( candidateCount < MAX_SPAWN_POINTS ) {
+				candidateSpots[candidateCount++] = spot;
 			}
 		}
 	}
 
-	if ( bestSpot ) {
-		VectorCopy( bestSpot->s.origin, origin );
+	if ( candidateCount > 0 ) {
+		int selectedIndex = Q_irand(0, candidateCount - 1);
+		spot = candidateSpots[selectedIndex];
+		VectorCopy( spot->s.origin, origin );
 		origin[2] += 9.0f;
-		VectorCopy( bestSpot->s.angles, angles );
-		return bestSpot;
+		VectorCopy( spot->s.angles, angles );
+		return spot;
 	}
 
 	if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
 		for ( i = 0; i < level.numSpawnSpots; i++ ) {
 			spot = level.spawnSpots[i];
-
-			// if ( SpotWouldTelefrag(spot) )
-			// 	continue;
 
 			if ( PointTakenByOpposingTeam(ent, spot->s.origin, 64.0f) )
 				continue;
@@ -431,6 +429,11 @@ static gentity_t *SelectFurthestSpawnFromEnemies( const gentity_t *ent, vec3_t o
 
 	return NULL;
 }
+
+
+
+
+
 
 
 /*
@@ -795,7 +798,7 @@ void respawn( gentity_t *ent ) {
 	gentity_t	*tent;
 
 
-	if ( Set_spectator( ent ) ) return;
+	if ( ftmod_setSpectator( ent ) ) return;
 
 	if ( ent->health <= 0 )
 		CopyToBodyQue( ent );
@@ -1468,7 +1471,7 @@ void ClientSpawn(gentity_t *ent) {
 
 	// freeze
 	if (g_freeze.integer) {
-		if (is_spectator(client)) {
+		if (ftmod_isSpectator(client)) {
 			// spectator — ничего не делаем
 		} else {
 			G_KillBox(ent);
@@ -1536,7 +1539,7 @@ void ClientSpawn(gentity_t *ent) {
 
 	// positively link the client, even if the command times are weird
 	if (g_freeze.integer) {
-		if (!is_spectator(client)) {
+		if (!ftmod_isSpectator(client)) {
 			BG_PlayerStateToEntityState(&client->ps, &ent->s, qtrue);
 			VectorCopy(ent->client->ps.origin, ent->r.currentOrigin);
 			trap_LinkEntity(ent);
@@ -1587,7 +1590,7 @@ void ClientDisconnect( int clientNum ) {
 	// stop any following clients
 	for (i = 0; i < level.maxclients; i++) {
 		if (g_freeze.integer) {
-			if (is_spectator(&level.clients[i]) &&
+			if (ftmod_isSpectator(&level.clients[i]) &&
 				level.clients[i].sess.spectatorState == SPECTATOR_FOLLOW &&
 				level.clients[i].sess.spectatorClient == clientNum) {
 				StopFollowingNew(&g_entities[i]);
@@ -1604,7 +1607,7 @@ void ClientDisconnect( int clientNum ) {
 
 	// send effect if they were completely connected
 	if (ent->client->pers.connected == CON_CONNECTED) {
-	if ((g_freeze.integer && !is_spectator(ent->client)) ||
+	if ((g_freeze.integer && !ftmod_isSpectator(ent->client)) ||
 		(!g_freeze.integer && ent->client->sess.sessionTeam != TEAM_SPECTATOR)) {
 
 		tent = G_TempEntity(ent->client->ps.origin, EV_PLAYER_TELEPORT_OUT);

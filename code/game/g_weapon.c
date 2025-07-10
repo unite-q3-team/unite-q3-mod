@@ -97,7 +97,7 @@ qboolean CheckGauntletAttack( gentity_t *ent ) {
 	if (g_freeze.integer)
 	{
 		//freeze
-		if ( is_body( traceEnt ) ) {
+		if ( ftmod_isBody( traceEnt ) ) {
 			tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
 			tent->s.otherEntityNum = traceEnt->s.number;
 			tent->s.eventParm = DirToByte( tr.plane.normal );
@@ -231,7 +231,7 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 				ent->client->accuracy_hits++;
 			}
 		//freeze
-		} else if ( g_freeze.integer && is_body( traceEnt ) ) {
+		} else if ( g_freeze.integer && ftmod_isBody( traceEnt ) ) {
 			tent = G_TempEntity( tr.endpos, EV_BULLET_HIT_FLESH );
 			tent->s.eventParm = traceEnt->s.number;
 		//freeze	
@@ -739,7 +739,7 @@ void Weapon_LightningFire( gentity_t *ent ) {
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = ent->s.weapon;
 		//freeze
-		} else if ( g_freeze.integer && is_body( traceEnt ) ) {
+		} else if ( g_freeze.integer && ftmod_isBody( traceEnt ) ) {
 			tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
 			tent->s.otherEntityNum = traceEnt->s.number;
 			tent->s.eventParm = DirToByte( tr.plane.normal );

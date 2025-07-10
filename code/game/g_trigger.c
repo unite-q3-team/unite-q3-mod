@@ -265,8 +265,8 @@ void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace
 				return;
 			}
 		} else {
-			// при g_freeze включён — используем is_spectator для расширенной проверки
-			if (!is_spectator(other->client)) {
+			// при g_freeze включён — используем ftmod_isSpectator для расширенной проверки
+			if (!ftmod_isSpectator(other->client)) {
 				return;
 			}
 		}

@@ -510,6 +510,7 @@ float	Q_crandom( int *seed );
 
 #define random()	((rand () & 0x7fff) / ((float)0x7fff))
 #define crandom()	(2.0 * (random() - 0.5))
+#define Q_irand(min, max) ( (min) + (rand() % ((max)-(min)+1)) )
 
 void vectoangles( const vec3_t value1, vec3_t angles);
 void AnglesToAxis( const vec3_t angles, vec3_t axis[3] );

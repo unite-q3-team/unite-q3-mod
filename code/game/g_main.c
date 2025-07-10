@@ -1386,7 +1386,7 @@ static void CheckExitRules( void ) {
 	}
 
 	//freeze
-	CheckDelay();
+	ftmod_checkDelay();
 	//freeze
 
 	// check for sudden death
@@ -1685,7 +1685,7 @@ static void CheckTournament( void ) {
 		if (g_freeze.integer)
 		{
 			if ( !notEnough ) {
-				notEnough = readyCheck();
+				notEnough = ftmod_readyCheck();
 			}
 		}
 		//freeze

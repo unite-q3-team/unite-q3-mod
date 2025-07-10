@@ -787,8 +787,8 @@ void Blocked_Door( gentity_t *ent, gentity_t *other ) {
 		}
 		//freeze
 		if (g_freeze.integer) {
-			if ( is_body( other ) ) {
-				Body_free( other );
+			if ( ftmod_isBody( other ) ) {
+				ftmod_bodyFree( other );
 				return;
 			}
 		}
@@ -849,7 +849,7 @@ void Touch_DoorTrigger( gentity_t *ent, gentity_t *other, trace_t *trace ) {
 	if (
 		other->client &&
 		( g_freeze.integer
-			? is_spectator( other->client )
+			? ftmod_isSpectator( other->client )
 			: (other->client->sess.sessionTeam == TEAM_SPECTATOR) )
 	) {
 		// if the door is not open and not opening

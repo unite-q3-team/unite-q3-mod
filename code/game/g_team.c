@@ -750,7 +750,7 @@ static int Team_TouchOurFlag( gentity_t *ent, gentity_t *other, team_t team ) {
 	//freeze
 	if (g_freeze.integer) {
 		if ( g_gametype.integer == GT_CTF || g_gametype.integer == GT_TEAM ) {
-			team_wins( team );
+			ftmod_teamWins( team );
 		}
 	}
 	//freeze
@@ -934,7 +934,7 @@ gentity_t *Team_GetLocation(gentity_t *ent)
 
 	//freeze
 	if (g_freeze.integer) {
-	if ( ent->freezeState && is_body( ent->target_ent ) ) {
+	if ( ent->freezeState && ftmod_isBody( ent->target_ent ) ) {
 		VectorCopy( ent->target_ent->r.currentOrigin, origin );
 	} else
 		VectorCopy( ent->r.currentOrigin, origin );

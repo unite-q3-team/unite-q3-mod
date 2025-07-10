@@ -598,7 +598,7 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
         if ( !g_freeze.integer ) {
             if ( client->sess.sessionTeam != TEAM_SPECTATOR ) continue;
         } else {
-            if ( !is_spectator( client ) ) continue;
+            if ( !ftmod_isSpectator( client ) ) continue;
         }
 
         if ( client->sess.spectatorClient == self->s.number ) {
@@ -608,10 +608,10 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
     //freeze
     if (g_freeze.integer) {
         if ( g_debugFreeze.integer & (1 << 16) ) {
-            Com_Printf( "player_die: calling player_freeze for ent %d\n", self->s.number );
+            Com_Printf( "player_die: calling ftmod_playerFreeze for ent %d\n", self->s.number );
         }
 
-        player_freeze( self, attacker, meansOfDeath );
+        ftmod_playerFreeze( self, attacker, meansOfDeath );
 
         if ( self->freezeState ) {
             G_AddEvent( self, EV_DEATH1 + ( rand() % 3 ), killer );
@@ -982,7 +982,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if ( client ) {
 			if ( targ != attacker && level.time - client->respawnTime < 1000 ) return;
 		} else {
-			if ( DamageBody( targ, attacker, dir, mod, knockback ) ) return;
+			if ( ftmod_damageBody( targ, attacker, dir, mod, knockback ) ) return;
 		}
 	}
 	//freeze

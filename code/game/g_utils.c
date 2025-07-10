@@ -533,7 +533,7 @@ void G_KillBox (gentity_t *ent) {
 			}
 		}
 		else {
-			if ( !hit->client && !is_body_freeze( hit ) ) {
+			if ( !hit->client && !ftmod_isBodyFrozen( hit ) ) {
 				continue;
 			}
 		}

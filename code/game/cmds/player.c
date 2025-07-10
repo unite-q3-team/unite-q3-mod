@@ -139,7 +139,7 @@ void killplayer_f(gentity_t *ent){
         return;
     }
 
-	if ((g_freeze.integer && is_spectator(victim->client)) || (!g_freeze.integer && victim->client->sess.sessionTeam == TEAM_SPECTATOR)) {
+	if ((g_freeze.integer && ftmod_isSpectator(victim->client)) || (!g_freeze.integer && victim->client->sess.sessionTeam == TEAM_SPECTATOR)) {
         trap_SendServerCommand(ent - g_entities, "print \"^1Can't kill a spectator!\n\"");
 		return;
 	}

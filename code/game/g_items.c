@@ -125,7 +125,7 @@ int Pickup_Powerup( gentity_t *ent, gentity_t *other ) {
 
 		//freeze
 		if (g_freeze.integer) {
-		if ( is_spectator( other->client ) ) continue;
+		if ( ftmod_isSpectator( other->client ) ) continue;
 		}
 		//freeze
 
@@ -1052,7 +1052,7 @@ void G_RunItem( gentity_t *ent ) {
 
 	//freeze
 	if (g_freeze.integer) {
-		if ( is_body_freeze( ent ) )
+		if ( ftmod_isBodyFrozen( ent ) )
 			trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, ent->s.number, mask );
 	}
 	else
@@ -1084,9 +1084,9 @@ void G_RunItem( gentity_t *ent ) {
 		} else {
 			//freeze
 			if (g_freeze.integer) {
-				if ( is_body( ent ) ) {
+				if ( ftmod_isBody( ent ) ) {
 					if ( level.time - ent->timestamp > 10000 ) {
-						Body_free( ent );
+						ftmod_bodyFree( ent );
 					}
 					return;
 				}
