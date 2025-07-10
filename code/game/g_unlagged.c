@@ -138,6 +138,132 @@ void G_TimeShiftClient( gentity_t *ent, int time, qboolean debug, gentity_t *deb
 	}
 }
 
+void G_TimeShiftClientNew( gentity_t *ent, int time, qboolean debug, gentity_t *debugger ) {
+	int		j, k;
+	//char msg[2048];
+
+	// this will dump out the head index, and the time for all the stored positions
+/*
+	if ( debug ) {
+		char	str[MAX_STRING_CHARS];
+
+		Com_sprintf(str, sizeof(str), "print \"head: %d, %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n\"",
+			ent->client->historyHead,
+			ent->client->history[0].leveltime,
+			ent->client->history[1].leveltime,
+			ent->client->history[2].leveltime,
+			ent->client->history[3].leveltime,
+			ent->client->history[4].leveltime,
+			ent->client->history[5].leveltime,
+			ent->client->history[6].leveltime,
+			ent->client->history[7].leveltime,
+			ent->client->history[8].leveltime,
+			ent->client->history[9].leveltime,
+			ent->client->history[10].leveltime,
+			ent->client->history[11].leveltime,
+			ent->client->history[12].leveltime,
+			ent->client->history[13].leveltime,
+			ent->client->history[14].leveltime,
+			ent->client->history[15].leveltime,
+			ent->client->history[16].leveltime);
+
+		trap_SendServerCommand( debugger - g_entities, str );
+	}
+*/
+
+	// find two entries in the history whose times sandwich "time"
+	// assumes no two adjacent records have the same timestamp
+	j = k = ent->client->historyHead;
+	do {
+		if ( ent->client->history[j].leveltime <= time )
+			break;
+
+		k = j;
+		j--;
+		if ( j < 0 ) {
+			j = NUM_CLIENT_HISTORY - 1;
+		}
+	}
+	while ( j != ent->client->historyHead );
+
+	// if we got past the first iteration above, we've sandwiched (or wrapped)
+	if ( j != k ) {
+		// make sure it doesn't get re-saved
+		if ( ent->client->saved.leveltime != level.time ) {
+			// save the current origin and bounding box
+			VectorCopy( ent->r.mins, ent->client->saved.mins );
+			VectorCopy( ent->r.maxs, ent->client->saved.maxs );
+			VectorCopy( ent->r.currentOrigin, ent->client->saved.currentOrigin );
+			ent->client->saved.leveltime = level.time;
+		}
+
+		// if we haven't wrapped back to the head, we've sandwiched, so
+		// we shift the client's position back to where he was at "time"
+		if ( j != ent->client->historyHead ) {
+			float	frac = (float)(time - ent->client->history[j].leveltime) /
+				(float)(ent->client->history[k].leveltime - ent->client->history[j].leveltime);
+
+			// interpolate between the two origins to give position at time index "time"
+			TimeShiftLerp( frac,
+				ent->client->history[j].currentOrigin, ent->client->history[k].currentOrigin,
+				ent->r.currentOrigin );
+
+			// lerp these too, just for fun (and ducking)
+			TimeShiftLerp( frac,
+				ent->client->history[j].mins, ent->client->history[k].mins,
+				ent->r.mins );
+
+			TimeShiftLerp( frac,
+				ent->client->history[j].maxs, ent->client->history[k].maxs,
+				ent->r.maxs );
+
+			/*if ( debug && debugger != NULL ) {
+				// print some debugging stuff exactly like what the client does
+
+				// it starts with "Rec:" to let you know it backward-reconciled
+				Com_sprintf( msg, sizeof(msg),
+					"print \"^1Rec: time: %d, j: %d, k: %d, origin: %0.2f %0.2f %0.2f\n"
+					"^2frac: %0.4f, origin1: %0.2f %0.2f %0.2f, origin2: %0.2f %0.2f %0.2f\n"
+					"^7level.time: %d, est time: %d, level.time delta: %d, est real ping: %d\n\"",
+					time, ent->client->history[j].leveltime, ent->client->history[k].leveltime,
+					ent->r.currentOrigin[0], ent->r.currentOrigin[1], ent->r.currentOrigin[2],
+					frac,
+					ent->client->history[j].currentOrigin[0],
+					ent->client->history[j].currentOrigin[1],
+					ent->client->history[j].currentOrigin[2], 
+					ent->client->history[k].currentOrigin[0],
+					ent->client->history[k].currentOrigin[1],
+					ent->client->history[k].currentOrigin[2],
+					level.time, level.time + debugger->client->frameOffset,
+					level.time - time, level.time + debugger->client->frameOffset - time);
+
+				trap_SendServerCommand( debugger - g_entities, msg );
+			}*/
+
+			// this will recalculate absmin and absmax
+			trap_LinkEntity( ent );
+		} else {
+			// we wrapped, so grab the earliest
+			VectorCopy( ent->client->history[k].currentOrigin, ent->r.currentOrigin );
+			VectorCopy( ent->client->history[k].mins, ent->r.mins );
+			VectorCopy( ent->client->history[k].maxs, ent->r.maxs );
+
+			// this will recalculate absmin and absmax
+			trap_LinkEntity( ent );
+		}
+	}
+	else {
+		// this only happens when the client is using a negative timenudge, because that
+		// number is added to the command time
+
+		// print some debugging stuff exactly like what the client does
+
+		// it starts with "No rec:" to let you know it didn't backward-reconcile
+		//Sago: This code looks wierd
+
+	}
+}
+
 
 /*
 =====================
@@ -161,8 +287,11 @@ void G_TimeShiftAllClients( int ltime, gentity_t *skip ) {
 		if ( !ent->r.linked )
 			continue;
 
-		if ( ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR ) 
+		if ( ent->client && ent->inuse && ent->client->sess.sessionTeam < TEAM_SPECTATOR )
+			if(!g_unlagged_ShiftClientNew.integer) 
 			G_TimeShiftClient( ent, ltime, qfalse, skip );
+			else
+			G_TimeShiftClientNew( ent, ltime, qfalse, skip );
 	}
 }
 

@@ -72,6 +72,7 @@ G_CVAR( g_allowVote, "g_allowVote", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_listEntity, "g_listEntity", "0", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_unlagged, "g_unlagged", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_unlagged_ShiftClientNew, "g_unlagged_ShiftClientNew", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_predictPVS, "g_predictPVS", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // should ve print "Kill:" and "Item:" strings into console
