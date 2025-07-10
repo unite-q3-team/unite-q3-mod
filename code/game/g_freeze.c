@@ -607,6 +607,7 @@ void ftmod_playerFreeze(gentity_t *self, gentity_t *attacker, int mod) {
         attacker->client->ps.eFlags |= EF_AWARD_DEFEND;
         attacker->client->rewardTime = level.time + REWARD_SPRITE_TIME;
     }
+    CalculateRanks();
 }
 
 qboolean ftmod_readyCheck(void) {
@@ -798,4 +799,18 @@ void ftmod_checkDelay(void) {
     if (!ftmod_calculateScores(TEAM_RED)) {
         ftmod_calculateScores(TEAM_BLUE);
     }
+}
+
+void ftmod_countAlive( int *red, int *blue ) {
+	int i;
+	*red = *blue = 0;
+	for ( i = 0; i < level.maxclients; i++ ) {
+		gclient_t *cl = &level.clients[i];
+		if ( cl->pers.connected != CON_CONNECTED )
+			continue;
+		if ( cl->sess.sessionTeam == TEAM_RED && g_entities[i].inuse && g_entities[i].freezeState != qtrue )
+			(*red)++;
+		else if ( cl->sess.sessionTeam == TEAM_BLUE && g_entities[i].inuse && g_entities[i].freezeState != qtrue )
+			(*blue)++;
+	}
 }

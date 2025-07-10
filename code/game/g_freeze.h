@@ -11,4 +11,5 @@ void ftmod_bodyFree(gentity_t * self);
 void ftmod_playerFreeze(gentity_t * self, gentity_t * attacker, int mod);
 void ftmod_teamWins(int team);
 void ftmod_checkDelay(void);
+void ftmod_countAlive( int *red, int *blue );
 
