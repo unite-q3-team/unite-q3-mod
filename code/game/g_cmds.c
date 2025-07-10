@@ -1941,7 +1941,11 @@ void ClientCommand( int clientNum ) {
 		
 	trap_Argv( 0, cmd, sizeof( cmd ) );
 
-	if (!(Q_stricmp (cmd, "say") == 0 || Q_stricmp (cmd, "say_team") == 0 || Q_stricmp (cmd, "tell") == 0)) {
+	if (!(Q_stricmp (cmd, "say") == 0 
+		|| Q_stricmp (cmd, "say_team") == 0 
+		|| Q_stricmp (cmd, "tell") == 0
+		|| Q_stricmp (cmd, "score") == 0
+	)) {
 		G_LogPrintf( "@  %s%c%c[%d] cmd: %s\n", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, clientNum, args );
 	}
 
