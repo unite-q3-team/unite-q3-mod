@@ -285,155 +285,176 @@ static qboolean PointTakenByOpposingTeam( const gentity_t *ent, const vec3_t poi
 }
 
 static gentity_t *SelectFurthestSpawnFromEnemies(const gentity_t *ent, vec3_t origin, vec3_t angles) {
-	gentity_t *spot;
-	vec3_t delta;
-	float dist, minEnemyDist, minAllyDist;
-	float enemyDistThreshold = 1024.0f;
-	float allyDistThreshold = 512.0f;
-	int i, j;
-	qboolean isBot;
-	int livingEnemies = 0;
-	gentity_t *candidateSpots[MAX_SPAWN_POINTS];
-	int candidateCount = 0;
-	
-	if ( !ent || !ent->client ) {
-		if ( level.numSpawnSpots > 0 ) {
-			int randIndex = rand() % level.numSpawnSpots;
-			spot = level.spawnSpots[randIndex];
-			VectorCopy( spot->s.origin, origin );
-			origin[2] += 9.0f;
-			VectorCopy( spot->s.angles, angles );
-			return spot;
-		}
-		return NULL;
-	}
+    gentity_t *spot;
+    vec3_t delta;
+    float dist, minEnemyDist, minAllyDist;
+    float enemyDistThreshold = 1024.0f;
+    float allyDistThreshold = 512.0f;
+    int i, j;
+    qboolean isBot;
+    int livingEnemies = 0;
+    gentity_t *candidateSpots[MAX_SPAWN_POINTS];
+    int candidateCount = 0;
 
-	isBot = (ent->r.svFlags & SVF_BOT) == SVF_BOT;
+    if (!ent || !ent->client) {
+        if (level.numSpawnSpots > 0) {
+            int randIndex = rand() % level.numSpawnSpots;
+            spot = level.spawnSpots[randIndex];
+            VectorCopy(spot->s.origin, origin);
+            origin[2] += 9.0f;
+            VectorCopy(spot->s.angles, angles);
+            return spot;
+        }
+        return NULL;
+    }
 
-	for ( i = 0; i < level.maxclients; i++ ) {
-		gentity_t *enemy = &g_entities[i];
+    isBot = (ent->r.svFlags & SVF_BOT) == SVF_BOT;
 
-		if ( !enemy->inuse || !enemy->client || enemy == ent )
-			continue;
+    // Считаем живых врагов
+    for (i = 0; i < level.maxclients; i++) {
+        gentity_t *enemy = &g_entities[i];
 
-		if ( g_gametype.integer > GT_SINGLE_PLAYER &&
-			 enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam )
-			continue;
+        if (!enemy->inuse || !enemy->client || enemy == ent)
+            continue;
 
-		if ( enemy->client->ps.stats[STAT_HEALTH] <= 0 )
-			continue;
+        if (g_gametype.integer > GT_SINGLE_PLAYER &&
+            enemy->client->sess.sessionTeam == ent->client->sess.sessionTeam)
+            continue;
 
-		livingEnemies++;
-	}
+        if (enemy->client->ps.stats[STAT_HEALTH] <= 0)
+            continue;
 
-	if ( livingEnemies == 0 ) {
-		for ( i = 0; i < 10; i++ ) {
-			int index = Q_irand(0, level.numSpawnSpots - 1);
-			spot = level.spawnSpots[index];
+        livingEnemies++;
+    }
 
-			if ( SpotWouldTelefrag(spot) )
-				continue;
+    // Если врагов нет, ищем точку с проверкой расстояний от других игроков
+    if (livingEnemies == 0) {
+		qboolean tooClose = qfalse;
+        for (i = 0; i < 10; i++) {
+            int index = Q_irand(0, level.numSpawnSpots - 1);
+            spot = level.spawnSpots[index];
 
-			if ( (spot->flags & FL_NO_BOTS) && isBot )
-				continue;
+            if (SpotWouldTelefrag(spot))
+                continue;
 
-			if ( (spot->flags & FL_NO_HUMANS) && !isBot )
-				continue;
+            if ((spot->flags & FL_NO_BOTS) && isBot)
+                continue;
 
-			VectorCopy( spot->s.origin, origin );
-			origin[2] += 9.0f;
-			VectorCopy( spot->s.angles, angles );
-			return spot;
-		}
-	}	
+            if ((spot->flags & FL_NO_HUMANS) && !isBot)
+                continue;
 
-	for ( i = 0; i < level.numSpawnSpots; i++ ) {
-		spot = level.spawnSpots[i];
+            // Проверяем, чтобы не было игроков слишком близко
+            for (j = 0; j < level.maxclients; j++) {
+                gentity_t *other = &g_entities[j];
+                if (!other->inuse || !other->client)
+                    continue;
 
-		if ( spot->fteam != TEAM_FREE && level.numSpawnSpotsFFA > 0 )
-			continue;
+                if (other == ent)
+                    continue;
 
-		if ( SpotWouldTelefrag(spot) )
-			continue;
+                VectorSubtract(spot->s.origin, other->r.currentOrigin, delta);
+                dist = VectorLength(delta);
+                if (dist < 256.0f) {  // минимальная дистанция для спауна
+                    tooClose = qtrue;
+                    break;
+                }
+            }
 
-		if ( (spot->flags & FL_NO_BOTS) && isBot )
-			continue;
+            if (tooClose)
+                continue;
 
-		if ( (spot->flags & FL_NO_HUMANS) && !isBot )
-			continue;
+            VectorCopy(spot->s.origin, origin);
+            origin[2] += 9.0f;
+            VectorCopy(spot->s.angles, angles);
+            return spot;
+        }
+    }
 
-		minEnemyDist = 9999999.0f;
-		minAllyDist = 9999999.0f;
+    // Основной алгоритм — поиск точек с максимальным расстоянием от врагов и союзников
+    for (i = 0; i < level.numSpawnSpots; i++) {
+        spot = level.spawnSpots[i];
 
-		for ( j = 0; j < level.maxclients; j++ ) {
-			gentity_t *other = &g_entities[j];
+        if (spot->fteam != TEAM_FREE && level.numSpawnSpotsFFA > 0)
+            continue;
 
-			if ( !other->inuse || !other->client || other == ent )
-				continue;
+        if (SpotWouldTelefrag(spot))
+            continue;
 
-			if ( g_gametype.integer > GT_SINGLE_PLAYER &&
-				 other->client->sess.sessionTeam == ent->client->sess.sessionTeam ) {
-				VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
-				dist = VectorLength( delta );
-				if ( dist < minAllyDist )
-					minAllyDist = dist;
-			} else {
-				if ( other->client->ps.stats[STAT_HEALTH] <= 0 )
-					continue;
+        if ((spot->flags & FL_NO_BOTS) && isBot)
+            continue;
 
-				VectorSubtract( spot->s.origin, other->r.currentOrigin, delta );
-				dist = VectorLength( delta );
-				if ( dist < minEnemyDist )
-					minEnemyDist = dist;
-			}
-		}
+        if ((spot->flags & FL_NO_HUMANS) && !isBot)
+            continue;
 
-		if ( minEnemyDist >= enemyDistThreshold || minAllyDist <= allyDistThreshold ) {
-			if ( candidateCount < MAX_SPAWN_POINTS ) {
-				candidateSpots[candidateCount++] = spot;
-			}
-		}
-	}
+        minEnemyDist = 9999999.0f;
+        minAllyDist = 9999999.0f;
 
-	if ( candidateCount > 0 ) {
-		int selectedIndex = Q_irand(0, candidateCount - 1);
-		spot = candidateSpots[selectedIndex];
-		VectorCopy( spot->s.origin, origin );
-		origin[2] += 9.0f;
-		VectorCopy( spot->s.angles, angles );
-		return spot;
-	}
+        for (j = 0; j < level.maxclients; j++) {
+            gentity_t *other = &g_entities[j];
 
-	if ( g_gametype.integer > GT_SINGLE_PLAYER ) {
-		for ( i = 0; i < level.numSpawnSpots; i++ ) {
-			spot = level.spawnSpots[i];
+            if (!other->inuse || !other->client || other == ent)
+                continue;
 
-			if ( PointTakenByOpposingTeam(ent, spot->s.origin, 64.0f) )
-				continue;
+            if (g_gametype.integer > GT_SINGLE_PLAYER &&
+                other->client->sess.sessionTeam == ent->client->sess.sessionTeam) {
+                VectorSubtract(spot->s.origin, other->r.currentOrigin, delta);
+                dist = VectorLength(delta);
+                if (dist < minAllyDist)
+                    minAllyDist = dist;
+            } else {
+                if (other->client->ps.stats[STAT_HEALTH] <= 0)
+                    continue;
 
-			VectorCopy( spot->s.origin, origin );
-			origin[2] += 9.0f;
-			VectorCopy( spot->s.angles, angles );
-			return spot;
-		}
-	}
+                VectorSubtract(spot->s.origin, other->r.currentOrigin, delta);
+                dist = VectorLength(delta);
+                if (dist < minEnemyDist)
+                    minEnemyDist = dist;
+            }
+        }
 
-	if ( level.numSpawnSpots > 0 ) {
-		int randIndex = rand() % level.numSpawnSpots;
-		spot = level.spawnSpots[randIndex];
-		VectorCopy( spot->s.origin, origin );
-		origin[2] += 9.0f;
-		VectorCopy( spot->s.angles, angles );
-		return spot;
-	}
+        if (minEnemyDist >= enemyDistThreshold || minAllyDist <= allyDistThreshold) {
+            if (candidateCount < MAX_SPAWN_POINTS) {
+                candidateSpots[candidateCount++] = spot;
+            }
+        }
+    }
 
-	return NULL;
+    if (candidateCount > 0) {
+        int selectedIndex = Q_irand(0, candidateCount - 1);
+        spot = candidateSpots[selectedIndex];
+        VectorCopy(spot->s.origin, origin);
+        origin[2] += 9.0f;
+        VectorCopy(spot->s.angles, angles);
+        return spot;
+    }
+
+    // Если ничего не подошло — выбираем точку без проверки, кроме точки, занятой другой командой
+    if (g_gametype.integer > GT_SINGLE_PLAYER) {
+        for (i = 0; i < level.numSpawnSpots; i++) {
+            spot = level.spawnSpots[i];
+
+            if (PointTakenByOpposingTeam(ent, spot->s.origin, 64.0f))
+                continue;
+
+            VectorCopy(spot->s.origin, origin);
+            origin[2] += 9.0f;
+            VectorCopy(spot->s.angles, angles);
+            return spot;
+        }
+    }
+
+    // Последний шанс — случайная точка
+    if (level.numSpawnSpots > 0) {
+        int randIndex = rand() % level.numSpawnSpots;
+        spot = level.spawnSpots[randIndex];
+        VectorCopy(spot->s.origin, origin);
+        origin[2] += 9.0f;
+        VectorCopy(spot->s.angles, angles);
+        return spot;
+    }
+
+    return NULL;
 }
-
-
-
-
-
 
 
 /*
