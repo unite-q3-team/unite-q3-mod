@@ -165,18 +165,20 @@ G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtru
 
 //Devotion
 G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )
-
+G_CVAR( pmove_accurate, "pmove_accurate", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue, qfalse )
 // G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
 //freeze
-G_CVAR( g_freeze, "g_freeze", "0", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
-G_CVAR( g_thawTime, "g_thawTime", "2000", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTimeAutoRevive, "g_thawTimeAutoRevive", "90000", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_thawTimeAuto_bounds, "g_thawTimeAuto_bounds", "10000", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freeze, "g_freeze", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+G_CVAR( g_thawTime, "g_thawTime", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAutoRevive, "g_thawTimeAutoRevive", "90", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawTimeAuto_bounds, "g_thawTimeAuto_bounds", "10", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_tp, "g_thawTimeAuto_tp", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawRadius, "g_thawRadius", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
-G_CVAR( g_freezeForceRevive, "g_freezeForceRevive", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freeze_forceRevive, "g_freeze_forceRevive", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freeze_beginFrozen, "g_freeze_beginFrozen", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_freeze_beginFrozenDelay, "g_freeze_beginFrozenDelay", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )

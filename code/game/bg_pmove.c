@@ -40,7 +40,7 @@ PM_AddEvent
 ===============
 */
 void PM_AddEvent( int newEvent ) {
-	BG_AddPredictableEventToPlayerstate( newEvent, 0, pm->ps, -1 );
+	BG_AddPredictableEventToPlayerstate( newEvent, 0, pm->ps );
 }
 
 /*
@@ -2020,13 +2020,44 @@ void PmoveSingle (pmove_t *pmove) {
 	// entering / leaving water splashes
 	PM_WaterEvents();
 
-	if ( pm->ps->powerups[PW_FLIGHT] && !pml.groundPlane ) {
-		// don't snap velocity in free-fly or we will be not able to stop via flight friction
-		return;
-	}
+	if (pm->pmove_accurate && pm->ps->stats[STAT_HEALTH] > 0) {
+		if (VectorLengthSquared(pm->ps->velocity) < 0.25f) {
+			VectorClear(pm->ps->velocity);
+		}
+		else {
+			int i;
+			float fac;
+			float fps = 75;				 // FPS 75 is very close to VQ3 125 FPS movement, was pm->pmove_accurate;
 
-	// snap some parts of playerstate to save network bandwidth
-	trap_SnapVector( pm->ps->velocity );
+			/*
+			if (fps > 125) {             // was 250
+				fps = 125;
+			}
+			else if (fps < 30) {
+				fps = 30;
+			}
+			*/
+			fac = (float)pml.msec / (1000.0f / (float)fps);
+			// add some error...
+			for (i = 0; i < 3; ++i) {
+				// ...if the velocity in this direction changed enough
+				if (fabs(pm->ps->velocity[i] - pml.previous_velocity[i]) > 0.5f / fac) {
+					if (pm->ps->velocity[i] < 0) {
+						pm->ps->velocity[i] -= 0.5f * fac;
+					}
+					else {
+						pm->ps->velocity[i] += 0.5f * fac;
+					}
+				}
+			}
+		}
+	}
+	else {
+		// snap some parts of playerstate to save network bandwidth
+		// but only if pmove_float is not enabled
+		if(!(pm->pmove_float))
+			trap_SnapVector(pm->ps->velocity);
+	}
 }
 
 

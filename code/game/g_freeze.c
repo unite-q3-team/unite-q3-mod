@@ -157,7 +157,7 @@ static void ftmod_playerFree(gentity_t *ent) {
     }
     ent->client->inactivityTime = level.time + g_inactivity.integer * 1000;
 
-    if (g_freezeForceRevive.integer) {
+    if (g_freeze_forceRevive.integer) {
         ClientSpawn(ent);
         G_TempEntity(ent->client->ps.origin, EV_PLAYER_TELEPORT_IN);
     }
@@ -195,7 +195,7 @@ static void ftmod_bodyExplode(gentity_t *self) {
 
         if (!self->count)
         {
-            self->count = level.time + (g_thawTime.integer);
+            self->count = level.time + (g_thawTime.integer * 1000);
             G_Sound(self, CHAN_AUTO, self->noise_index);
             self->activator = e;
         }
@@ -238,14 +238,14 @@ static void ftmod_bodyWorldEffects(gentity_t *self) {
     contents = trap_PointContents(point, -1);
 
     if ((contents & (CONTENTS_LAVA | CONTENTS_SLIME)) &&
-        (level.time - self->timestamp > g_thawTimeAuto_lava.integer)) {
+        (level.time - self->timestamp > (g_thawTimeAuto_lava.integer * 1000))) {
         G_Damage(self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION,
                  MOD_TELEFRAG);
         return;
     }
 
     if (self->s.pos.trType == TR_STATIONARY && (contents & CONTENTS_NODROP) &&
-        (level.time - self->timestamp > g_thawTimeAuto_bounds.integer)) {
+        (level.time - self->timestamp > (g_thawTimeAuto_bounds.integer * 1000))) {
         ftmod_bodyFree(self);
         return;
     }
@@ -349,7 +349,7 @@ static void ftmod_bodyThink(gentity_t *self) {
     }
 
     if (g_thawTimeAutoRevive.integer > 0 &&
-        level.time - self->timestamp > g_thawTimeAutoRevive.integer) {
+        level.time - self->timestamp > (g_thawTimeAutoRevive.integer * 1000)) {
         ftmod_playerFree(self->target_ent);
         ftmod_tossBody(self);
         return;
@@ -448,7 +448,7 @@ qboolean ftmod_damageBody(gentity_t *targ, gentity_t *attacker, vec3_t dir,
     return qfalse;
 }
 
-static void ftmod_copyToBody(gentity_t *ent) {
+void ftmod_copyToBody(gentity_t *ent) {
     gentity_t *body;
 
     body = G_Spawn();
@@ -718,16 +718,28 @@ void ftmod_teamWins(int team) {
     }
 
     te = G_TempEntity(vec3_origin, EV_GLOBAL_TEAM_SOUND);
+
+if (g_gametype.integer == GT_TEAM) {
+    if (team == TEAM_RED) {
+        teamstr = "^1RED";
+        te->s.eventParm = GTS_REDTEAM_SCORED;
+    } else {
+        teamstr = "^4BLUE";
+        te->s.eventParm = GTS_BLUETEAM_SCORED;
+    }
+} else {
+    // Для других геймтипов оставить текущую логику capture
     if (team == TEAM_RED) {
         teamstr = "^1RED";
         te->s.eventParm = GTS_BLUE_CAPTURE;
-    }
-    else
-    {
+    } else {
         teamstr = "^4BLUE";
         te->s.eventParm = GTS_RED_CAPTURE;
     }
-    te->r.svFlags |= SVF_BROADCAST;
+}
+
+te->r.svFlags |= SVF_BROADCAST;
+
 
     trap_SendServerCommand(
         -1, va("cp \"" S_COLOR_MAGENTA "%s " S_COLOR_WHITE "^3Team scores!\n\"",
@@ -738,6 +750,9 @@ void ftmod_teamWins(int team) {
     Team_ForceGesture(team);
 
     CalculateRanks();
+    if ( g_freeze.integer ) {
+        level.freezeRoundStartTime = level.time;
+    }
 }
 
 static qboolean ftmod_calculateScores(int team) {
@@ -818,3 +833,32 @@ void ftmod_countAlive( int *red, int *blue ) {
 			(*blue)++;
 	}
 }
+
+void ftmod_spawnFrozenPlayer(gentity_t *ent, gclient_t *client) {
+    int delay = g_freeze_beginFrozenDelay.integer * 1000;
+    int timeSinceRoundStart = level.time - level.freezeRoundStartTime;
+
+    if (g_freeze_beginFrozen.integer && (level.freezeRoundStartTime > 0
+        && timeSinceRoundStart >= delay
+        && client->sess.sessionTeam != TEAM_SPECTATOR)) {
+
+        ClientSpawn(ent);
+
+        ftmod_copyToBody(ent);
+
+        ent->r.contents = 0;
+        ent->s.eFlags |= EF_NODRAW;
+        ent->s.powerups = 0;
+        ent->takedamage = qfalse;
+        ent->r.linked = qfalse;
+        trap_UnlinkEntity(ent);
+
+        ent->freezeState = qtrue;
+        client->ps.pm_type = PM_FREEZE;
+        client->ps.weapon = WP_NONE;
+        client->ps.stats[STAT_HEALTH] = ent->health = 0;
+    } else {
+        ClientSpawn(ent);
+    }
+}
+

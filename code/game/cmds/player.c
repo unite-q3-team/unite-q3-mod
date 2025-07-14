@@ -178,3 +178,7 @@ void fteam_f(gentity_t *ent){
 	trap_Argv( 2, str, sizeof( str ) );
 	SetTeam( &g_entities[victim->client - level.clients], str );
 }
+
+void printRoundTime (void) {
+    Com_Printf("Round time:%i", level.freezeRoundStartTime);
+}

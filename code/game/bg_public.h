@@ -178,7 +178,9 @@ typedef struct {
 	// for fixed msec Pmove
 	int			pmove_fixed;
 	int			pmove_msec;
-
+		//Sago's pmove
+        int                     pmove_float;
+		int						pmove_accurate;
 	// callbacks to test the world
 	// these will be different functions during game and cgame
 	void		(*trace)( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentMask );
@@ -592,7 +594,7 @@ typedef enum {
 void	BG_EvaluateTrajectory( const trajectory_t *tr, int atTime, vec3_t result );
 void	BG_EvaluateTrajectoryDelta( const trajectory_t *tr, int atTime, vec3_t result );
 
-void	BG_AddPredictableEventToPlayerstate( entity_event_t newEvent, int eventParm, playerState_t *ps, int entityNum );
+void	BG_AddPredictableEventToPlayerstate( int newEvent, int eventParm, playerState_t *ps );
 
 void	BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad );
 

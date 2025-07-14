@@ -559,7 +559,7 @@ void G_AddPredictableEvent( gentity_t *ent, entity_event_t event, int eventParm 
 	if ( !ent->client ) {
 		return;
 	}
-	BG_AddPredictableEventToPlayerstate( event, eventParm, &ent->client->ps, -1 );
+	BG_AddPredictableEventToPlayerstate( event, eventParm, &ent->client->ps );
 }
 
 

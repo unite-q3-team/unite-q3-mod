@@ -1045,7 +1045,7 @@ void BeginIntermission( void ) {
 
 		// respawn if dead
 		if ( client->health <= 0 ) {
-			respawn( client );
+			ClientRespawn( client );
 		}
 
 		MoveClientToIntermission( client );
@@ -1507,7 +1507,9 @@ static void G_WarmupEnd( void )
 
 	level.warmupTime = 0;
 	level.startTime = level.time;
-
+	if ( g_freeze.integer ) {
+    	level.freezeRoundStartTime = level.time;
+	}
 	trap_SetConfigstring( CS_SCORES1, "0" );
 	trap_SetConfigstring( CS_SCORES2, "0" );
 	trap_SetConfigstring( CS_WARMUP, "" );
@@ -2086,6 +2088,8 @@ static void G_RunFrame( int levelTime ) {
 			ClientEndFrame( ent );
 		}
 	}
+
+	CleanupPendingSpawns();
 
 	// see if it is time to do a tournement restart
 	CheckTournament();

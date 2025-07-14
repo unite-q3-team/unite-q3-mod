@@ -719,8 +719,8 @@ void SendPendingPredictableEvents( playerState_t *ps ) {
 
 void PushApartPlayers(gentity_t *ent) {
     const int passes = 12;
-    const float basePushImpulseScale = 36.0f;
-    const float basePushAmountMax = 6.0f;
+    const float basePushImpulseScale = 12.0f;
+    const float basePushAmountMax = 3.0f;
 
     int i, pass;
     vec3_t dir, impulse;
@@ -732,8 +732,10 @@ void PushApartPlayers(gentity_t *ent) {
     }
 
     for (pass = 0; pass < passes; pass++) {
-        radius = 16.0f - pass * 2.0f;
-        pushImpulseScale = basePushImpulseScale / (pass + 1);
+        radius = 16.0f - pass * 1.0f;
+        if (radius < 4.0f) radius = 4.0f;
+
+        pushImpulseScale = basePushImpulseScale * (1.0f / ((float)pass + 2.0f));  
 
         for (i = 0; i < level.numConnectedClients; i++) {
             gentity_t *other = &g_entities[level.sortedClients[i]];
@@ -754,16 +756,18 @@ void PushApartPlayers(gentity_t *ent) {
                 VectorSet(dir, 1, 0, 0);
                 dist = 1.0f;
             }
+
             if (dist > radius)
                 continue;
 
-            if (dist < 4.0f)
-                dist = 4.0f;
+            if (dist < 6.0f)
+                dist = 6.0f;
 
             VectorNormalize(dir);
 
             pushAmount = basePushAmountMax * (1.0f - dist / radius);
-            if (pushAmount < 0.5f)
+
+            if (pushAmount < 0.2f)
                 continue;
 
             VectorScale(dir, pushAmount * pushImpulseScale, impulse);
@@ -771,6 +775,7 @@ void PushApartPlayers(gentity_t *ent) {
         }
     }
 }
+
 
 
 /*
@@ -986,6 +991,7 @@ void ClientThink_real( gentity_t *ent ) {
 
 	pm.pmove_fixed = fixed;
 	pm.pmove_msec = pmsec;
+	pm.pmove_accurate = pmove_accurate.integer;
 
 	pm.pmove_autohop = pmove_autohop.integer;
 
@@ -1068,13 +1074,13 @@ void ClientThink_real( gentity_t *ent ) {
 			// forcerespawn is to prevent users from waiting out powerups
 			if ( g_forcerespawn.integer > 0 && 
 				( level.time - client->respawnTime ) > g_forcerespawn.integer * 1000 ) {
-				respawn( ent );
+				ClientRespawn( ent );
 				return;
 			}
 		
 			// pressing attack or use is the normal respawn method
 			if ( ucmd->buttons & ( BUTTON_ATTACK | BUTTON_USE_HOLDABLE ) ) {
-				respawn( ent );
+				ClientRespawn( ent );
 			}
 		}
 		return;

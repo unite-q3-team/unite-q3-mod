@@ -515,7 +515,7 @@ static void CG_TouchItem( centity_t *cent ) {
 	}
 
 	// grab it
-	BG_AddPredictableEventToPlayerstate( EV_ITEM_PICKUP, cent->currentState.modelindex , &cg.predictedPlayerState, cent - cg_entities );
+	BG_AddPredictableEventToPlayerstate( EV_ITEM_PICKUP, cent->currentState.modelindex , &cg.predictedPlayerState);
 
 	// perform prediction
 	CG_PickupPrediction( cent, item );

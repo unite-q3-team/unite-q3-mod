@@ -1288,7 +1288,7 @@ void CG_StoreEvent( entity_event_t ev, int eventParm, int entityNum );
 
 void	trap_Cvar_VariableStringBuffer( const char *var_name, char *buffer, int bufsize );
 
-void BG_AddPredictableEventToPlayerstate( entity_event_t newEvent, int eventParm, playerState_t *ps, int entityNum ) {
+void BG_AddPredictableEventToPlayerstate( int newEvent, int eventParm, playerState_t *ps ) {
 
 #ifdef _DEBUG
 	{
@@ -1296,18 +1296,13 @@ void BG_AddPredictableEventToPlayerstate( entity_event_t newEvent, int eventParm
 		trap_Cvar_VariableStringBuffer("showevents", buf, sizeof(buf));
 		if ( atof(buf) != 0 ) {
 #ifdef QAGAME
-			Com_Printf(" game event svt %5d -> %5d: num = %20s parm %d\n", ps->pmove_framecount/*ps->commandTime*/, ps->eventSequence, eventnames[newEvent], eventParm);
+			Com_Printf(" game event svt %5d -> %5d: num = %20s parm %d\n", ps->pmove_framecount/*ps->commandTime*/, ps->eventSequence, BG_EventToString(newEvent), eventParm);
 #else
-			Com_Printf("Cgame event svt %5d -> %5d: num = %20s parm %d\n", ps->pmove_framecount/*ps->commandTime*/, ps->eventSequence, eventnames[newEvent], eventParm);
+			Com_Printf("Cgame event svt %5d -> %5d: num = %20s parm %d\n", ps->pmove_framecount/*ps->commandTime*/, ps->eventSequence, BG_EventToString(newEvent), eventParm);
 #endif
 		}
 	}
 #endif
-
-#ifdef CGAME
-	CG_StoreEvent( newEvent, eventParm, entityNum );
-#endif
-	
 	ps->events[ps->eventSequence & (MAX_PS_EVENTS-1)] = newEvent;
 	ps->eventParms[ps->eventSequence & (MAX_PS_EVENTS-1)] = eventParm;
 	ps->eventSequence++;
@@ -1345,7 +1340,7 @@ void BG_TouchJumpPad( playerState_t *ps, entityState_t *jumppad ) {
 		} else {
 			effectNum = 1;
 		}
-		BG_AddPredictableEventToPlayerstate( EV_JUMP_PAD, effectNum, ps, -1 );
+		BG_AddPredictableEventToPlayerstate( EV_JUMP_PAD, effectNum, ps );
 	}
 	// remember hitting this jumppad this frame
 	ps->jumppad_ent = jumppad->number;

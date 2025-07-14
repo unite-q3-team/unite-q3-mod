@@ -120,6 +120,41 @@ void DeathmatchScoreboardMessage( gentity_t *ent ) {
 		string ) );
 }
 
+#define MAX_SPAWN_STR_LEN 1024
+
+void SendSpawnCoordsToClient(gentity_t *ent) {
+    char spawnCoordsStr[MAX_SPAWN_STR_LEN];
+    int i, len = 0;
+    gentity_t *spot;
+    int x, y, z, written;
+
+    if (level.numSpawnSpots == 0) {
+        trap_SendServerCommand(ent - g_entities, "spawnCoords 0");
+        return;
+    }
+
+    len = Q_snprintf(spawnCoordsStr, sizeof(spawnCoordsStr), "spawnCoords %d", level.numSpawnSpots);
+
+    for (i = 0; i < level.numSpawnSpots; i++) {
+        spot = level.spawnSpots[i];
+
+        x = (int)(spot->s.origin[0]);
+        y = (int)(spot->s.origin[1]);
+        z = (int)(spot->s.origin[2]);
+
+    
+        written = Q_snprintf(spawnCoordsStr + len, sizeof(spawnCoordsStr) - len,
+                             " %d %d %d", x, y, z);
+        if (written <= 0 || written >= sizeof(spawnCoordsStr) - len) {
+            break;
+        }
+        len += written;
+    }
+
+    trap_SendServerCommand(ent - g_entities, spawnCoordsStr);
+}
+
+
 
 /*
 ==================
@@ -2055,7 +2090,8 @@ void ClientCommand( int clientNum ) {
 		hi_f( ent );
 	else if (Q_stricmp (cmd, "fteam") == 0)
 		fteam_f( ent );
-
+	// else if (Q_stricmp (cmd, "smap") == 0)
+		// SendSpawnCoordsToClient( ent );
 	else if (Q_stricmp (cmd, "auth") == 0)
 		plsauth_f( ent );
 	else if (Q_stricmp (cmd, "deauth") == 0)

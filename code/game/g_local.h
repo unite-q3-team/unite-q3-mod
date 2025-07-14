@@ -103,7 +103,7 @@ struct gentity_s {
 	vec3_t		pos1, pos2;
 
 	char		*message;
-
+    gentity_t 	*lastSpawnSpot;
 	int			timestamp;		// body queue sinking, etc
 
 	float		angle;			// set in editor, -1 = up, -2 = down
@@ -369,6 +369,7 @@ typedef struct {
 	int			num_entities;		// current number, <= MAX_GENTITIES
 
 	int			warmupTime;			// restart match at this time
+	int 		freezeRoundStartTime;
 
 	fileHandle_t	logFile;
 
@@ -625,7 +626,7 @@ team_t PickTeam( int ignoreClientNum );
 void SetClientViewAngle( gentity_t *ent, vec3_t angle );
 gentity_t *SelectSpawnPoint( gentity_t *ent, vec3_t avoidPoint, vec3_t origin, vec3_t angles );
 void CopyToBodyQue( gentity_t *ent );
-void respawn (gentity_t *ent);
+void ClientRespawn (gentity_t *ent);
 void BeginIntermission (void);
 void InitBodyQue (void);
 void ClientSpawn( gentity_t *ent );
@@ -635,7 +636,7 @@ void CalculateRanks( void );
 qboolean SpotWouldTelefrag( gentity_t *spot );
 void AssignStartingWeapons(gclient_t *client);
 void SetInitialWeapon(gclient_t *client);
-
+void CleanupPendingSpawns(void);
 //
 // g_svcmds.c
 //
@@ -772,6 +773,8 @@ qboolean G_MapExist( const char *map );
 
 
 #include "g_team.h" // teamplay specific stuff
+
+void PrintSpawnPointsMap(const gentity_t *ent); 
 //freeze
 #include "g_freeze.h"
 //freeze
