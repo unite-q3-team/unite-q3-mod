@@ -2052,26 +2052,29 @@ void PmoveSingle (pmove_t *pmove) {
 	PM_WaterEvents();
 
 	if (pm->pmove_accurate && pm->ps->stats[STAT_HEALTH] > 0) {
-		if (VectorLengthSquared(pm->ps->velocity) < 0.25f) {
-			VectorClear(pm->ps->velocity);
-		}
+	if (VectorLengthSquared(pm->ps->velocity) < 0.25f) {
+		VectorClear(pm->ps->velocity);
+	}
 		else {
 			int i;
 			float fac;
-			float fps = 75;				 // FPS 75 is very close to VQ3 125 FPS movement, was pm->pmove_accurate;
+			float fps;
 
-			/*
-			if (fps > 125) {             // was 250
-				fps = 125;
+			// Устанавливаем fps в зависимости от pmove_accurate
+			if (pm->pmove_accurate == 1) {
+				fps = 75.0f;
 			}
-			else if (fps < 30) {
-				fps = 30;
+			else if (pm->pmove_accurate == 2) {
+				fps = 125.0f;
 			}
-			*/
-			fac = (float)pml.msec / (1000.0f / (float)fps);
-			// add some error...
+			else {
+				fps = 75.0f; // значение по умолчанию, можно также сделать return или assert
+			}
+
+			fac = (float)pml.msec / (1000.0f / fps);
+
+			// Вносим ошибку в velocity, если изменения достаточно большие
 			for (i = 0; i < 3; ++i) {
-				// ...if the velocity in this direction changed enough
 				if (fabs(pm->ps->velocity[i] - pml.previous_velocity[i]) > 0.5f / fac) {
 					if (pm->ps->velocity[i] < 0) {
 						pm->ps->velocity[i] -= 0.5f * fac;
