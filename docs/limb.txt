@@ -1,6 +1,9 @@
-// System
+// pmove
 sv_pmove_fixed         // фиксированное перемещение игроков (true/false)
 sv_pmove_msec          // интервал обновления физики в мс (при sv_pmove_fixed)
+pmove_autohop          // автопрыжок
+pmove_accurate         // 75 fps devotion
+g_overbounce           // Овербаунсы
 
 // Game modes/modificators
 g_instagib             // Истагиб. 1 - вкл, только рейл, 2 - вкл, рейл + перчатка
@@ -77,6 +80,7 @@ g_thawRadius            // Радиус разморозки
 g_freeze_forceRevive      // Авто оживление после разморозки
 g_freeze_beginFrozen      // Если включено (1), игроки, зашедшие после указанной задержки, будут спауниться замороженными
 g_freeze_beginFrozenDelay // Задержка в секундах после начала раунда, в течение которой новые игроки могут спауниться без заморозки
+
 
 //xq3e
 g_x_drawDamage          // Показывать урон
