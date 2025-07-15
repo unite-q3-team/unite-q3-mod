@@ -259,7 +259,131 @@ void G_RegisterCvars( void ) {
 	trap_Cvar_Set( "g_doWarmup", "1" );
 }
 
+void G_UpdateRatFlags( void ) {
+	int rflags = 0;
 
+	// if (g_itemPickup.integer) {
+	// 	rflags |= RAT_EASYPICKUP;
+	// }
+
+	// if (g_powerupGlows.integer) {
+	// 	rflags |= RAT_POWERUPGLOWS;
+	// }
+
+	// if (g_screenShake.integer) {
+	// 	rflags |= RAT_SCREENSHAKE;
+	// }
+
+	// if (g_predictMissiles.integer && g_delagMissiles.integer) {
+	// 	rflags |= RAT_PREDICTMISSILES;
+	// }
+
+	// if (g_fastSwitch.integer) {
+	// 	rflags |= RAT_FASTSWITCH;
+	// }
+
+	// if (g_fastWeapons.integer) {
+	// 	rflags |= RAT_FASTWEAPONS;
+	// }
+
+	// // if (g_crouchSlide.integer == 1) {
+	// // 	rflags |= RAT_CROUCHSLIDE;
+	// // }
+
+	// if (g_rampJump.integer) {
+	// 	rflags |= RAT_RAMPJUMP;
+	// }
+
+
+	// if (g_allowForcedModels.integer) {
+	// 	rflags |= RAT_ALLOWFORCEDMODELS;
+	// }
+
+	// if (g_friendsWallHack.integer) {
+	// 	rflags |= RAT_FRIENDSWALLHACK;
+	// }
+
+	// if (g_specShowZoom.integer) {
+	// 	rflags |= RAT_SPECSHOWZOOM;
+	// }
+
+	// if (g_brightPlayerShells.integer) {
+	// 	rflags |= RAT_BRIGHTSHELL;
+	// }
+
+	// if (g_brightPlayerOutlines.integer) {
+	// 	rflags |= RAT_BRIGHTOUTLINE;
+	// }
+
+	// if (g_brightModels.integer) {
+	// 	rflags |= RAT_BRIGHTMODEL;
+	// }
+
+	// if (g_newShotgun.integer) {
+	// 	rflags |= RAT_NEWSHOTGUN;
+	// }
+
+	// if (g_additiveJump.integer) {
+	// 	rflags |= RAT_ADDITIVEJUMP;
+	// }
+
+	// if (!g_allowTimenudge.integer) {
+	// 	rflags |= RAT_NOTIMENUDGE;
+	// }
+
+	// if (g_friendsFlagIndicator.integer) {
+	// 	rflags |= RAT_FLAGINDICATOR;
+	// }
+
+	// if (g_regularFootsteps.integer) {
+	// 	rflags |= RAT_REGULARFOOTSTEPS;
+	// }
+
+	// if (g_smoothStairs.integer) {
+	// 	rflags |= RAT_SMOOTHSTAIRS;
+	// }
+
+	if (!g_overbounce.integer) {
+		rflags |= RAT_NOOVERBOUNCE;
+	}
+
+	// if (g_passThroughInvisWalls.integer) {
+	// 	rflags |= RAT_NOINVISWALLS;
+	// }
+
+	// if (!g_bobup.integer) {
+	// 	rflags |= RAT_NOBOBUP;
+	// }
+	
+	// if (g_fastSwim.integer) {
+	// 	rflags |= RAT_FASTSWIM;
+	// }
+
+	// if (g_swingGrapple.integer) {
+	// 	rflags |= RAT_SWINGGRAPPLE;
+	// }
+
+	if (g_freeze.integer) {
+		rflags |= RAT_FREEZETAG;
+	}
+
+	// if (g_crouchSlide.integer == 1) {
+	// 	rflags |= RAT_CROUCHSLIDE;
+	// }
+
+	// if (g_slideMode.integer == 1) {
+	// 	rflags |= RAT_SLIDEMODE;
+	// }
+
+	// if (g_tauntForceOn.integer) {
+	// 	rflags |= RAT_FORCETAUNTS;
+	// }
+
+	// XXX --> also update code where this is called!
+
+	trap_Cvar_Set("g_altFlags",va("%i",rflags));
+	trap_Cvar_Update( &g_altFlags );
+}
 /*
 =================
 G_UpdateCvars
@@ -269,6 +393,7 @@ static void G_UpdateCvars( void ) {
 	int			i;
 	cvarTable_t	*cv;
 	qboolean remapped = qfalse;
+	qboolean updateRatFlags = qfalse;
 
 	for ( i = 0, cv = gameCvarTable ; i < ARRAY_LEN( gameCvarTable ) ; i++, cv++ ) {
 		if ( cv->vmCvar ) {
@@ -285,12 +410,49 @@ static void G_UpdateCvars( void ) {
 				if (cv->teamShader) {
 					remapped = qtrue;
 				}
+
+				if (
+						// cv->vmCvar == &g_itemPickup 
+						// || cv->vmCvar == &g_powerupGlows
+						// || cv->vmCvar == &g_screenShake
+						// || cv->vmCvar == &g_predictMissiles
+						// || cv->vmCvar == &g_fastSwitch
+						// || cv->vmCvar == &g_fastWeapons
+						// // || cv->vmCvar == &g_crouchSlide
+						// || cv->vmCvar == &g_rampJump
+						// || cv->vmCvar == &g_allowForcedModels
+						// || cv->vmCvar == &g_friendsWallHack
+						// || cv->vmCvar == &g_specShowZoom
+						// || cv->vmCvar == &g_brightPlayerShells
+						// || cv->vmCvar == &g_brightPlayerOutlines
+						// || cv->vmCvar == &g_brightModels
+						// || cv->vmCvar == &g_newShotgun
+						// || cv->vmCvar == &g_additiveJump
+						// || cv->vmCvar == &g_friendsFlagIndicator
+						// || cv->vmCvar == &g_regularFootsteps
+						// || cv->vmCvar == &g_smoothStairs
+						cv->vmCvar == &g_overbounce
+						// || cv->vmCvar == &g_passThroughInvisWalls
+						// || cv->vmCvar == &g_bobup
+						// || cv->vmCvar == &g_fastSwim
+						// || cv->vmCvar == &g_swingGrapple
+						|| cv->vmCvar == &g_freeze
+						// || cv->vmCvar == &g_crouchSlide
+						// || cv->vmCvar == &g_slideMode
+						// || cv->vmCvar == &g_tauntForceOn
+						) {
+					updateRatFlags = qtrue;
+				}
 			}
 		}
 	}
 
 	if (remapped) {
 		G_RemapTeamShaders();
+	}
+
+	if (updateRatFlags) {
+		G_UpdateRatFlags();
 	}
 }
 
@@ -2000,6 +2162,8 @@ static void G_RunFrame( int levelTime ) {
 
 	// get any cvar changes
 	G_UpdateCvars();
+
+	G_UpdateRatFlags();
 
 	numMissiles = 0;
 

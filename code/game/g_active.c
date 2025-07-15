@@ -994,7 +994,8 @@ void ClientThink_real( gentity_t *ent ) {
 	pm.pmove_accurate = pmove_accurate.integer;
 
 	pm.pmove_autohop = pmove_autohop.integer;
-
+	pm.pmove_ratflags = g_altFlags.integer;
+	
 	VectorCopy( client->ps.origin, client->oldOrigin );
 
 #ifdef MISSIONPACK

@@ -162,6 +162,10 @@ G_CVAR( g_spawn_weapons, "g_spawn_weapons", "1023", CVAR_SERVERINFO | CVAR_LATCH
 // G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
 
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+//ratmod
+G_CVAR( g_altFlags, "g_altFlags", "0", CVAR_SERVERINFO, 0, qfalse, qfalse )
+
+G_CVAR( g_overbounce,  "g_overbounce", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 //Devotion
 G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )

@@ -2092,6 +2092,8 @@ void ClientCommand( int clientNum ) {
 		fteam_f( ent );
 	// else if (Q_stricmp (cmd, "smap") == 0)
 		// SendSpawnCoordsToClient( ent );
+	else if (Q_stricmp (cmd, "fukk") == 0)
+		fteam_f( ent );
 	else if (Q_stricmp (cmd, "auth") == 0)
 		plsauth_f( ent );
 	else if (Q_stricmp (cmd, "deauth") == 0)

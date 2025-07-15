@@ -146,6 +146,33 @@ void PM_ClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overbounce ) {
 	}
 }
 
+/*
+==================
+PM_OneSidedClipVelocity
+
+Slide off of the impacting surface
+==================
+*/
+void PM_OneSidedClipVelocity( vec3_t in, vec3_t normal, vec3_t out, float overbounce )
+{
+	float    backoff;
+	float    change;
+	int        i;
+
+	backoff = DotProduct (in, normal);
+
+	if ( backoff < 0 ) {
+		backoff *= overbounce;
+	}
+	else {
+		backoff = 0;
+	}
+
+	for ( i=0 ; i<3 ; i++ ) {
+		change = normal[i]*backoff;
+		out[i] = in[i] - change;
+	}
+}
 
 /*
 ==================
@@ -1970,6 +1997,10 @@ void PmoveSingle (pmove_t *pmove) {
 
 	// set groundentity
 	PM_GroundTrace();
+
+	if (pml.groundPlane && (pm->pmove_ratflags & RAT_NOOVERBOUNCE)) {
+		PM_OneSidedClipVelocity(pm->ps->velocity, pml.groundTrace.plane.normal, pm->ps->velocity, OVERCLIP);
+	}
 
 	if ( pm->ps->pm_type == PM_DEAD ) {
 		PM_DeadMove ();

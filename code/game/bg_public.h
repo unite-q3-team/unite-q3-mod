@@ -181,6 +181,7 @@ typedef struct {
 		//Sago's pmove
         int                     pmove_float;
 		int						pmove_accurate;
+		int						pmove_ratflags;
 	// callbacks to test the world
 	// these will be different functions during game and cgame
 	void		(*trace)( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end, int passEntityNum, int contentMask );
@@ -561,6 +562,37 @@ qboolean	BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 #define	MASK_OPAQUE				(CONTENTS_SOLID|CONTENTS_SLIME|CONTENTS_LAVA)
 #define	MASK_SHOT				(CONTENTS_SOLID|CONTENTS_BODY|CONTENTS_CORPSE)
 
+// //g_altFlags->integer
+// // autoparsed from various ratmod cvars
+// #define RAT_EASYPICKUP		(1 << 0)
+// #define RAT_POWERUPGLOWS 	(1 << 1)
+// #define RAT_SCREENSHAKE 	(1 << 2)
+// #define RAT_PREDICTMISSILES 	(1 << 3)
+// #define RAT_FASTSWITCH 		(1 << 4)
+// #define RAT_FASTWEAPONS 	(1 << 5)
+// // #define RAT_CROUCHSLIDE		(1 << 6)
+// #define RAT_RAMPJUMP 		(1 << 7)
+// #define RAT_ALLOWFORCEDMODELS 	(1 << 8)
+// #define RAT_FRIENDSWALLHACK 	(1 << 9)
+// #define RAT_SPECSHOWZOOM 	(1 << 10)
+// #define RAT_BRIGHTSHELL 	(1 << 11)
+// #define RAT_NEWSHOTGUN 		(1 << 12)
+// #define RAT_ADDITIVEJUMP 	(1 << 13)
+// #define RAT_NOTIMENUDGE 	(1 << 14)
+// #define RAT_FLAGINDICATOR 	(1 << 15)
+// #define RAT_REGULARFOOTSTEPS 	(1 << 16)
+// #define RAT_NOINVISWALLS 	(1 << 17)
+// #define RAT_NOBOBUP 		(1 << 18)
+// #define RAT_FASTSWIM 		(1 << 19)
+// #define RAT_SWINGGRAPPLE	(1 << 20)
+// #define RAT_BRIGHTOUTLINE	(1 << 21)
+// #define RAT_BRIGHTMODEL		(1 << 22)
+// #define RAT_SMOOTHSTAIRS	(1 << 23)
+#define RAT_NOOVERBOUNCE	(1 << 24)
+#define RAT_FREEZETAG		(1 << 25)
+// #define RAT_CROUCHSLIDE		(1 << 26)
+// #define RAT_SLIDEMODE		(1 << 27)
+// #define RAT_FORCETAUNTS		(1 << 28)
 
 //
 // entityState_t->eType

@@ -34,7 +34,7 @@ void Cmd_Plrlist_f(gentity_t *ent) {
     const char *cc_str;
     char rate_aligned[7];
     char snaps_aligned[5];
-    char mod_aligned[7];
+    char mod_aligned[10];
     char cc_aligned[5];
     char teamChar[4];
     int activePlayers = 0;
@@ -87,18 +87,26 @@ void Cmd_Plrlist_f(gentity_t *ent) {
         snaps_buf[sizeof(snaps_buf) - 1] = '\0';
 
         osp_str = GetUserinfoString(userinfo, "osp_client", "");
-        if (osp_str[0] != '\0') {
-            mod_str = "^3OSP";
+
+        if (osp_str && osp_str[0] != '\0') {
+            if (Q_stristr(osp_str, "1008_OSP2")) {
+                mod_str = "^1OSP2";
+            } else if (Q_stristr(osp_str, "1008_OSP2_be")) {
+                mod_str = "^1OSP2^7BE";
+            } else {
+                mod_str = "^3OSP";
+            }
         } else {
             mod_str = "^1---";
         }
+
 
         cc_str = "^1??";
 
         // Выравнивание данных
         AlignString(rate_aligned, sizeof(rate_aligned), rate_buf, 6, qfalse);
         AlignString(snaps_aligned, sizeof(snaps_aligned), snaps_buf, 4, qfalse);
-        AlignString(mod_aligned, sizeof(mod_aligned), mod_str, 6, qfalse);
+        AlignString(mod_aligned, sizeof(mod_aligned), mod_str, 8, qfalse);
         // AlignString(cc_aligned, sizeof(cc_aligned), cc_str, 6, qfalse);
 
         // Форматирование имени
@@ -181,4 +189,39 @@ void fteam_f(gentity_t *ent){
 
 void printRoundTime (void) {
     Com_Printf("Round time:%i", level.freezeRoundStartTime);
+}
+
+
+void Cmd_UserinfoDump_f(gentity_t *ent) {
+    char userinfo[MAX_INFO_STRING];
+    char buffer[1024];
+    int i;
+
+    Q_strncpyz(buffer, "^2--- Userinfo Dump ---\n", sizeof(buffer));
+
+    for (i = 0; i < level.maxclients; i++) {
+        if (level.clients[i].pers.connected != CON_CONNECTED) {
+            continue;
+        }
+
+        trap_GetUserinfo(i, userinfo, sizeof(userinfo));
+
+        if (userinfo[0] == '\0') {
+            Q_strcat(buffer, sizeof(buffer),
+                va("^1Client %d: <empty userinfo>\n", i));
+        } else {
+            Q_strcat(buffer, sizeof(buffer),
+                va("^3Client %d^7: %s\n", i, userinfo));
+        }
+
+        // Если буфер почти переполнен, отправим кусок
+        if (strlen(buffer) > 900) {
+            trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", buffer));
+            buffer[0] = '\0';
+        }
+    }
+
+    if (buffer[0]) {
+        trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", buffer));
+    }
 }
