@@ -195,7 +195,7 @@ static void ftmod_bodyExplode(gentity_t *self) {
 
         if (!self->count)
         {
-            self->count = level.time + (g_thawTime.integer * 1000);
+            self->count = level.time + (g_thawTime.value * 1000);
             G_Sound(self, CHAN_AUTO, self->noise_index);
             self->activator = e;
         }
@@ -238,14 +238,14 @@ static void ftmod_bodyWorldEffects(gentity_t *self) {
     contents = trap_PointContents(point, -1);
 
     if ((contents & (CONTENTS_LAVA | CONTENTS_SLIME)) &&
-        (level.time - self->timestamp > (g_thawTimeAuto_lava.integer * 1000))) {
+        (level.time - self->timestamp > (g_thawTimeAuto_lava.value * 1000))) {
         G_Damage(self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION,
                  MOD_TELEFRAG);
         return;
     }
 
     if (self->s.pos.trType == TR_STATIONARY && (contents & CONTENTS_NODROP) &&
-        (level.time - self->timestamp > (g_thawTimeAuto_bounds.integer * 1000))) {
+        (level.time - self->timestamp > (g_thawTimeAuto_bounds.value * 1000))) {
         ftmod_bodyFree(self);
         return;
     }
@@ -284,7 +284,7 @@ static void ftmod_bodyWorldEffects(gentity_t *self) {
         case ET_TELEPORT_TRIGGER:
             if (!(hit->spawnflags & 1))
             {
-                if (g_thawTimeAuto_tp.integer)
+                if (g_thawTimeAuto_tp.value)
                 {
                     ftmod_playerFree(self->target_ent);
                     ftmod_setClient(self->target_ent);
@@ -349,7 +349,7 @@ static void ftmod_bodyThink(gentity_t *self) {
     }
 
     if (g_thawTimeAutoRevive.integer > 0 &&
-        level.time - self->timestamp > (g_thawTimeAutoRevive.integer * 1000)) {
+        level.time - self->timestamp > (g_thawTimeAutoRevive.value * 1000)) {
         ftmod_playerFree(self->target_ent);
         ftmod_tossBody(self);
         return;
