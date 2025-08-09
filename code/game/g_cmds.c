@@ -1427,6 +1427,105 @@ void Cmd_Where_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, va("print \"%s\n\"", vtos( ent->s.origin ) ) );
 }
 
+/*
+==================
+Cmd_Time_f
+
+Prints the current local time for the caller
+==================
+*/
+static void Cmd_Time_f( gentity_t *ent ) {
+    qtime_t now;
+    trap_RealTime( &now );
+    trap_SendServerCommand(
+        ent - g_entities,
+        va(
+            "print \"^3Time:^7 %04d-%02d-%02d %02d:%02d:%02d\n\"",
+            now.tm_year + 1900,
+            now.tm_mon + 1,
+            now.tm_mday,
+            now.tm_hour,
+            now.tm_min,
+            now.tm_sec
+        )
+    );
+}
+
+/* Forward declarations for functions referenced in the dispatch table (C89/q3lcc) */
+void Cmd_CallVote_f( gentity_t *ent );
+void Cmd_Vote_f( gentity_t *ent );
+static void Cmd_CallTeamVote_f( gentity_t *ent );
+static void Cmd_TeamVote_f( gentity_t *ent );
+static void Cmd_SetViewpos_f( gentity_t *ent );
+static void Cmd_Stats_f( gentity_t *ent );
+static void Cmd_Test_f( gentity_t *ent );
+void playsound_f( gentity_t *ent );
+void map_restart_f( gentity_t *ent );
+void osptest( gentity_t *ent );
+
+// lightweight wrappers for commands that need fixed params
+static void Cmd_FollowNext_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, 1 ); }
+static void Cmd_FollowPrev_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, -1 ); }
+
+typedef void (*gameCmdHandler_t)( gentity_t *ent );
+typedef struct {
+    const char *name;
+    gameCmdHandler_t handler;
+} gameCommandDef_t;
+
+// Command dispatch table (simple gentity_t* signature only)
+static const gameCommandDef_t gameCommandTable[] = {
+    { "give",            Cmd_Give_f },
+    { "god",             Cmd_God_f },
+    { "notarget",        Cmd_Notarget_f },
+    { "noclip",          Cmd_Noclip_f },
+    { "kill",            Cmd_Kill_f },
+    { "teamtask",        Cmd_TeamTask_f },
+    { "levelshot",       Cmd_LevelShot_f },
+    { "follow",          Cmd_Follow_f },
+    { "follownext",      Cmd_FollowNext_f },
+    { "followprev",      Cmd_FollowPrev_f },
+    { "team",            Cmd_Team_f },
+    { "where",           Cmd_Where_f },
+    { "time",            Cmd_Time_f },
+    { "servertime",      Cmd_Time_f },
+    { "callvote",        Cmd_CallVote_f },
+    { "vote",            Cmd_Vote_f },
+    { "callteamvote",    Cmd_CallTeamVote_f },
+    { "teamvote",        Cmd_TeamVote_f },
+    { "gc",              Cmd_GameCommand_f },
+    { "setviewpos",      Cmd_SetViewpos_f },
+    { "getpos",          getpos_f },
+    { "setpos",          setpos_f },
+    { "hi",              hi_f },
+    { "fteam",           fteam_f },
+    { "fukk",            fteam_f },
+    { "auth",            plsauth_f },
+    { "deauth",          deauth_f },
+    { "checkauth",       checkauth_f },
+    { "sndplay",         playsound_f },
+    { "killplayer",      killplayer_f },
+    { "svfps",           Cmd_svfps_f },
+    { "restart",         map_restart_f },
+    { "getstatsinfo",    osptest },
+    { "stats",           Cmd_Stats_f },
+    { "ftest",           Cmd_Test_f },
+    { "atest",           Cmd_NewTest_f },
+    { "playerlist",      Cmd_Plrlist_f },
+    { "players",         Cmd_Plrlist_f },
+};
+
+static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {
+    int i;
+    for ( i = 0; i < (int)ARRAY_LEN( gameCommandTable ); ++i ) {
+        if ( Q_stricmp( cmd, gameCommandTable[i].name ) == 0 ) {
+            gameCommandTable[i].handler( ent );
+            return qtrue;
+        }
+    }
+    return qfalse;
+}
+
 static const char *voteCommands[] = {
 	"map_restart",
 	"map",
@@ -2046,85 +2145,9 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 
-	if (Q_stricmp (cmd, "give") == 0)
-		Cmd_Give_f (ent);
-	else if (Q_stricmp (cmd, "god") == 0)
-		Cmd_God_f (ent);
-	else if (Q_stricmp (cmd, "notarget") == 0)
-		Cmd_Notarget_f (ent);
-	else if (Q_stricmp (cmd, "noclip") == 0)
-		Cmd_Noclip_f (ent);
-	else if (Q_stricmp (cmd, "kill") == 0)
-		Cmd_Kill_f (ent);
-	else if (Q_stricmp (cmd, "teamtask") == 0)
-		Cmd_TeamTask_f (ent);
-	else if (Q_stricmp (cmd, "levelshot") == 0)
-		Cmd_LevelShot_f (ent);
-	else if (Q_stricmp (cmd, "follow") == 0)
-		Cmd_Follow_f (ent);
-	else if (Q_stricmp (cmd, "follownext") == 0)
-		Cmd_FollowCycle_f (ent, 1);
-	else if (Q_stricmp (cmd, "followprev") == 0)
-		Cmd_FollowCycle_f (ent, -1);
-	else if (Q_stricmp (cmd, "team") == 0)
-		Cmd_Team_f (ent);
-	else if (Q_stricmp (cmd, "where") == 0)
-		Cmd_Where_f (ent);
-	else if (Q_stricmp (cmd, "callvote") == 0)
-		Cmd_CallVote_f (ent);
-	else if (Q_stricmp (cmd, "vote") == 0)
-		Cmd_Vote_f (ent);
-	else if (Q_stricmp (cmd, "callteamvote") == 0)
-		Cmd_CallTeamVote_f (ent);
-	else if (Q_stricmp (cmd, "teamvote") == 0)
-		Cmd_TeamVote_f (ent);
-	else if (Q_stricmp (cmd, "gc") == 0)
-		Cmd_GameCommand_f( ent );
-	else if (Q_stricmp (cmd, "setviewpos") == 0)
-		Cmd_SetViewpos_f( ent );
-	else if (Q_stricmp (cmd, "getpos") == 0)
-		getpos_f( ent );
-	else if (Q_stricmp (cmd, "setpos") == 0)
-		setpos_f( ent );
-	else if (Q_stricmp (cmd, "hi") == 0)
-		hi_f( ent );
-	else if (Q_stricmp (cmd, "fteam") == 0)
-		fteam_f( ent );
-	// else if (Q_stricmp (cmd, "smap") == 0)
-		// SendSpawnCoordsToClient( ent );
-	else if (Q_stricmp (cmd, "fukk") == 0)
-		fteam_f( ent );
-	else if (Q_stricmp (cmd, "auth") == 0)
-		plsauth_f( ent );
-	else if (Q_stricmp (cmd, "deauth") == 0)
-		deauth_f( ent );
-	else if (Q_stricmp (cmd, "checkauth") == 0)
-		checkauth_f( ent );
-
-	else if (Q_stricmp (cmd, "sndplay") == 0)
-		playsound_f( ent );
-
-	else if (Q_stricmp (cmd, "killplayer") == 0)
-		killplayer_f( ent );
-	else if (Q_stricmp (cmd, "svfps") == 0)
-		Cmd_svfps_f( ent );
-	else if (Q_stricmp (cmd, "restart") == 0)
-		map_restart_f( ent );
-	
-	else if (Q_stricmp (cmd, "getstatsinfo") == 0)
-		osptest( ent );
-	
-
-	else if (Q_stricmp (cmd, "stats") == 0)
-		Cmd_Stats_f( ent );
-	else if (Q_stricmp (cmd, "ftest") == 0)
-		Cmd_Test_f( ent );
-	else if (Q_stricmp (cmd, "atest") == 0)
-		Cmd_NewTest_f( ent );
-	else if (Q_stricmp (cmd, "playerlist") == 0 || Q_stricmp (cmd, "players") == 0)
-		Cmd_Plrlist_f( ent );
-	else{
-		Com_Printf("@ ^ unknown command\n");
-		trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
-	}
+    if ( DispatchGameCommand( cmd, ent ) ) {
+        return;
+    }
+    Com_Printf("@ ^ unknown command\n");
+    trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
 }
