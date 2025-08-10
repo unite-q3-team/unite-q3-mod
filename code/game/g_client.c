@@ -1530,6 +1530,8 @@ void ClientSpawn(gentity_t *ent) {
 		client->accuracy_hits = 0;
 		client->accuracy_shots = 0;
 	}
+	/* on every fresh spawn, reset current streak; keep best across life */
+	client->currentKillStreak = 0;
 	client->lastkilled_client = -1;
 
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {

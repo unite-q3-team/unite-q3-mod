@@ -316,6 +316,10 @@ struct gclient_s {
 	int			kills;
 	int			deaths;
 
+	/* kill streak tracking */
+	int			currentKillStreak; /* kills since last death */
+	int			bestKillStreak;    /* best streak achieved this match */
+
 	// pickups summary
 	int			armorPickedTotal;
 	int			armorYACount; // 50

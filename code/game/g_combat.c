@@ -1132,7 +1132,12 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
             }
             if ( attacker && attacker->client && attacker != targ && !OnSameTeam(targ, attacker) ) {
                 attacker->client->kills++;
-                // attribute per-weapon kill to current attacker weapon
+                /* increment current streak and update best */
+                attacker->client->currentKillStreak++;
+                if ( attacker->client->currentKillStreak > attacker->client->bestKillStreak ) {
+                    attacker->client->bestKillStreak = attacker->client->currentKillStreak;
+                }
+                /* attribute per-weapon kill to current attacker weapon */
                 if ( attacker->s.weapon >= 0 && attacker->s.weapon < WP_NUM_WEAPONS ) {
                     attacker->client->perWeaponKills[ attacker->s.weapon ]++;
                 }

@@ -1480,6 +1480,8 @@ static void Cmd_SetViewpos_f( gentity_t *ent );
 static void G_PrintStatsForClientTo( gentity_t *ent, gclient_t *cl );
 static void Cmd_Stats_f( gentity_t *ent );
 static void Cmd_StatsAll_f( gentity_t *ent );
+static void Cmd_Topshots_f( gentity_t *ent );
+static void Cmd_Awards_f( gentity_t *ent );
 static void Cmd_Test_f( gentity_t *ent );
 void playsound_f( gentity_t *ent );
 void map_restart_f( gentity_t *ent );
@@ -1532,6 +1534,8 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "getstatsinfo",    osptest },
     { "stats",           Cmd_Stats_f },
     { "statsall",        Cmd_StatsAll_f },
+    { "topshots",        Cmd_Topshots_f },
+    { "awards",          Cmd_Awards_f },
     { "ftest",           Cmd_Test_f },
     { "atest",           Cmd_NewTest_f },
     { "playerlist",      Cmd_Plrlist_f },
@@ -2237,6 +2241,229 @@ static void Cmd_StatsAll_f( gentity_t *ent ) {
         }
         G_PrintStatsForClientTo( ent, cl );
     }
+}
+
+/*
+=================
+Cmd_Topshots_f
+=================
+*/
+static void Cmd_Topshots_f( gentity_t *ent ) {
+    int i;
+    int w;
+    /* best per-weapon holders (for GA..BFG only) */
+    int bestClient[WP_NUM_WEAPONS];
+    int bestPct10[WP_NUM_WEAPONS];
+    int bestHits[WP_NUM_WEAPONS];
+    int bestShots[WP_NUM_WEAPONS];
+    int bestKills[WP_NUM_WEAPONS];
+    int bestDeaths[WP_NUM_WEAPONS];
+
+    char buf[MAX_STRING_CHARS];
+    char line[256];
+    int len;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    buf[0] = '\0';
+    len = 0;
+
+#define FLUSH_BUF() \
+    do { \
+        if ( len > 0 ) { \
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) ); \
+            buf[0] = '\0'; \
+            len = 0; \
+        } \
+    } while (0)
+
+#define APPEND_LINE(str) \
+    do { \
+        const char *s__ = (str); \
+        int add__ = (int)strlen( s__ ); \
+        if ( len + add__ + 32 >= (int)sizeof( buf ) ) { \
+            FLUSH_BUF(); \
+        } \
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", s__ ); \
+    } while (0)
+
+    /* init best arrays */
+    for ( w = 0; w < WP_NUM_WEAPONS; ++w ) {
+        bestClient[w] = -1;
+        bestPct10[w] = -1;
+        bestHits[w] = 0;
+        bestShots[w] = 0;
+        bestKills[w] = 0;
+        bestDeaths[w] = 0;
+    }
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gclient_t *cl = &level.clients[i];
+        if ( cl->pers.connected != CON_CONNECTED ) {
+            continue;
+        }
+        for ( w = WP_GAUNTLET; w <= WP_BFG; ++w ) {
+            int hitsNorm;
+            int hits = cl->perWeaponHits[w];
+            int shots = cl->perWeaponShots[w];
+            if ( shots <= 0 ) {
+                continue;
+            }
+            hitsNorm = hits;
+            if ( w == WP_SHOTGUN && hitsNorm > 0 ) {
+                hitsNorm = 1; /* treat any pellet hit as one for accuracy */
+            }
+            {
+                int thisPct10 = (hitsNorm * 1000) / shots;
+                if ( thisPct10 > bestPct10[w] ) {
+                    bestPct10[w] = thisPct10;
+                    bestClient[w] = i;
+                    bestHits[w] = hits;
+                    bestShots[w] = shots;
+                    bestKills[w] = cl->perWeaponKills[w];
+                    bestDeaths[w] = cl->perWeaponDeaths[w];
+                }
+            }
+        }
+    }
+
+    /* Header */
+    APPEND_LINE( "^2Best Match Accuracies:\n" );
+    APPEND_LINE( "^3WP    Acc Hits/Atts Kills Deaths\n" );
+    APPEND_LINE( "------------------------------------------------------\n" );
+
+    /* Abbreviations for GA..BFG */
+    {
+        static const char *const weaponAbbrev[] = {
+            "",      /* WP_NONE */
+            "GA",    /* 1 Gauntlet */
+            "MG",    /* 2 Machinegun */
+            "SG",    /* 3 Shotgun */
+            "GL",    /* 4 Grenade Launcher */
+            "RL",    /* 5 Rocket Launcher */
+            "LG",    /* 6 Lightning Gun */
+            "RG",    /* 7 Railgun */
+            "PG",    /* 8 PlasmaGun */
+            "BFG",   /* 9 BFG */
+        };
+        for ( w = WP_GAUNTLET; w <= WP_BFG; ++w ) {
+            int cnum = bestClient[w];
+            if ( cnum >= 0 && bestPct10[w] >= 0 ) {
+                Com_sprintf( line, sizeof(line), "^3%-3s^7 %3d.%1d    %4d/%-4d      ^2%3d      ^1%3d ^7%s\n",
+                    weaponAbbrev[w],
+                    bestPct10[w] / 10, bestPct10[w] % 10,
+                    bestHits[w], bestShots[w],
+                    bestKills[w], bestDeaths[w],
+                    level.clients[cnum].pers.netname );
+                APPEND_LINE( line );
+            }
+        }
+    }
+
+    FLUSH_BUF();
+
+#undef APPEND_LINE
+#undef FLUSH_BUF
+}
+
+/*
+=================
+Cmd_Awards_f
+=================
+*/
+static void Cmd_Awards_f( gentity_t *ent ) {
+    int i;
+    int mostKillsClient = -1, mostKills = -1;
+    int bestEffClient = -1, bestEffPct10 = -1; /* efficiency in tenths percent */
+    /* Placeholders if we don't track them */
+    int bestStreakClient = -1, bestStreak = 0;
+    int bestSkillClient = -1, bestSkill = 0;
+
+    char buf[MAX_STRING_CHARS];
+    char line[256];
+    int len;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gclient_t *cl = &level.clients[i];
+        int k, d;
+        int effPct10;
+        if ( cl->pers.connected != CON_CONNECTED ) {
+            continue;
+        }
+        k = cl->kills; d = cl->deaths;
+        if ( k > mostKills ) {
+            mostKills = k;
+            mostKillsClient = i;
+        }
+        if ( (k + d) > 0 ) {
+            effPct10 = (k * 1000) / (k + d);
+            if ( effPct10 > bestEffPct10 ) {
+                bestEffPct10 = effPct10;
+                bestEffClient = i;
+            }
+        }
+        /* track best streak */
+        if ( cl->bestKillStreak > bestStreak ) {
+            bestStreak = cl->bestKillStreak;
+            bestStreakClient = i;
+        }
+    }
+
+    buf[0] = '\0';
+    len = 0;
+
+#define FLUSH_BUF() \
+    do { \
+        if ( len > 0 ) { \
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) ); \
+            buf[0] = '\0'; \
+            len = 0; \
+        } \
+    } while (0)
+
+#define APPEND_LINE(str) \
+    do { \
+        const char *s__ = (str); \
+        int add__ = (int)strlen( s__ ); \
+        if ( len + add__ + 32 >= (int)sizeof( buf ) ) { \
+            FLUSH_BUF(); \
+        } \
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", s__ ); \
+    } while (0)
+
+    APPEND_LINE( "\n^2Awards List:\n" );
+    APPEND_LINE( "^7------------------------------------------------------\n" );
+    if ( mostKillsClient >= 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Kills               ^1%2d    ^7%s\n",
+            mostKills, level.clients[mostKillsClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( bestEffClient >= 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Best Efficiency        ^1%2d.%01d    ^7%s\n",
+            bestEffPct10 / 10, bestEffPct10 % 10,
+            level.clients[bestEffClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( bestStreakClient >= 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Best Kill Streak          ^1%2d    ^7%s\n",
+            bestStreak, level.clients[bestStreakClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( bestSkillClient >= 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Best Skill              ^1%4d    ^7%s\n",
+            bestSkill, level.clients[bestSkillClient].pers.netname );
+        APPEND_LINE( line );
+    }
+
+    FLUSH_BUF();
+
+#undef APPEND_LINE
+#undef FLUSH_BUF
 }
 
 static void Cmd_Test_f( gentity_t *ent ) {

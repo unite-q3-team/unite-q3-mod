@@ -1705,6 +1705,8 @@ static void G_WarmupEnd( void )
 		client->totalDamageTaken = 0;
 		client->kills = 0;
 		client->deaths = 0;
+		client->currentKillStreak = 0;
+		client->bestKillStreak = 0;
 		client->armorPickedTotal = 0;
 		client->armorYACount = 0;
 		client->armorRACount = 0;
