@@ -1663,6 +1663,7 @@ static const char *voteCommands[] = {
 	"g_gametype",
     "g_freeze",
     "instagib",
+    "quad",
 	"timelimit",
 	"fraglimit",
 	"capturelimit"
@@ -1793,6 +1794,43 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
             v = (command[0] == '1') ? 1 : 0;
         }
         BG_sprintf( base, "g_freeze %d; map_restart", v );
+        return qtrue;
+    }
+
+    if ( Q_stricmp( buf, "quad" ) == 0 ) {
+        /* quad 0|1: enable/disable Quad Damage powerup spawns via disable_item_quad */
+        if ( command[0] == '\0' ) {
+            int enabled = trap_Cvar_VariableIntegerValue( "disable_item_quad" ) ? 0 : 1;
+            trap_SendServerCommand( clientNum, va("print \"Current quad: %d\n\"", enabled) );
+            return qfalse;
+        }
+        if ( !(command[0] == '0' || command[0] == '1') || command[1] != '\0' ) {
+            trap_SendServerCommand( clientNum, "print \"Usage: quad <0|1>\\n\"" );
+            return qfalse;
+        }
+        {
+            int wantEnable = (command[0] == '1') ? 1 : 0;
+            int disableVal = wantEnable ? 0 : 1; /* disable_item_quad: 1 disables */
+            /* use explicit set to ensure server creates/updates the cvar */
+            BG_sprintf( base, "set disable_item_quad %d; map_restart", disableVal );
+        }
+        return qtrue;
+    }
+
+    if ( Q_stricmp( buf, "quad" ) == 0 ) {
+        /* quad 0|1: enable/disable Quad Damage powerup spawns */
+        int v;
+        if ( command[0] == '\0' ) {
+            trap_SendServerCommand( clientNum, va("print \"Current quad: %d\\n\"", g_spawn_quad.integer) );
+            return qfalse;
+        }
+        if ( !(command[0] == '0' || command[0] == '1') || command[1] != '\0' ) {
+            trap_SendServerCommand( clientNum, "print \"Usage: quad <0|1>\\n\"" );
+            return qfalse;
+        }
+        v = (command[0] == '1') ? 1 : 0;
+        /* latched cvar, needs map_restart */
+        BG_sprintf( base, "g_spawn_quad %d; map_restart", v );
         return qtrue;
     }
 
@@ -2852,6 +2890,7 @@ static void Cmd_CV_HelpList( gentity_t *ent ) {
     }
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5instagib^7             [%d]\n", g_instagib.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5g_freeze^7             [%d]\n", g_freeze.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5quad^7                 [%d]\n", trap_Cvar_VariableIntegerValue("disable_item_quad") ? 0 : 1 );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5timelimit^7            [%d]\n", g_timelimit.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5fraglimit^7            [%d]\n", g_fraglimit.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5capturelimit^7         [%d]\n\n", g_capturelimit.integer );
