@@ -9,6 +9,39 @@
 
 #define CHUNK_SIZE 1000
 
+/* Cached map list to avoid repeated filesystem scans */
+static int s_cachedMapCount = 0;
+static char s_cachedMaps[512][64];
+
+void G_EnsureMapListCache(void) {
+    char listbuf[8192];
+    int count, i, pos;
+    if ( s_cachedMapCount > 0 ) {
+        return;
+    }
+    s_cachedMapCount = 0;
+    count = trap_FS_GetFileList( "maps", ".bsp", listbuf, sizeof(listbuf) );
+    pos = 0;
+    for ( i = 0; i < count && s_cachedMapCount < 512; ++i ) {
+        char *nm;
+        int nlen;
+        if ( pos >= (int)sizeof(listbuf) ) break;
+        nm = &listbuf[pos];
+        nlen = (int)strlen( nm );
+        if ( nlen > 0 ) {
+            char tmp[64];
+            Q_strncpyz( tmp, nm, sizeof(tmp) );
+            nlen = (int)strlen( tmp );
+            if ( nlen > 4 && !Q_stricmp( tmp + nlen - 4, ".bsp" ) ) {
+                tmp[nlen - 4] = '\0';
+            }
+            Q_strncpyz( s_cachedMaps[s_cachedMapCount], tmp, sizeof(s_cachedMaps[0]) );
+            s_cachedMapCount++;
+        }
+        pos += (int)strlen( nm ) + 1;
+    }
+}
+
 void SendServerCommandInChunks(gentity_t *ent, const char *text) {
     int text_len;
     int sent_pos;
@@ -1490,6 +1523,12 @@ void osptest( gentity_t *ent );
 // lightweight wrappers for commands that need fixed params
 static void Cmd_FollowNext_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, 1 ); }
 static void Cmd_FollowPrev_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, -1 ); }
+static void Cmd_Help_f( gentity_t *ent );
+static void Cmd_ScoresText_f( gentity_t *ent );
+static void Cmd_MapList_f( gentity_t *ent );
+static void Cmd_Rotation_f( gentity_t *ent );
+static void Cmd_CV_f( gentity_t *ent );
+static void Cmd_CV_HelpList( gentity_t *ent );
 
 typedef void (*gameCmdHandler_t)( gentity_t *ent );
 typedef struct {
@@ -1499,6 +1538,7 @@ typedef struct {
 
 // Command dispatch table (simple gentity_t* signature only)
 static const gameCommandDef_t gameCommandTable[] = {
+    { "help",           Cmd_Help_f },
     { "give",            Cmd_Give_f },
     { "god",             Cmd_God_f },
     { "notarget",        Cmd_Notarget_f },
@@ -1536,6 +1576,10 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "statsall",        Cmd_StatsAll_f },
     { "topshots",        Cmd_Topshots_f },
     { "awards",          Cmd_Awards_f },
+    { "scores",          Cmd_ScoresText_f },
+    { "maplist",         Cmd_MapList_f },
+    { "rotation",        Cmd_Rotation_f },
+    { "cv",              Cmd_CV_f },
     { "ftest",           Cmd_Test_f },
     { "atest",           Cmd_NewTest_f },
     { "playerlist",      Cmd_Plrlist_f },
@@ -1561,8 +1605,7 @@ static const char *voteCommands[] = {
 	"kick",
 	"clientkick",
 	"g_gametype",
-	"g_unlagged",
-	"g_warmup",
+    "instagib",
 	"timelimit",
 	"fraglimit",
 	"capturelimit"
@@ -1639,9 +1682,41 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
 	}
 
 	if ( Q_stricmp( buf, "map" ) == 0 ) {
+        /* accept numeric index from maplist */
+        int isNum = 1;
+        int j;
+        for ( j = 0; command[j]; ++j ) {
+            if ( command[j] < '0' || command[j] > '9' ) { isNum = 0; break; }
+        }
+        if ( isNum && command[0] != '\0' ) {
+            int want = atoi( command );
+            int count, idx;
+            G_EnsureMapListCache();
+            count = s_cachedMapCount;
+            for ( idx = 0; idx < count; ++idx ) {
+                if ( idx + 1 == want ) {
+                    BG_sprintf( base, "map %s", s_cachedMaps[idx] );
+                    return qtrue;
+                }
+            }
+            trap_SendServerCommand( clientNum, va( "print \"No such map index: %s.\n\"", command ) );
+            return qfalse;
+        }
 		if ( !G_MapExist( command ) ) {
 			trap_SendServerCommand( clientNum, va( "print \"No such map on server: %s.\n\"", command ) );
 			return qfalse;
+        } 
+        return qtrue;
+    }
+    if ( Q_stricmp( buf, "instagib" ) == 0 ) {
+        /* allow instagib 0|1 */
+        if ( command[0] == '\0' ) {
+            trap_SendServerCommand( clientNum, va("print \"Current instagib: %d\n\"", g_instagib.integer) );
+            return qfalse;
+        }
+        if ( !(command[0] == '0' || command[0] == '1') || command[1] != '\0' ) {
+            trap_SendServerCommand( clientNum, "print \"Usage: instagib <0|1>\n\"" );
+            return qfalse;
 		} 
 		return qtrue;
 	}
@@ -1664,8 +1739,25 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 	char	arg[MAX_STRING_TOKENS], *argn[4];
 	char	cmd[MAX_STRING_TOKENS], *s;
 
+    /* If user typed just 'callvote' or 'callvote map' (no arg), show options */
+    if ( trap_Argc() == 1 ) {
+        Cmd_CV_HelpList( ent );
+        return;
+    } else if ( trap_Argc() == 2 ) {
+        trap_Argv( 1, cmd, sizeof( cmd ) );
+        if ( Q_stricmp( cmd, "map" ) == 0 ) {
+            Cmd_MapList_f( ent );
+            return;
+        }
+    }
+
 	if ( !g_allowVote.integer ) {
 		trap_SendServerCommand( ent-g_entities, "print \"Voting not allowed here.\n\"" );
+		return;
+	}
+
+    if ( ent->client->sess.spectatorState != SPECTATOR_NOT ) {
+        trap_SendServerCommand( ent-g_entities, "print \"^1! ^3Spectators cannot call votes.\n\"" );
 		return;
 	}
 
@@ -1684,10 +1776,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"You have called the maximum number of votes.\n\"" );
 		return;
 	}
-	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
-		trap_SendServerCommand( ent-g_entities, "print \"Not allowed to call a vote as spectator.\n\"" );
-		return;
-	}
+    // note: legacy check kept above
 
 	// build command buffer
 	arg[ 0 ] = '\0'; s = arg;
@@ -1750,7 +1839,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 Cmd_Vote_f
 ==================
 */
-static void Cmd_Vote_f( gentity_t *ent ) {
+void Cmd_Vote_f( gentity_t *ent ) {
 	char		msg[64];
 
 	if ( !level.voteTime ) {
@@ -2091,30 +2180,30 @@ static void G_PrintStatsForClientTo( gentity_t *ent, gclient_t *cl ) {
         qboolean any;
         any = qfalse;
         for ( w = WP_GAUNTLET; w < WP_NUM_WEAPONS; ++w ) {
-            if ( cl->perWeaponShots[w] == 0 && cl->perWeaponHits[w] == 0 && cl->perWeaponDamageGiven[w] == 0 && cl->perWeaponDamageTaken[w] == 0 ) {
+        if ( cl->perWeaponShots[w] == 0 && cl->perWeaponHits[w] == 0 && cl->perWeaponDamageGiven[w] == 0 && cl->perWeaponDamageTaken[w] == 0 ) {
                 continue;
-            }
+        }
             any = qtrue;
-            shots = cl->perWeaponShots[w];
-            hits = cl->perWeaponHits[w];
-            if ( w == WP_SHOTGUN && hits > 0 ) {
-                hits = hits > 0 ? 1 : 0;
-            }
-            if ( shots > 0 ) {
+        shots = cl->perWeaponShots[w];
+        hits = cl->perWeaponHits[w];
+        if ( w == WP_SHOTGUN && hits > 0 ) {
+            hits = hits > 0 ? 1 : 0;
+        }
+        if ( shots > 0 ) {
                 int num;
                 int pct;
                 num = hits * 1000;
                 pct = shots ? num / shots : 0;
-                accInt = pct / 10;
-                accFrac = pct % 10;
-            } else {
-                accInt = 0; accFrac = 0;
-            }
-            Com_sprintf( line, sizeof(line), "%-13s %8d.%1d    %2d/%-6d  %6d  %6d %6d  %5d\n",
-                (w < (int)ARRAY_LEN(s_weaponLabel) ? s_weaponLabel[w] : "Weapon:"),
-                accInt, accFrac, hits, shots,
-                cl->perWeaponKills[w], cl->perWeaponDeaths[w],
-                cl->perWeaponPickups[w], cl->perWeaponDrops[w] );
+            accInt = pct / 10;
+            accFrac = pct % 10;
+        } else {
+            accInt = 0; accFrac = 0;
+        }
+        Com_sprintf( line, sizeof(line), "%-13s %8d.%1d    %2d/%-6d  %6d  %6d %6d  %5d\n",
+            (w < (int)ARRAY_LEN(s_weaponLabel) ? s_weaponLabel[w] : "Weapon:"),
+            accInt, accFrac, hits, shots,
+            cl->perWeaponKills[w], cl->perWeaponDeaths[w],
+            cl->perWeaponPickups[w], cl->perWeaponDrops[w] );
             APPEND_LINE( line );
         }
         if ( !any ) {
@@ -2195,11 +2284,19 @@ static void Cmd_Stats_f( gentity_t *ent ) {
             }
             if ( isNum ) {
                 targetNum = atoi(arg);
-                if ( targetNum >= 0 && targetNum < level.maxclients ) {
-                    if ( level.clients[targetNum].pers.connected == CON_CONNECTED ) {
-                        targetCl = &level.clients[targetNum];
-                    }
+                if ( targetNum < 0 || targetNum >= level.maxclients ) {
+                    trap_SendServerCommand( ent - g_entities, "print \"^1! ^3No such client number.\n\"" );
+                    return;
                 }
+                if ( level.clients[targetNum].pers.connected != CON_CONNECTED ) {
+                    trap_SendServerCommand( ent - g_entities, "print \"^1! ^3Client is not connected.\n\"" );
+                    return;
+                }
+                if ( level.clients[targetNum].sess.spectatorState != SPECTATOR_NOT ) {
+                    trap_SendServerCommand( ent - g_entities, "print \"^1! ^3Target is a spectator.\n\"" );
+                    return;
+                }
+                targetCl = &level.clients[targetNum];
             }
         }
 
@@ -2213,7 +2310,11 @@ static void Cmd_Stats_f( gentity_t *ent ) {
                 }
             }
             if ( !targetCl ) {
-                targetCl = ent->client;
+                if ( ent->client->sess.spectatorState != SPECTATOR_NOT ) {
+                    trap_SendServerCommand( ent - g_entities, "print \"^3Usage: ^7stats <clientnum>\n\"" );
+                    return;
+                }
+                targetCl = ent->client; // self
                 targetNum = ent->client - level.clients;
             }
         }
@@ -2367,6 +2468,263 @@ static void Cmd_Topshots_f( gentity_t *ent ) {
 #undef FLUSH_BUF
 }
 
+/*
+=================
+Cmd_Help_f
+=================
+*/
+static void Cmd_Help_f( gentity_t *ent ) {
+    char buf[MAX_STRING_CHARS];
+    int len = 0;
+    buf[0] = '\0';
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Available Server Commands:^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7--------------------------\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "help             scores           maplist          rotation\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "stats            statsall         topshots         awards\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "callvote         cv               team             follow\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "follownext       followprev       where            time\n" );
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+}
+
+/*
+=================
+Cmd_ScoresText_f
+=================
+*/
+static void Cmd_ScoresText_f( gentity_t *ent ) {
+    char buf[MAX_STRING_CHARS];
+    char line[256];
+    int len = 0;
+    int i;
+    buf[0] = '\0';
+    Com_sprintf( line, sizeof(line), "\nMap: %s\n", g_mapname.string );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", line );
+    {
+        int secs = (g_timelimit.integer * 60) - (level.time / 1000);
+        if ( secs < 0 ) secs = 0;
+        Com_sprintf( line, sizeof(line), "Time Remaining: %d:%02d\n\n", secs/60, secs%60 );
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", line );
+    }
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "Player          Kll Dth Sui Time  FPH Eff     DG     DR  Score\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "--------------------------------------------------------------\n" );
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gclient_t *cl = &level.clients[i];
+        int mins;
+        int fph;
+        int eff10;
+        if ( cl->pers.connected != CON_CONNECTED ) continue;
+        mins = (level.time - cl->pers.enterTime) / 60000;
+        if ( mins <= 0 ) mins = 0;
+        fph = mins > 0 ? (cl->kills * 60) / (mins == 0 ? 1 : mins) : (cl->kills * 60);
+        eff10 = (cl->kills + cl->deaths) > 0 ? (cl->kills * 1000) / (cl->kills + cl->deaths) : 0;
+        Com_sprintf( line, sizeof(line), "%-14s %3d %3d %3d %4d %4d %3d %6d %6d %6d\n",
+            cl->pers.netname,
+            cl->kills,
+            cl->deaths,
+            0, /* suicides not tracked */
+            mins,
+            fph,
+            eff10 / 10,
+            cl->totalDamageGiven,
+            cl->totalDamageTaken,
+            cl->ps.persistant[PERS_SCORE] );
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", line );
+        if ( len > (int)sizeof(buf) - 128 ) {
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+            buf[0] = '\0';
+            len = 0;
+        }
+    }
+    if ( len > 0 ) {
+        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+    }
+}
+
+/*
+=================
+Cmd_MapList_f
+=================
+*/
+static void Cmd_MapList_f( gentity_t *ent ) {
+    char listbuf[8192];
+    int count, i, pos;
+    int index = 0;
+    char row[256];
+    char buf[MAX_STRING_CHARS];
+    int len = 0;
+    char *name;
+    int maxLen = 0;
+    int colWidth, perRow;
+
+    buf[0] = '\0';
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^2Available Maps:^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7---------------\n" );
+
+    G_EnsureMapListCache();
+    count = s_cachedMapCount;
+    /* First pass: find maximum name length, capped */
+    for ( i = 0; i < count; ++i ) {
+        int nlen = (int)strlen( s_cachedMaps[i] );
+        if ( nlen > maxLen ) maxLen = nlen;
+    }
+    if ( maxLen < 1 ) maxLen = 1;
+    if ( maxLen > 16 ) maxLen = 16; /* cap to keep row short */
+    colWidth = maxLen + 2;
+    perRow = 3; /* fixed 3 columns */
+
+    /* Second pass: output rows */
+    pos = 0;
+    index = 0;
+    row[0] = '\0';
+    for ( i = 0; i < count; ++i ) {
+        const char *mapname;
+        char cell[96];
+        mapname = s_cachedMaps[i];
+        index++;
+        {
+            int isCurrent = (Q_stricmp(mapname, g_mapname.string)==0);
+            const char *star = isCurrent ? "^1*" : " ";
+            const char *nameColor = isCurrent ? "^3" : "^2";
+            Com_sprintf( cell, sizeof(cell), "^7%3d.^7 %s%s%-*s^7", index, star, nameColor, colWidth, mapname );
+        }
+        Q_strcat( row, sizeof(row), cell );
+        if ( (index % perRow) != 0 && (i+1) < count ) {
+            Q_strcat( row, sizeof(row), " " );
+        }
+        if ( (index % perRow) == 0 || (i+1) >= count ) {
+            /* flush one row exactly */
+            len += Com_sprintf( buf + len, sizeof(buf) - len, "%s\n", row );
+            row[0] = '\0';
+            if ( len > (int)sizeof(buf) - 256 ) {
+                SendServerCommandInChunks( ent, buf );
+                buf[0] = '\0';
+                len = 0;
+            }
+        }
+    }
+    if ( len > 0 ) {
+        SendServerCommandInChunks( ent, buf );
+    }
+}
+
+/*
+=================
+Cmd_Rotation_f
+=================
+*/
+static void Cmd_Rotation_f( gentity_t *ent ) {
+    char bufFile[ 8192 ];
+    fileHandle_t fh;
+    int lenFile;
+    char *s;
+    char *tk;
+    const int perRow = 3;
+    int count = 0;
+    const char *maps[256];
+    char storage[ 256 ][ 64 ];
+    int idx;
+    char line[256];
+    char out[MAX_STRING_CHARS];
+    int outLen = 0;
+
+    out[0] = '\0';
+    outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "^2Current Map Rotation:^7\n" );
+    outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "^7---------------------\n" );
+
+    if ( !g_rotation.string[0] ) {
+        outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "^3Rotation mode:^7 NONE\n" );
+        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", out) );
+        return;
+    }
+    lenFile = trap_FS_FOpenFile( g_rotation.string, &fh, FS_READ );
+    if ( fh == FS_INVALID_HANDLE ) {
+        outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "^1Rotation file not found: ^7%s\n", g_rotation.string );
+        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", out) );
+        return;
+    }
+    if ( lenFile >= (int)sizeof(bufFile) ) lenFile = sizeof(bufFile) - 1;
+    trap_FS_Read( bufFile, lenFile, fh );
+    bufFile[lenFile] = '\0';
+    trap_FS_FCloseFile( fh );
+
+    Com_InitSeparators();
+    COM_BeginParseSession( g_rotation.string );
+    s = bufFile;
+    count = 0;
+    while ( 1 ) {
+        tk = COM_ParseSep( &s, qtrue );
+        if ( tk[0] == '\0' ) break;
+        if ( G_MapExist( tk ) ) {
+            if ( count < 256 ) {
+                Q_strncpyz( storage[count], tk, sizeof(storage[count]) );
+                maps[count] = storage[count];
+                count++;
+            }
+        }
+    }
+
+    for ( idx = 0; idx < count; ++idx ) {
+        {
+            int isCurrent = (Q_stricmp(maps[idx], g_mapname.string)==0);
+            const char *star = isCurrent ? "^1*" : " ";
+            const char *nameColor = isCurrent ? "^3" : "^2";
+            Com_sprintf( line, sizeof(line), "^7%3d.^7 %s%s%-16s^7", idx+1, star, nameColor, maps[idx] );
+        }
+        outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "%s", line );
+        if ( ((idx+1) % perRow) == 0 ) {
+            outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "\n" );
+            if ( outLen > (int)sizeof(out) - 256 ) {
+                SendServerCommandInChunks( ent, out );
+                out[0] = '\0';
+                outLen = 0;
+            }
+        } else if ( idx+1 < count ) {
+            outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "  " );
+        }
+    }
+    if ( (count % perRow) != 0 ) {
+        outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "\n" );
+    }
+    outLen += Com_sprintf( out + outLen, sizeof(out) - outLen, "^3Rotation mode:^7 %s\n", "RANDOM" );
+    SendServerCommandInChunks( ent, out );
+}
+
+/*
+=================
+Cmd_CV_f
+=================
+*/
+static void Cmd_CV_f( gentity_t *ent ) {
+    // If cv map with no argument: show maplist and return
+    if ( trap_Argc() == 1 ) {
+        Cmd_CV_HelpList( ent );
+        return;
+    } else if ( trap_Argc() == 2 ) {
+        char sub[MAX_TOKEN_CHARS];
+        trap_Argv( 1, sub, sizeof(sub) );
+        if ( Q_stricmp( sub, "map" ) == 0 ) {
+            Cmd_MapList_f( ent );
+            return;
+        }
+    }
+    // Delegate to callvote for identical behavior otherwise
+    Cmd_CallVote_f( ent );
+}
+
+/* keep colored helper for listing when no args via callvote */
+static void Cmd_CV_HelpList( gentity_t *ent ) {
+    char buf[MAX_STRING_CHARS];
+    int len = 0;
+    buf[0] = '\0';
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Callvote Commands:^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7------------------\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5map^7                  [%s]\n", g_mapname.string );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5map_restart^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5nextmap^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5instagib^7             [%d]\n\n", g_instagib.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7Usage: ^3\\callvote <command> [arg]^7\n" );
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+}
 /*
 =================
 Cmd_Awards_f

@@ -580,6 +580,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_InitFireRatios();
 
+    /* build cached map list once at startup */
+    G_EnsureMapListCache();
+
 	G_ProcessIPBans();
 
 	G_InitMemory();
