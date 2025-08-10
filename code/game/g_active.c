@@ -307,7 +307,29 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	client = ent->client;
 
-	if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
+    if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
+        /* If in team mode and free-look is disabled, force trying to follow a teammate */
+        if ( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) {
+            int k;
+            int myTeam = client->sess.sessionTeam;
+            /* find a teammate to follow */
+            for ( k = 0; k < level.maxclients; ++k ) {
+                gclient_t *cand = &level.clients[k];
+                if ( cand->pers.connected != CON_CONNECTED ) continue;
+                /* treat spectators (and freeze spectators) as not followable */
+                if ( g_freeze.integer ? ftmod_isSpectator( cand ) : (cand->sess.sessionTeam == TEAM_SPECTATOR) ) continue;
+                if ( cand->sess.sessionTeam != myTeam ) continue;
+                client->sess.spectatorState = SPECTATOR_FOLLOW;
+                client->sess.spectatorClient = k;
+                break;
+            }
+            /* If none found, keep them locked (no pmove), i.e., do not execute free-fly movement */
+            if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
+                client->ps.pm_type = PM_SPECTATOR;
+                client->ps.speed = 0;
+                return;
+            }
+        }
 		client->ps.pm_type = PM_SPECTATOR;
 		client->ps.speed = g_speed.value * 1.25f; // faster than normal
 
@@ -327,8 +349,10 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 		pm.trace = trap_Trace;
 		pm.pointcontents = trap_PointContents;
 
-		// perform a pmove
-		Pmove( &pm );
+        // perform a pmove (unless disabled by teamNoFreeSpectate)
+        if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) ) {
+            Pmove( &pm );
+        }
 		// save results of pmove
 		VectorCopy( client->ps.origin, ent->s.origin );
 
@@ -341,6 +365,7 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
 	// attack button cycles through spectators
 	if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
+		/* In team modes, obey enemy spectate restriction while cycling */
 		Cmd_FollowCycle_f( ent, 1 );
 	}
 }
@@ -1144,14 +1169,31 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 		// team follow1 and team follow2 go to whatever clients are playing
 		if ( clientNum == -1 ) {
 			clientNum = level.follow1;
-		} else if ( clientNum == -2 ) {
-			clientNum = level.follow2;
+        } else if ( clientNum == -2 ) {
+            clientNum = level.follow2;
 		}
-	if ( (unsigned)clientNum < MAX_CLIENTS ) {
+    if ( (unsigned)clientNum < MAX_CLIENTS ) {
 		cl = &level.clients[clientNum];
 		//freeze
 		if (g_freeze.integer) {
 			if (cl->pers.connected == CON_CONNECTED && !ftmod_isSpectator(cl)) {
+                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates */
+                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                    if ( cl->sess.sessionTeam != ent->client->sess.sessionTeam ) {
+                        int k;
+                        for ( k = 0; k < level.maxclients; ++k ) {
+                            gclient_t *cand = &level.clients[k];
+                            if ( cand->pers.connected != CON_CONNECTED ) continue;
+                            if ( ftmod_isSpectator( cand ) ) continue;
+                            if ( cand->sess.sessionTeam != ent->client->sess.sessionTeam ) continue;
+                            ent->client->sess.spectatorClient = k;
+                            break;
+                        }
+                        if ( ent->client->sess.spectatorClient != clientNum ) {
+                            return;
+                        }
+                    }
+                }
 				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) |
 						(ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
 				ftmod_persistantSpectator(ent, cl);
@@ -1164,8 +1206,28 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 					StopFollowingNew(ent);
 				}
 			}
-		} else {
-			if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR) {
+        } else {
+            if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR) {
+                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates */
+                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                    if ( cl->sess.sessionTeam != ent->client->sess.sessionTeam ) {
+                        /* Try to find a valid teammate to follow; if none, drop to free */
+                        int k;
+                        for ( k = 0; k < level.maxclients; ++k ) {
+                            gclient_t *cand = &level.clients[k];
+                            if ( cand->pers.connected != CON_CONNECTED ) continue;
+                            if ( cand->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+                            if ( cand->sess.sessionTeam != ent->client->sess.sessionTeam ) continue;
+                            ent->client->sess.spectatorClient = k;
+                            break;
+                        }
+                        if ( ent->client->sess.spectatorClient != clientNum ) {
+                            /* next loop tick will pick up new target */
+                            return;
+                        }
+                        /* fall through if we didn't find better (should not happen) */
+                    }
+                }
 				flags = (cl->ps.eFlags & ~(EF_VOTED | EF_TEAMVOTED)) |
 						(ent->client->ps.eFlags & (EF_VOTED | EF_TEAMVOTED));
 				ent->client->ps = cl->ps;

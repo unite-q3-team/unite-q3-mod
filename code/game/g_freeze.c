@@ -62,6 +62,31 @@ qboolean ftmod_setSpectator(gentity_t *ent) {
             ent->client->sess.spectatorState = SPECTATOR_FREE;
             ent->client->sess.spectatorClient = 0;
 
+            /* If enabled, start by following a teammate instead of free-fly; also used when free-look is disabled */
+            if ( (g_autoFollowTeammate.integer || g_teamNoFreeSpectate.integer) && g_gametype.integer >= GT_TEAM ) {
+                int j;
+                int myTeam = ent->client->sess.sessionTeam;
+                for ( j = 0; j < level.maxclients; j++ ) {
+                    gclient_t *clj = &level.clients[j];
+                    if ( clj == ent->client ) {
+                        continue;
+                    }
+                    if ( clj->pers.connected != CON_CONNECTED ) {
+                        continue;
+                    }
+                    /* skip spectators (including freeze spectators) */
+                    if ( ftmod_isSpectator( clj ) ) {
+                        continue;
+                    }
+                    if ( clj->sess.sessionTeam != myTeam ) {
+                        continue;
+                    }
+                    ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
+                    ent->client->sess.spectatorClient = j;
+                    break;
+                }
+            }
+
             trap_UnlinkEntity(ent);
         }
         result = qtrue;

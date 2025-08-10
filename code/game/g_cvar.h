@@ -184,6 +184,14 @@ G_CVAR( g_freeze_forceRevive, "g_freeze_forceRevive", "1", CVAR_ARCHIVE, 0, qfal
 G_CVAR( g_freeze_beginFrozen, "g_freeze_beginFrozen", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_freeze_beginFrozenDelay, "g_freeze_beginFrozenDelay", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+// Spectating behavior in team modes
+// 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates
+G_CVAR( g_teamAllowEnemySpectate, "g_teamAllowEnemySpectate", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// 1 = automatically follow a teammate upon death (freeze-style spectator), 0 = remain in free spectator
+G_CVAR( g_autoFollowTeammate, "g_autoFollowTeammate", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+// 1 = disallow free-fly spectator movement for dead players in team modes; only follow allowed
+G_CVAR( g_teamNoFreeSpectate, "g_teamNoFreeSpectate", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 // G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 // G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )

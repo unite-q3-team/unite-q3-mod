@@ -954,13 +954,25 @@ static void Cmd_Follow_f( gentity_t *ent ) {
 	if (ent->freezeState && (g_freeze.integer ? !ftmod_isSpectator(ent->client) : ent->client->sess.sessionTeam != TEAM_SPECTATOR))
 		return;
 
-	if (g_freeze.integer) {
-		if (ftmod_isSpectator(&level.clients[i])) {
-			return;
-		}
-	} else {
+    if (g_freeze.integer) {
+        if (ftmod_isSpectator(&level.clients[i])) {
+            return;
+        }
+        /* In team modes, optionally restrict following to teammates (freeze) */
+        if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+            if ( level.clients[i].sess.sessionTeam != ent->client->sess.sessionTeam ) {
+                return;
+            }
+        }
+    } else {
 		if (level.clients[i].sess.sessionTeam == TEAM_SPECTATOR) {
 			return;
+		}
+		/* In team modes, optionally restrict following to teammates */
+		if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+			if ( level.clients[i].sess.sessionTeam != ent->client->sess.sessionTeam ) {
+				return;
+			}
 		}
 	}
 
@@ -1043,15 +1055,27 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 		if (g_entities[clientnum].freezeState)
 			continue;
 
-		if (g_freeze.integer) {
-			if (ftmod_isSpectator(&level.clients[clientnum])) {
-				continue;
-			}
-		} else {
-			if (level.clients[clientnum].sess.sessionTeam == TEAM_SPECTATOR) {
-				continue;
-			}
-		}
+        if (g_freeze.integer) {
+            if (ftmod_isSpectator(&level.clients[clientnum])) {
+                continue;
+            }
+            /* In team modes, optionally restrict following to teammates (freeze) */
+            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                if ( level.clients[clientnum].sess.sessionTeam != ent->client->sess.sessionTeam ) {
+                    continue;
+                }
+            }
+        } else {
+            if (level.clients[clientnum].sess.sessionTeam == TEAM_SPECTATOR) {
+                continue;
+            }
+            /* If in team gametype and enemy spectate disabled, skip enemies */
+            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                if ( level.clients[clientnum].sess.sessionTeam != ent->client->sess.sessionTeam ) {
+                    continue;
+                }
+            }
+        }
 
 		// this is good, we can use it
 		ent->client->sess.spectatorClient = clientnum;
