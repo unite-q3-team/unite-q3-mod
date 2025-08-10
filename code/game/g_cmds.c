@@ -904,14 +904,15 @@ static void Cmd_Team_f( gentity_t *ent ) {
 		&& ent->client->sess.sessionTeam == TEAM_FREE ) {
 		ent->client->sess.losses++;
 	}
-	if (g_freeze.integer) {
-		if ( ent->freezeState ) {
-			if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
-				StopFollowingNew( ent );
-			}
-			return;
-		}
-	}
+    if (g_freeze.integer) {
+        if ( ent->freezeState ) {
+            /* In freeze mode, do not block team changes for frozen players.
+               Simply ensure we are not in follow state, then proceed. */
+            if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+                StopFollowingNew( ent );
+            }
+        }
+    }
 	trap_Argv( 1, s, sizeof( s ) );
 
 	if ( SetTeam( ent, s ) ) {
