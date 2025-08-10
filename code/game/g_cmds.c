@@ -1718,7 +1718,12 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
             trap_SendServerCommand( clientNum, "print \"Usage: instagib <0|1>\n\"" );
             return qfalse;
 		} 
-		return qtrue;
+        /* rewrite to set cvar and restart so latched cvar takes effect */
+        {
+            int v = (command[0] == '1') ? 1 : 0;
+            BG_sprintf( base, "g_instagib %d; map_restart", v );
+        }
+        return qtrue;
 	}
 
 	if ( Q_stricmp( buf, "nextmap" ) == 0 ) {
@@ -2330,17 +2335,30 @@ Cmd_StatsAll_f
 =================
 */
 static void Cmd_StatsAll_f( gentity_t *ent ) {
+    static int nextIdx = 0;
+    int processed = 0;
     int i;
     if ( !ent || !ent->client ) {
         return;
     }
-    for ( i = 0; i < level.maxclients; ++i ) {
-        gclient_t *cl;
-        cl = &level.clients[i];
+    /* process a small batch per command to avoid long frame; schedule next chunk using think */
+    for ( i = 0; i < level.maxclients && processed < 4; ++i ) {
+        int idx = (nextIdx + i) % level.maxclients;
+        gclient_t *cl = &level.clients[idx];
         if ( cl->pers.connected != CON_CONNECTED ) {
             continue;
         }
         G_PrintStatsForClientTo( ent, cl );
+        processed++;
+    }
+    nextIdx = (nextIdx + processed) % level.maxclients;
+    if ( processed > 0 ) {
+        /* reschedule self after ~30ms using a temp entity think */
+        gentity_t *te = G_Spawn();
+        te->classname = "statsall_sched";
+        te->think = (void(*)(gentity_t*))Cmd_StatsAll_f;
+        te->nextthink = level.time + 70;
+        te->r.svFlags |= SVF_NOCLIENT;
     }
 }
 
@@ -2555,6 +2573,13 @@ static void Cmd_MapList_f( gentity_t *ent ) {
     char *name;
     int maxLen = 0;
     int colWidth, perRow;
+    int page = 1;
+    int rowsPerPage = 10;
+    int perPage;
+    int totalPages;
+    int start, end;
+    int argc, ai, isNum, j;
+    char argTok[MAX_TOKEN_CHARS];
 
     buf[0] = '\0';
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^2Available Maps:^7\n" );
@@ -2562,6 +2587,20 @@ static void Cmd_MapList_f( gentity_t *ent ) {
 
     G_EnsureMapListCache();
     count = s_cachedMapCount;
+    /* optional page number: maplist [page] */
+    argc = trap_Argc();
+    for ( ai = 1; ai < argc; ++ai ) {
+        trap_Argv( ai, argTok, sizeof(argTok) );
+        isNum = 1;
+        for ( j = 0; argTok[j]; ++j ) {
+            if ( argTok[j] < '0' || argTok[j] > '9' ) { isNum = 0; break; }
+        }
+        if ( isNum && argTok[0] ) {
+            page = atoi( argTok );
+            if ( page < 1 ) page = 1;
+            break;
+        }
+    }
     /* First pass: find maximum name length, capped */
     for ( i = 0; i < count; ++i ) {
         int nlen = (int)strlen( s_cachedMaps[i] );
@@ -2571,16 +2610,24 @@ static void Cmd_MapList_f( gentity_t *ent ) {
     if ( maxLen > 16 ) maxLen = 16; /* cap to keep row short */
     colWidth = maxLen + 2;
     perRow = 3; /* fixed 3 columns */
+    perPage = perRow * rowsPerPage;
+    totalPages = (count + perPage - 1) / perPage;
+    if ( totalPages < 1 ) totalPages = 1;
+    if ( page > totalPages ) page = totalPages;
+    start = (page - 1) * perPage;
+    end = start + perPage;
+    if ( end > count ) end = count;
 
     /* Second pass: output rows */
     pos = 0;
     index = 0;
     row[0] = '\0';
-    for ( i = 0; i < count; ++i ) {
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7(Page %d/%d, Total %d)\n", page, totalPages, count );
+    for ( i = start; i < end; ++i ) {
         const char *mapname;
         char cell[96];
         mapname = s_cachedMaps[i];
-        index++;
+        index = i + 1;
         {
             int isCurrent = (Q_stricmp(mapname, g_mapname.string)==0);
             const char *star = isCurrent ? "^1*" : " ";
@@ -2588,10 +2635,10 @@ static void Cmd_MapList_f( gentity_t *ent ) {
             Com_sprintf( cell, sizeof(cell), "^7%3d.^7 %s%s%-*s^7", index, star, nameColor, colWidth, mapname );
         }
         Q_strcat( row, sizeof(row), cell );
-        if ( (index % perRow) != 0 && (i+1) < count ) {
+        if ( (index % perRow) != 0 && (i+1) < end ) {
             Q_strcat( row, sizeof(row), " " );
         }
-        if ( (index % perRow) == 0 || (i+1) >= count ) {
+        if ( (index % perRow) == 0 || (i+1) >= end ) {
             /* flush one row exactly */
             len += Com_sprintf( buf + len, sizeof(buf) - len, "%s\n", row );
             row[0] = '\0';
