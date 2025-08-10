@@ -1605,6 +1605,7 @@ static const char *voteCommands[] = {
 	"kick",
 	"clientkick",
 	"g_gametype",
+    "g_freeze",
     "instagib",
 	"timelimit",
 	"fraglimit",
@@ -1722,6 +1723,22 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
         }
         return qtrue;
 	}
+
+    if ( Q_stricmp( buf, "g_freeze" ) == 0 ) {
+        /* toggle g_freeze: no arg -> toggle, or explicit 0/1 */
+        int v;
+        if ( command[0] == '\0' ) {
+            v = g_freeze.integer ? 0 : 1;
+        } else {
+            if ( !(command[0] == '0' || command[0] == '1') || command[1] != '\0' ) {
+                trap_SendServerCommand( clientNum, "print \"Usage: g_freeze <0|1> (or no arg to toggle)\n\"" );
+                return qfalse;
+            }
+            v = (command[0] == '1') ? 1 : 0;
+        }
+        BG_sprintf( base, "g_freeze %d; map_restart", v );
+        return qtrue;
+    }
 
 	if ( Q_stricmp( buf, "nextmap" ) == 0 ) {
 		strcpy( base, "rotate" );
@@ -2777,6 +2794,7 @@ static void Cmd_CV_HelpList( gentity_t *ent ) {
         len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", gtLine );
     }
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5instagib^7             [%d]\n", g_instagib.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5g_freeze^7             [%d]\n", g_freeze.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5timelimit^7            [%d]\n", g_timelimit.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5fraglimit^7            [%d]\n", g_fraglimit.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5capturelimit^7         [%d]\n\n", g_capturelimit.integer );
