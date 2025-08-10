@@ -1614,6 +1614,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "atest",           Cmd_NewTest_f },
     { "playerlist",      Cmd_Plrlist_f },
     { "players",         Cmd_Plrlist_f },
+    { "from",            Cmd_From_f },
 };
 
 static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {

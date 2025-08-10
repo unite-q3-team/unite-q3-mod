@@ -304,9 +304,14 @@ void Cmd_From_f(gentity_t *ent){
     int i, active;
     gclient_t *cl;
     char userinfo[MAX_INFO_STRING];
-    char name_padded[MAX_QPATH];
+    char name_aligned[40];
+    char country_aligned[32];
     int countryIndex;
     const char *ip;
+
+    /* column widths to match reference */
+    const int NAME_W = 31;
+    const int COUNTRY_W = 23;
 
     buffer[0] = '\0';
     header[0] = '\0';
@@ -318,8 +323,8 @@ void Cmd_From_f(gentity_t *ent){
             serverCountry[0] = '\0'; serverCC[0] = '\0'; serverCity[0] = '\0';
         }
     }
-    if (serverCountry[0] || serverCity[0]) {
-        Q_strncpyz(header, va("^3Server^1: ^2%s%s%s, %s\n\n", serverCity[0]?serverCity:"", serverCity[0]?", ":"", serverCountry[0]?serverCountry:"", serverCC[0]?serverCC:"--"), sizeof(header));
+    if (serverCity[0] || serverCC[0]) {
+        Q_strncpyz(header, va("^3Server^1: ^2%s%s%s\n\n", serverCity[0]?serverCity:"", serverCity[0]?", ":"", serverCC[0]?serverCC:"--"), sizeof(header));
     } else {
         Q_strncpyz(header, "^3Server^1: ^2Unknown, --\n\n", sizeof(header));
     }
@@ -335,15 +340,20 @@ void Cmd_From_f(gentity_t *ent){
         trap_GetUserinfo(i, userinfo, sizeof(userinfo));
         ip = GetUserinfoString(userinfo, "ip", "");
         serverCountry[0] = '\0'; serverCC[0] = '\0';
-        if (ip && ip[0]) {
+        if (g_entities[i].r.svFlags & SVF_BOT) {
+            Q_strncpyz(serverCountry, "Botland", sizeof(serverCountry));
+            Q_strncpyz(serverCC, "BT", sizeof(serverCC));
+        } else if (ip && ip[0]) {
             GeoIP_LookupCountryForIP(ip, &countryIndex, serverCC, sizeof(serverCC), serverCountry, sizeof(serverCountry), serverCity, sizeof(serverCity));
         }
         if (!serverCountry[0]) Q_strncpyz(serverCountry, "Unknown", sizeof(serverCountry));
         if (!serverCC[0]) Q_strncpyz(serverCC, "--", sizeof(serverCC));
 
-        Q_FixNameWidth(cl->pers.netname, name_padded, 32);
+        Q_FixNameWidth(cl->pers.netname, name_aligned, NAME_W);
+        AlignString(country_aligned, sizeof(country_aligned), serverCountry, COUNTRY_W, qtrue);
+
         Q_strcat(buffer, sizeof(buffer),
-            va("^7%2d  %s  ^2%-25s  ^2%s\n", i, name_padded, serverCountry, serverCC));
+            va("^7%2d  %s  ^2%s  ^2%s\n", i, name_aligned, country_aligned, serverCC));
     }
 
     SendServerCommandInChunks(ent, va("\n%s\n", buffer));
