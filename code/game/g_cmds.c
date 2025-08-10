@@ -802,7 +802,7 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 
 	G_WriteClientSessionData( client );
 
-	BroadcastTeamChange( client, oldTeam );
+    BroadcastTeamChange( client, oldTeam );
 
 	// get and distribute relevent paramters
 	ClientUserinfoChanged( clientNum );
@@ -810,7 +810,12 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 	//freeze
 	ent->freezeState = qfalse;
 
-	ClientBegin( clientNum );
+    ClientBegin( clientNum );
+
+    /* After a successful join from spectators to a playing team, print plain 'entered the game' */
+    if ( team != TEAM_SPECTATOR && oldTeam == TEAM_SPECTATOR ) {
+        G_BroadcastServerCommand( -1, va("print \"%s" S_COLOR_WHITE " entered the game\n\"", client->pers.netname) );
+    }
 
 	return qtrue;
 }

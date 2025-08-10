@@ -1358,20 +1358,7 @@ void ClientBegin( int clientNum ) {
 		client->sess.spectatorTime = 0;
 
         if ( g_gametype.integer != GT_TOURNAMENT && !client->pers.inGame ) {
-            char userinfo_loc[MAX_INFO_STRING]; const char *ipval; char cc[8]; char cname[64];
-            int idx_dummy; char dummyCity[2];
-            cc[0]='\0'; cname[0]='\0';
-            trap_GetUserinfo( clientNum, userinfo_loc, sizeof( userinfo_loc ) );
-            ipval = Info_ValueForKey( userinfo_loc, "ip" );
-            if (ipval && ipval[0]) {
-                extern qboolean GeoIP_LookupCountryForIP(const char*,int*,char*,int,char*,int,char*,int);
-                GeoIP_LookupCountryForIP(ipval, &idx_dummy, cc, sizeof(cc), cname, sizeof(cname), dummyCity, sizeof(dummyCity));
-            }
-            if (cname[0]) {
-                G_BroadcastServerCommand( -1, va("print \"%s" S_COLOR_WHITE " entered the game ^1[ ^6%s^3, %s ^1]\n\"", client->pers.netname, cname, (cc[0]?cc:"--")) );
-            } else {
-                G_BroadcastServerCommand( -1, va("print \"%s" S_COLOR_WHITE " entered the game\n\"", client->pers.netname) );
-            }
+            G_BroadcastServerCommand( -1, va("print \"%s" S_COLOR_WHITE " entered the game\n\"", client->pers.netname) );
         }
 	}
 	
