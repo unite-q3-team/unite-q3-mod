@@ -761,7 +761,7 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 	// he starts at 'base'
 	client->pers.teamState.state = TEAM_BEGIN;
 
-	if ( oldTeam != TEAM_SPECTATOR ) {
+    if ( oldTeam != TEAM_SPECTATOR ) {
 		
 		// revert any casted votes
 		if ( oldTeam != team )
@@ -770,7 +770,32 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 		// Kill him (makes sure he loses flags, etc)
 		ent->flags &= ~FL_GODMODE;
 		ent->client->ps.stats[STAT_HEALTH] = ent->health = 0;
-		player_die (ent, ent, ent, 100000, MOD_SUICIDE);
+        player_die (ent, ent, ent, 100000, MOD_SUICIDE);
+
+        /* Reset extended stats on team change */
+        {
+            gclient_t *cl = client;
+            int w;
+            cl->accuracy_hits = 0;
+            cl->accuracy_shots = 0;
+            cl->totalDamageGiven = 0;
+            cl->totalDamageTaken = 0;
+            cl->kills = 0;
+            cl->deaths = 0;
+            cl->currentKillStreak = 0;
+            cl->armorPickedTotal = 0;
+            cl->healthPickedTotal = 0;
+            for ( w = 0; w < WP_NUM_WEAPONS; ++w ) {
+                cl->perWeaponDamageGiven[w] = 0;
+                cl->perWeaponDamageTaken[w] = 0;
+                cl->perWeaponShots[w] = 0;
+                cl->perWeaponHits[w] = 0;
+                cl->perWeaponKills[w] = 0;
+                cl->perWeaponDeaths[w] = 0;
+                cl->perWeaponPickups[w] = 0;
+                cl->perWeaponDrops[w] = 0;
+            }
+        }
 	}
 
 	// they go to the end of the line for tournements
@@ -2343,7 +2368,7 @@ static void Cmd_Stats_f( gentity_t *ent ) {
                     trap_SendServerCommand( ent - g_entities, "print \"^1! ^3Client is not connected.\n\"" );
                     return;
                 }
-                if ( level.clients[targetNum].sess.spectatorState != SPECTATOR_NOT ) {
+                if ( g_freeze.integer ? ftmod_isSpectator(&level.clients[targetNum]) : (level.clients[targetNum].sess.sessionTeam == TEAM_SPECTATOR) ) {
                     trap_SendServerCommand( ent - g_entities, "print \"^1! ^3Target is a spectator.\n\"" );
                     return;
                 }
@@ -2361,7 +2386,7 @@ static void Cmd_Stats_f( gentity_t *ent ) {
                 }
             }
             if ( !targetCl ) {
-                if ( ent->client->sess.spectatorState != SPECTATOR_NOT ) {
+                if ( g_freeze.integer ? ftmod_isSpectator(ent->client) : (ent->client->sess.sessionTeam == TEAM_SPECTATOR) ) {
                     trap_SendServerCommand( ent - g_entities, "print \"^3Usage: ^7stats <clientnum>\n\"" );
                     return;
                 }
