@@ -1640,9 +1640,17 @@ void ClientSpawn(gentity_t *ent) {
 	client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 	client->ps.pm_time = 100;
 
-	client->respawnTime = level.time;
+	/* Extend spawn protection window to 3s by pushing respawnTime forward by 2000ms */
+    client->respawnTime = level.time;
 	client->inactivityTime = level.time + g_inactivity.integer * 1000;
 	client->latched_buttons = 0;
+
+	/* Give Battlesuit protection on fresh spawn for g_spawnProtectTime ms */
+	if ( g_spawnProtectTime.integer > 0 ) {
+		client->ps.powerups[ PW_BATTLESUIT ] = level.time + g_spawnProtectTime.integer;
+	} else {
+		client->ps.powerups[ PW_BATTLESUIT ] = 0;
+	}
 
 	// set default animations
 	client->ps.torsoAnim = TORSO_STAND;
