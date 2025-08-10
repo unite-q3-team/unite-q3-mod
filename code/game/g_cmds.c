@@ -1800,10 +1800,11 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		return;
 	}
 
-    if ( ent->client->sess.spectatorState != SPECTATOR_NOT ) {
+    /* Only block real spectators, not alive/dead players on a team */
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
         trap_SendServerCommand( ent-g_entities, "print \"^1! ^3Spectators cannot call votes.\n\"" );
-		return;
-	}
+        return;
+    }
 
 	if ( level.voteTime ) {
 		trap_SendServerCommand( ent-g_entities, "print \"A vote is already in progress.\n\"" );
