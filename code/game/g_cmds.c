@@ -1649,37 +1649,34 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
 		}
 	}
 
-	if ( i == ARRAY_LEN( voteCommands ) ) {
-		trap_SendServerCommand( clientNum, "print \"Invalid vote command.\nVote commands are: \n"
-			" g_gametype <n|ffa|duel|tdm|ctf>\n"
-			" map_restart, map <mapname>, rotate [round], nextmap\n"
-			" kick <player>, clientkick <clientnum>\n"
-			" g_unlagged <0|1>, g_warmup <-1|0|seconds>\n"
-			" timelimit <time>, fraglimit <frags>, capturelimit <captures>.\n\"" );
-		return qfalse;
-	}
+    if ( i == ARRAY_LEN( voteCommands ) ) {
+        /* show same help as cv with colors */
+        Cmd_CV_HelpList( g_entities + clientNum );
+        return qfalse;
+    }
 
-	if ( Q_stricmp( buf, "g_gametype" ) == 0 )
-	{
-		if ( !Q_stricmp( command, "ffa" ) ) i = GT_FFA;
-		else if ( !Q_stricmp( command, "duel" ) ) i = GT_TOURNAMENT;
-		else if ( !Q_stricmp( command, "tdm" ) ) i = GT_TEAM;
-		else if ( !Q_stricmp( command, "ctf" ) ) i = GT_CTF;
-		else 
-		{
-			i = atoi( command );
-			if( i == GT_SINGLE_PLAYER || i < GT_FFA || i >= GT_MAX_GAME_TYPE ) {
-				trap_SendServerCommand( clientNum, va( "print \"Invalid gametype %i.\n\"", i ) );
-				return qfalse;
-			}
-			return qfalse;
-		}
-
-		// handle string values
-		BG_sprintf( base, "g_gametype %i", i );
-
-		return qtrue;
-	}
+    if ( Q_stricmp( buf, "g_gametype" ) == 0 )
+    {
+        int gt = -1;
+        if ( command[0] == '\0' ) {
+            trap_SendServerCommand( clientNum, va( "print \"Usage: g_gametype <ffa|duel|tdm|ctf|#> (current %d)\n\"", g_gametype.integer ) );
+            return qfalse;
+        }
+        if ( !Q_stricmp( command, "ffa" ) ) gt = GT_FFA;
+        else if ( !Q_stricmp( command, "duel" ) ) gt = GT_TOURNAMENT;
+        else if ( !Q_stricmp( command, "tdm" ) ) gt = GT_TEAM;
+        else if ( !Q_stricmp( command, "ctf" ) ) gt = GT_CTF;
+        else {
+            gt = atoi( command );
+        }
+        if ( gt == GT_SINGLE_PLAYER || gt < GT_FFA || gt >= GT_MAX_GAME_TYPE ) {
+            trap_SendServerCommand( clientNum, va( "print \"Invalid gametype %i.\n\"", gt ) );
+            return qfalse;
+        }
+        /* apply and restart so change takes effect */
+        BG_sprintf( base, "g_gametype %i; map_restart", gt );
+        return qtrue;
+    }
 
 	if ( Q_stricmp( buf, "map" ) == 0 ) {
         /* accept numeric index from maplist */
@@ -2762,13 +2759,27 @@ static void Cmd_CV_f( gentity_t *ent ) {
 static void Cmd_CV_HelpList( gentity_t *ent ) {
     char buf[MAX_STRING_CHARS];
     int len = 0;
+    int gt;
+    char gtLine[256];
     buf[0] = '\0';
     len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Callvote Commands:^7\n" );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^7------------------\n" );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5map^7                  [%s]\n", g_mapname.string );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5map_restart^7\n" );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^5nextmap^7\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5instagib^7             [%d]\n\n", g_instagib.integer );
+    gt = g_gametype.integer;
+    {
+        const char *ffa = (gt == GT_FFA) ? "^1ffa(0)^7"  : "ffa(0)";
+        const char *duel= (gt == GT_TOURNAMENT) ? "^1duel(1)^7" : "duel(1)";
+        const char *tdm = (gt == GT_TEAM) ? "^1tdm(3)^7"  : "tdm(3)";
+        const char *ctf = (gt == GT_CTF) ? "^1ctf(4)^7"  : "ctf(4)";
+        Com_sprintf( gtLine, sizeof(gtLine), "^5g_gametype^7           [%s|%s|%s|%s|#]\n", ffa, duel, tdm, ctf );
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "%s", gtLine );
+    }
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5instagib^7             [%d]\n", g_instagib.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5timelimit^7            [%d]\n", g_timelimit.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5fraglimit^7            [%d]\n", g_fraglimit.integer );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^5capturelimit^7         [%d]\n\n", g_capturelimit.integer );
     len += Com_sprintf( buf + len, sizeof(buf) - len, "^7Usage: ^3\\callvote <command> [arg]^7\n" );
     trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
 }
