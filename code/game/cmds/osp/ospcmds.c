@@ -1,139 +1,178 @@
 // code/game/cmds/osp/ospcmds.c
 #include "ospcmds.h"
 
-// OSP statsinfo base indices (C89-friendly defines)
-#define OSP_IDX_VALID        0
-#define OSP_IDX_SCORE        1
-#define OSP_IDX_KILLS        2
-#define OSP_IDX_DEATHS       3
-#define OSP_IDX_SUICIDES     4
-#define OSP_IDX_WINS         5
-#define OSP_IDX_LOSSES       6
-#define OSP_IDX_TEAMKILLS    7
-#define OSP_IDX_DMG_GIVEN    8
-#define OSP_IDX_DMG_RCVD     9
-#define OSP_IDX_DMG_TEAM     10
-#define OSP_IDX_CAPS         11
-#define OSP_IDX_ASSIST       12
-#define OSP_IDX_DEFENDS      13
-#define OSP_IDX_RETURNS      14
-#define OSP_IDX_TIME_MS      15
-#define OSP_IDX_MH           16
-#define OSP_IDX_GA           17
-#define OSP_IDX_RA           18
-/* OSP client code references index 20 for YA explicitly */
-#define OSP_IDX_UNUSED19     19
-#define OSP_IDX_YA           20
-#define OSP_IDX_TEAM         2
-#define OSP_IDX_WEAPON_MASK  21
-#define OSP_IDX_UNKNOWN1     22
-#define OSP_IDX_UNKNOWN2     23
+/* OSP stats indices to match CG_OSPShowStatsInfo (C89) */
+#define OSP_STATS_UNKNOWN0   0
+#define OSP_STATS_SCORE      1
+#define OSP_STATS_TEAM       2
+#define OSP_STATS_KILLS      3
+#define OSP_STATS_DEATHS     4
+#define OSP_STATS_SUCIDES    5
+#define OSP_STATS_TEAM_KILLS 6
+#define OSP_STATS_DMG_TEAM   7
+#define OSP_STATS_DMG_GIVEN  8
+#define OSP_STATS_DMG_RCVD   9
+#define OSP_STATS_WINS       10
+#define OSP_STATS_LOSSES     11
+#define OSP_STATS_CAPS       12
+#define OSP_STATS_ASSIST     13
+#define OSP_STATS_DEFENCES   14
+#define OSP_STATS_RETURNS    15
+#define OSP_STATS_TIME       16
+#define OSP_STATS_MH         17
+#define OSP_STATS_GA         18
+#define OSP_STATS_RA         19
+#define OSP_STATS_YA         20
+#define OSP_STATS_WEAPON_MASK 21
+#define OSP_STATS_UNKNOWN1   22 /* first weapon: (drops<<16)|hits */
+#define OSP_STATS_UNKNOWN2   23 /* first weapon: (pickups<<16)|attacks */
 
-// Minimal OSP "wstats" (statsinfo) generator based on current server-side stats
-// NOTE: Index mapping follows common OSP conventions; untracked fields are zeroed
-void osptest(gentity_t *ent){
+/* Build and send an OSP-compatible statsinfo line for the current (or targeted) client */
+void osptest(gentity_t *ent) {
     gclient_t *cl;
     gclient_t *targetCl;
     char msg[1024];
     int base[24];
     int i;
-    unsigned weaponMask = 0;
+    unsigned int weaponMask;
     int w;
     int len;
     int firstW;
     int targetNum;
+    int argc;
 
-    if (!ent || !ent->client) return;
+    if (!ent || !ent->client) {
+        return;
+    }
 
-    /* Select current player or spectated player */
-    targetCl = ent->client;
-    if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
-        targetNum = ent->client->sess.spectatorClient;
-        if ( targetNum >= 0 && targetNum < level.maxclients &&
-             level.clients[targetNum].pers.connected == CON_CONNECTED ) {
-            targetCl = &level.clients[targetNum];
+    /* Determine which client's stats to show (mirror g_cmds.c Cmd_Stats_f) */
+    targetCl = NULL;
+    argc = trap_Argc();
+    if (argc >= 2) {
+        char arg[MAX_TOKEN_CHARS];
+        int isNum;
+        int j;
+        trap_Argv(1, arg, sizeof(arg));
+        isNum = 1;
+        for (j = 0; arg[j]; ++j) {
+            if (arg[j] < '0' || arg[j] > '9') { isNum = 0; break; }
+        }
+        if (isNum) {
+            targetNum = atoi(arg);
+            if (targetNum >= 0 && targetNum < level.maxclients) {
+                if (level.clients[targetNum].pers.connected == CON_CONNECTED) {
+                    targetCl = &level.clients[targetNum];
+                }
+            }
+        }
+    }
+    if (!targetCl) {
+        if (ent->client->sess.spectatorState == SPECTATOR_FOLLOW) {
+            targetNum = ent->client->sess.spectatorClient;
+            if (targetNum >= 0 && targetNum < level.maxclients &&
+                level.clients[targetNum].pers.connected == CON_CONNECTED) {
+                targetCl = &level.clients[targetNum];
+            }
+        }
+        if (!targetCl) {
+            targetCl = ent->client;
         }
     }
     cl = targetCl;
-    trap_SendServerCommand(ent - g_entities, va("print \"^3current player: %s %d^7\n\"", cl->pers.netname, cl->ps.clientNum));
 
-    // OSP base indices (best-effort mapping)
-    for (i = 0; i < 24; ++i) base[i] = 0;
-    /* Fill base fields per OSP definitions */
-    base[OSP_IDX_VALID] = 1;
-    base[OSP_IDX_SCORE] = cl->ps.persistant[PERS_SCORE];
-    base[OSP_IDX_TEAM]  = cl->sess.sessionTeam;
-    base[OSP_IDX_KILLS] = cl->kills;
-    base[OSP_IDX_DEATHS] = cl->deaths;
-    base[OSP_IDX_SUICIDES] = 0; /* not tracked separately */
+    for (i = 0; i < 24; ++i) {
+        base[i] = 0;
+    }
 
-    // Pack armor/health totals into WINS/LOSSES high word per OSP convention
-    base[OSP_IDX_WINS] = (cl->sess.wins & 0xFFFF) | ((cl->armorPickedTotal & 0xFFFF) << 16);
-    base[OSP_IDX_LOSSES] = (cl->sess.losses & 0xFFFF) | ((cl->healthPickedTotal & 0xFFFF) << 16);
+    /* Base indices */
+    base[OSP_STATS_UNKNOWN0] = 1; /* validity flag */
+    base[OSP_STATS_SCORE] = cl->ps.persistant[PERS_SCORE];
+    base[OSP_STATS_TEAM] = cl->sess.sessionTeam;
+    base[OSP_STATS_KILLS] = cl->kills;
+    base[OSP_STATS_DEATHS] = cl->deaths;
+    base[OSP_STATS_SUCIDES] = 0; /* not tracked */
 
-    base[OSP_IDX_TEAMKILLS] = 0; /* not tracked */
-    base[OSP_IDX_DMG_GIVEN] = cl->totalDamageGiven;
-    base[OSP_IDX_DMG_RCVD] = cl->totalDamageTaken;
-    base[OSP_IDX_DMG_TEAM] = 0;
+    /* Pack wins/losses (low16) with armor/health taken (high16) */
+    base[OSP_STATS_WINS] = (cl->sess.wins & 0xFFFF) | ((cl->armorPickedTotal & 0xFFFF) << 16);
+    base[OSP_STATS_LOSSES] = (cl->sess.losses & 0xFFFF) | ((cl->healthPickedTotal & 0xFFFF) << 16);
 
-    base[OSP_IDX_CAPS] = 0;
-    base[OSP_IDX_ASSIST] = 0;
-    base[OSP_IDX_DEFENDS] = 0;
-    base[OSP_IDX_RETURNS] = 0;
-    base[OSP_IDX_TIME_MS] = 0;
+    base[OSP_STATS_TEAM_KILLS] = 0; /* not tracked */
+    base[OSP_STATS_DMG_TEAM] = 0;   /* not tracked */
+    base[OSP_STATS_DMG_GIVEN] = cl->totalDamageGiven;
+    base[OSP_STATS_DMG_RCVD] = cl->totalDamageTaken;
 
-    base[OSP_IDX_MH] = cl->healthMegaCount;
-    base[OSP_IDX_GA] = cl->armorShardCount; // treat GA as shards
-    base[OSP_IDX_RA] = cl->armorRACount;
-    base[OSP_IDX_YA] = cl->armorYACount;
-    base[OSP_IDX_TEAM] = cl->sess.sessionTeam;
+    base[OSP_STATS_CAPS] = 0;
+    base[OSP_STATS_ASSIST] = 0;
+    base[OSP_STATS_DEFENCES] = 0;
+    base[OSP_STATS_RETURNS] = 0;
+    base[OSP_STATS_TIME] = 0;
 
-    /* Compute weapon mask for WP 1..9 (excluding NONE and GRAPPLE) */
+    base[OSP_STATS_MH] = cl->healthMegaCount;
+    base[OSP_STATS_GA] = cl->armorShardCount; /* best approximation */
+    base[OSP_STATS_RA] = cl->armorRACount;
+    base[OSP_STATS_YA] = cl->armorYACount;
+
+    /* Weapon mask 1..9; pick the first included weapon for special packing */
+    weaponMask = 0u;
     firstW = -1;
     for (w = WP_GAUNTLET; w <= WP_BFG; ++w) {
-        int used = cl->perWeaponShots[w] || cl->perWeaponHits[w] ||
-                   cl->perWeaponKills[w] || cl->perWeaponDeaths[w] ||
-                   cl->perWeaponPickups[w] || cl->perWeaponDrops[w];
+        int used;
+        used = (cl->perWeaponShots[w] != 0) || (cl->perWeaponHits[w] != 0) ||
+               (cl->perWeaponKills[w] != 0) || (cl->perWeaponDeaths[w] != 0) ||
+               (cl->perWeaponPickups[w] != 0) || (cl->perWeaponDrops[w] != 0);
         if (used && w <= 9) {
             weaponMask |= (1u << w);
-            if (firstW == -1) firstW = w;
+            if (firstW == -1) {
+                firstW = w;
+            }
         }
     }
-    base[OSP_IDX_WEAPON_MASK] = (int)weaponMask;
+    base[OSP_STATS_WEAPON_MASK] = (int)weaponMask;
 
-    /* Build message with special placement of first weapon hits/atts into base[22]/[23] */
-    len = Q_snprintf(msg, sizeof(msg), "statsinfo");
-    for (i = 0; i < 24; ++i) {
-        int v = base[i];
-        if (firstW != -1) {
-            unsigned hitsPackedFirst = ((cl->perWeaponDrops[firstW] & 0xFFFF) << 16) | (cl->perWeaponHits[firstW] & 0xFFFF);
-            unsigned attsPackedFirst = ((cl->perWeaponPickups[firstW] & 0xFFFF) << 16) | (cl->perWeaponShots[firstW] & 0xFFFF);
-            if (i == OSP_IDX_UNKNOWN1) v = (int)hitsPackedFirst;     /* index 22 */
-            if (i == OSP_IDX_UNKNOWN2) v = (int)attsPackedFirst;     /* index 23 */
-        }
-        len += Q_snprintf(msg + len, sizeof(msg) - len, " %d", v);
-        if (len >= (int)sizeof(msg)) break;
+    /* Fill packed hits/attacks for the first weapon into base[22]/[23] */
+    if (firstW != -1) {
+        base[OSP_STATS_UNKNOWN1] = ((cl->perWeaponDrops[firstW] & 0xFFFF) << 16) | (cl->perWeaponHits[firstW] & 0xFFFF);
+        base[OSP_STATS_UNKNOWN2] = ((cl->perWeaponPickups[firstW] & 0xFFFF) << 16) | (cl->perWeaponShots[firstW] & 0xFFFF);
     }
+
+    /* Build the command string */
+    len = Com_sprintf(msg, sizeof(msg), "statsinfo");
+    for (i = 0; i < 24; ++i) {
+        len += Com_sprintf(msg + len, sizeof(msg) - len, " %d", base[i]);
+        if (len >= (int)sizeof(msg)) {
+            break;
+        }
+    }
+
     if (firstW != -1) {
         /* Append kills/deaths for the first weapon */
-        len += Q_snprintf(msg + len, sizeof(msg) - len, " %u %u",
-                          (cl->perWeaponKills[firstW] & 0xFFFF), (cl->perWeaponDeaths[firstW] & 0xFFFF));
-        /* Append remaining weapons with full 4-field blocks */
+        len += Com_sprintf(msg + len, sizeof(msg) - len, " %u %u",
+                           (unsigned)(cl->perWeaponKills[firstW] & 0xFFFF),
+                           (unsigned)(cl->perWeaponDeaths[firstW] & 0xFFFF));
+
+        /* Append other weapons in ascending order: hitsPacked attsPacked kills deaths */
         for (w = 1; w <= 9; ++w) {
-            unsigned hitsPacked, attsPacked, kills, deaths;
-            if (!(weaponMask & (1u << w))) continue;
-            if (w == firstW) continue;
+            unsigned int hitsPacked;
+            unsigned int attsPacked;
+            unsigned int kills;
+            unsigned int deaths;
+            if (!(weaponMask & (1u << w))) {
+                continue;
+            }
+            if (w == firstW) {
+                continue;
+            }
             hitsPacked = ((cl->perWeaponDrops[w] & 0xFFFF) << 16) | (cl->perWeaponHits[w] & 0xFFFF);
             attsPacked = ((cl->perWeaponPickups[w] & 0xFFFF) << 16) | (cl->perWeaponShots[w] & 0xFFFF);
             kills = (cl->perWeaponKills[w] & 0xFFFF);
             deaths = (cl->perWeaponDeaths[w] & 0xFFFF);
-            len += Q_snprintf(msg + len, sizeof(msg) - len, " %u %u %u %u",
-                              hitsPacked, attsPacked, kills, deaths);
-            if (len >= (int)sizeof(msg)) break;
+            len += Com_sprintf(msg + len, sizeof(msg) - len, " %u %u %u %u",
+                               hitsPacked, attsPacked, kills, deaths);
+            if (len >= (int)sizeof(msg)) {
+                break;
+            }
         }
     }
 
-    /* Debug print of statsinfo for developer diagnostics */
-    Com_Printf("@ osptest statsinfo: %s\n", msg);
     trap_SendServerCommand(ent - g_entities, msg);
 }
