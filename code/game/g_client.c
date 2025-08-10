@@ -1377,6 +1377,20 @@ void ClientSpawn(gentity_t *ent) {
 	int		eventSequence;
 	char	userinfo[MAX_INFO_STRING];
 	qboolean isSpectator;
+	// backups to preserve extended stats across respawns
+	qboolean resetExtStats;
+	int		totalDamageGiven, totalDamageTaken;
+	int		perWeaponDamageGiven[WP_NUM_WEAPONS];
+	int		perWeaponDamageTaken[WP_NUM_WEAPONS];
+	int		perWeaponShots[WP_NUM_WEAPONS];
+	int		perWeaponHits[WP_NUM_WEAPONS];
+	int		perWeaponKills[WP_NUM_WEAPONS];
+	int		perWeaponDeaths[WP_NUM_WEAPONS];
+	int		perWeaponPickups[WP_NUM_WEAPONS];
+	int		perWeaponDrops[WP_NUM_WEAPONS];
+	int		kills, deaths;
+	int		armorPickedTotal, armorYACount, armorRACount, armorShardCount;
+	int		healthPickedTotal, healthMegaCount, health50Count, health25Count, health5Count;
 
 	index = ent - g_entities;
 	client = ent->client;
@@ -1443,10 +1457,36 @@ void ClientSpawn(gentity_t *ent) {
 
 	saved = client->pers;
 	savedSess = client->sess;
-	savedPing = client->ps.ping;
+    savedPing = client->ps.ping;
 // savedAreaBits = client->areabits;
 	accuracy_hits = client->accuracy_hits;
 	accuracy_shots = client->accuracy_shots;
+	// decide whether to reset extended stats (only on first spawn when entering game)
+	resetExtStats = (client->ps.persistant[PERS_SPAWN_COUNT] == 0 && client->pers.inGame == qfalse);
+	// backup extended stats to restore after memset if not first spawn
+	totalDamageGiven = client->totalDamageGiven;
+	totalDamageTaken = client->totalDamageTaken;
+	for ( i = 0 ; i < WP_NUM_WEAPONS ; ++i ) {
+		perWeaponDamageGiven[i] = client->perWeaponDamageGiven[i];
+		perWeaponDamageTaken[i] = client->perWeaponDamageTaken[i];
+		perWeaponShots[i]       = client->perWeaponShots[i];
+		perWeaponHits[i]        = client->perWeaponHits[i];
+		perWeaponKills[i]       = client->perWeaponKills[i];
+		perWeaponDeaths[i]      = client->perWeaponDeaths[i];
+		perWeaponPickups[i]     = client->perWeaponPickups[i];
+		perWeaponDrops[i]       = client->perWeaponDrops[i];
+	}
+	kills = client->kills;
+	deaths = client->deaths;
+	armorPickedTotal = client->armorPickedTotal;
+	armorYACount = client->armorYACount;
+	armorRACount = client->armorRACount;
+	armorShardCount = client->armorShardCount;
+	healthPickedTotal = client->healthPickedTotal;
+	healthMegaCount = client->healthMegaCount;
+	health50Count = client->health50Count;
+	health25Count = client->health25Count;
+	health5Count = client->health5Count;
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
 		persistant[i] = client->ps.persistant[i];
 	}
@@ -1458,8 +1498,38 @@ void ClientSpawn(gentity_t *ent) {
 	client->sess = savedSess;
 	client->ps.ping = savedPing;
 	// client->areabits = savedAreaBits;
-	client->accuracy_hits = accuracy_hits;
-	client->accuracy_shots = accuracy_shots;
+	if ( !resetExtStats ) {
+		// restore extended stats across respawn
+		client->accuracy_hits = accuracy_hits;
+		client->accuracy_shots = accuracy_shots;
+		client->totalDamageGiven = totalDamageGiven;
+		client->totalDamageTaken = totalDamageTaken;
+		for ( i = 0 ; i < WP_NUM_WEAPONS ; ++i ) {
+			client->perWeaponDamageGiven[i] = perWeaponDamageGiven[i];
+			client->perWeaponDamageTaken[i] = perWeaponDamageTaken[i];
+			client->perWeaponShots[i]       = perWeaponShots[i];
+			client->perWeaponHits[i]        = perWeaponHits[i];
+			client->perWeaponKills[i]       = perWeaponKills[i];
+			client->perWeaponDeaths[i]      = perWeaponDeaths[i];
+			client->perWeaponPickups[i]     = perWeaponPickups[i];
+			client->perWeaponDrops[i]       = perWeaponDrops[i];
+		}
+		client->kills = kills;
+		client->deaths = deaths;
+		client->armorPickedTotal = armorPickedTotal;
+		client->armorYACount = armorYACount;
+		client->armorRACount = armorRACount;
+		client->armorShardCount = armorShardCount;
+		client->healthPickedTotal = healthPickedTotal;
+		client->healthMegaCount = healthMegaCount;
+		client->health50Count = health50Count;
+		client->health25Count = health25Count;
+		client->health5Count = health5Count;
+	} else {
+		// first spawn after connect: start fresh
+		client->accuracy_hits = 0;
+		client->accuracy_shots = 0;
+	}
 	client->lastkilled_client = -1;
 
 	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {

@@ -63,10 +63,13 @@ void G_ExplodeMissile( gentity_t *ent ) {
 
 	// splash damage
 	if ( ent->splashDamage ) {
-		if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent
-			, ent->splashMethodOfDeath ) ) {
-			g_entities[ent->r.ownerNum].client->accuracy_hits++;
-		}
+        if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent
+            , ent->splashMethodOfDeath ) ) {
+            int w = ent->s.weapon;
+            if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+            g_entities[ent->r.ownerNum].client->accuracy_hits++;
+            g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
+        }
 	}
 
 	trap_LinkEntity( ent );
@@ -290,10 +293,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		if ( ent->damage ) {
 			vec3_t	velocity;
 
-			if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) ) {
-				g_entities[ent->r.ownerNum].client->accuracy_hits++;
-				hitClient = qtrue;
-			}
+            if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) ) {
+                int w = ent->s.weapon;
+                if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+                g_entities[ent->r.ownerNum].client->accuracy_hits++;
+                g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
+                hitClient = qtrue;
+            }
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
 			if ( VectorLength( velocity ) == 0 ) {
 				velocity[2] = 1;	// stepped on a grenade

@@ -1698,6 +1698,36 @@ static void G_WarmupEnd( void )
 		client->ps.persistant[PERS_ATTACKEE_ARMOR] = 0;
 		client->damage.enemy = client->damage.team = 0;
 
+		// reset accuracy and extended per-life stats at warmup end
+		client->accuracy_hits = 0;
+		client->accuracy_shots = 0;
+		client->totalDamageGiven = 0;
+		client->totalDamageTaken = 0;
+		client->kills = 0;
+		client->deaths = 0;
+		client->armorPickedTotal = 0;
+		client->armorYACount = 0;
+		client->armorRACount = 0;
+		client->armorShardCount = 0;
+		client->healthPickedTotal = 0;
+		client->healthMegaCount = 0;
+		client->health50Count = 0;
+		client->health25Count = 0;
+		client->health5Count = 0;
+		{
+			int w;
+			for ( w = 0 ; w < WP_NUM_WEAPONS ; ++w ) {
+				client->perWeaponDamageGiven[w] = 0;
+				client->perWeaponDamageTaken[w] = 0;
+				client->perWeaponShots[w] = 0;
+				client->perWeaponHits[w] = 0;
+				client->perWeaponKills[w] = 0;
+				client->perWeaponDeaths[w] = 0;
+				client->perWeaponPickups[w] = 0;
+				client->perWeaponDrops[w] = 0;
+			}
+		}
+
 		client->ps.stats[STAT_CLIENTS_READY] = 0;
 		client->ps.stats[STAT_HOLDABLE_ITEM] = 0;
 

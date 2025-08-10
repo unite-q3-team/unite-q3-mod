@@ -227,9 +227,12 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 			// unlagged
 			tent->s.clientNum = ent->s.clientNum;
 
-			if( LogAccuracyHit( traceEnt, ent ) ) {
-				ent->client->accuracy_hits++;
-			}
+            if( LogAccuracyHit( traceEnt, ent ) ) {
+                int w = ent->s.weapon;
+                if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+                ent->client->accuracy_hits++;
+                ent->client->perWeaponHits[ w ]++;
+            }
 		//freeze
 		} else if ( g_freeze.integer && ftmod_isBody( traceEnt ) ) {
 			tent = G_TempEntity( tr.endpos, EV_BULLET_HIT_FLESH );
@@ -339,9 +342,9 @@ static qboolean ShotgunPellet( const vec3_t start, const vec3_t end, gentity_t *
 				continue;
 			}
 #else
-			if ( LogAccuracyHit( traceEnt, ent ) ) {
-				hitClient = qtrue;
-			}
+            if ( LogAccuracyHit( traceEnt, ent ) ) {
+                hitClient = qtrue;
+            }
 			G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_SHOTGUN );
 			return hitClient;
 #endif
@@ -376,10 +379,14 @@ static void ShotgunPattern( const vec3_t origin, const vec3_t origin2, int seed,
 		VectorMA( origin, ( 8192.0 * 16.0 ), forward, end );
 		VectorMA( end, r, right, end );
 		VectorMA( end, u, up, end );
-		if ( ShotgunPellet( origin, end, ent ) && !hitClient ) {
-			hitClient = qtrue;
-			ent->client->accuracy_hits++;
-		}
+        if ( ShotgunPellet( origin, end, ent ) && !hitClient ) {
+            int w = ent->s.weapon;
+            if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+            hitClient = qtrue;
+            ent->client->accuracy_hits++;
+            // count SG as a single hit per shot
+            ent->client->perWeaponHits[ w ]++;
+        }
 	}
 
 	// unlagged
@@ -598,7 +605,7 @@ void weapon_railgun_fire( gentity_t *ent ) {
 	if ( hits == 0 ) {
 		// complete miss
 		ent->client->accurateCount = 0;
-	} else {
+    } else {
 		// check for "impressive" reward sound
 		ent->client->accurateCount += hits;
 		if ( ent->client->accurateCount >= 2 ) {
@@ -609,7 +616,12 @@ void weapon_railgun_fire( gentity_t *ent ) {
 			ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-		ent->client->accuracy_hits++;
+        ent->client->accuracy_hits++;
+        {
+            int w = ent->s.weapon;
+            if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+            ent->client->perWeaponHits[ w ] += hits > 0 ? hits : 1;
+        }
 	}
 
 }
@@ -726,9 +738,12 @@ void Weapon_LightningFire( gentity_t *ent ) {
 				continue;
 			}
 #else
-			if ( LogAccuracyHit( traceEnt, ent ) ) {
-				ent->client->accuracy_hits++;
-			}
+            if ( LogAccuracyHit( traceEnt, ent ) ) {
+                int w = ent->s.weapon;
+                if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+                ent->client->accuracy_hits++;
+                ent->client->perWeaponHits[ w ]++;
+            }
 			G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_LIGHTNING );
 #endif
 		}
@@ -863,15 +878,18 @@ void FireWeapon( gentity_t *ent ) {
 	}
 	//freeze
 	// track shots taken for accuracy tracking.  Grapple is not a weapon and gauntet is just not tracked
-	if( ent->s.weapon != WP_GRAPPLING_HOOK && ent->s.weapon != WP_GAUNTLET ) {
+    if( ent->s.weapon != WP_GRAPPLING_HOOK && ent->s.weapon != WP_GAUNTLET ) {
 #ifdef MISSIONPACK
 		if( ent->s.weapon == WP_NAILGUN ) {
 			ent->client->accuracy_shots += NUM_NAILSHOTS;
+            ent->client->perWeaponShots[ ent->s.weapon ] += NUM_NAILSHOTS;
 		} else {
 			ent->client->accuracy_shots++;
+            ent->client->perWeaponShots[ ent->s.weapon ]++;
 		}
 #else
-		ent->client->accuracy_shots++;
+        ent->client->accuracy_shots++;
+        ent->client->perWeaponShots[ ent->s.weapon ]++;
 #endif
 	}
 

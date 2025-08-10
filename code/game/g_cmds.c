@@ -1440,7 +1440,7 @@ static void Cmd_Time_f( gentity_t *ent ) {
     trap_SendServerCommand(
         ent - g_entities,
         va(
-            "print \"^3Time:^7 %04d-%02d-%02d %02d:%02d:%02d\n\"",
+            "print \"^3Time 23:^7 %04d-%02d-%02d %02d:%02d:%02d\n\"",
             now.tm_year + 1900,
             now.tm_mon + 1,
             now.tm_mday,
@@ -1450,6 +1450,26 @@ static void Cmd_Time_f( gentity_t *ent ) {
         )
     );
 }
+
+// Display labels for weapons (indexes follow weapon_t), with colon and padded to width ~13
+static const char *const s_weaponLabel[] = {
+    "",                 // WP_NONE
+    "^3Gauntlet    :^7",    // WP_GAUNTLET
+    "^3MachineGun  :^7",    // WP_MACHINEGUN
+    "^3Shotgun     :^7",    // WP_SHOTGUN
+    "^3G.Launcher  :^7",    // WP_GRENADE_LAUNCHER
+    "^3R.Launcher  :^7",    // WP_ROCKET_LAUNCHER
+    "^3LightningGun:^7",    // WP_LIGHTNING
+    "^3Railgun     :^7",    // WP_RAILGUN
+    "^3PlasmaGun   :^7",    // WP_PLASMAGUN
+    "^3BFG10K      :^7",    // WP_BFG
+    "^3Grapple     :^7",    // WP_GRAPPLING_HOOK
+#ifdef MISSIONPACK
+    "^3Nailgun     :^7",    // WP_NAILGUN
+    "^3ProxLauncher:^7",    // WP_PROX_LAUNCHER
+    "^3Chaingun    :^7",    // WP_CHAINGUN
+#endif
+};
 
 /* Forward declarations for functions referenced in the dispatch table (C89/q3lcc) */
 void Cmd_CallVote_f( gentity_t *ent );
@@ -2024,20 +2044,141 @@ Cmd_Stats_f
 =================
 */
 static void Cmd_Stats_f( gentity_t *ent ) {
-/*
-	int max, n, i;
+    gclient_t *cl;
+    gclient_t *targetCl;
+    int targetNum = -1;
+    int w;
+    char line[256];
+    int shots, hits;
+    int accInt, accFrac;
 
-	max = trap_AAS_PointReachabilityAreaIndex( NULL );
+    if ( !ent || !ent->client ) return;
 
-	n = 0;
-	for ( i = 0; i < max; i++ ) {
-		if ( ent->client->areabits[i >> 3] & (1 << (i & 7)) )
-			n++;
-	}
+    // Determine which client's stats to show
+    {
+        int argc = trap_Argc();
+        targetCl = NULL;
 
-	//trap_SendServerCommand( ent-g_entities, va("print \"visited %d of %d areas\n\"", n, max));
-	trap_SendServerCommand( ent-g_entities, va("print \"%d%% level coverage\n\"", n * 100 / max));
-*/
+        if ( argc >= 2 ) {
+            char arg[MAX_TOKEN_CHARS];
+            int i, isNum = 1;
+            trap_Argv( 1, arg, sizeof(arg) );
+            for ( i = 0; arg[i]; ++i ) {
+                if ( arg[i] < '0' || arg[i] > '9' ) { isNum = 0; break; }
+            }
+            if ( isNum ) {
+                targetNum = atoi(arg);
+                if ( targetNum >= 0 && targetNum < level.maxclients ) {
+                    if ( level.clients[targetNum].pers.connected == CON_CONNECTED ) {
+                        targetCl = &level.clients[targetNum];
+                    }
+                }
+            }
+        }
+
+        if ( !targetCl ) {
+            // default: current player, or followed target if spectating
+            if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+                targetNum = ent->client->sess.spectatorClient;
+                if ( targetNum >= 0 && targetNum < level.maxclients &&
+                     level.clients[targetNum].pers.connected == CON_CONNECTED ) {
+                    targetCl = &level.clients[targetNum];
+                }
+            }
+            if ( !targetCl ) {
+                targetCl = ent->client;
+                targetNum = ent->client - level.clients;
+            }
+        }
+    }
+
+    cl = targetCl;
+
+    trap_SendServerCommand( ent - g_entities, va("print \"Accuracy info for: %s\n\"", cl->pers.netname) );
+    trap_SendServerCommand( ent - g_entities, va("print \"\n\"" ) );
+    // Match reference header spacing exactly
+    trap_SendServerCommand( ent - g_entities, "print \"Weapon            Accrcy      Hits/Atts     Kills   Deaths Pickup Drops\n\"" );
+    trap_SendServerCommand( ent - g_entities, "print \"------------------------------------------------------------------------\n\"" );
+
+    // Per-weapon
+    {
+        qboolean any = qfalse;
+        for ( w = WP_GAUNTLET; w < WP_NUM_WEAPONS; ++w ) {
+        // skip weapons player never used at all
+        if ( cl->perWeaponShots[w] == 0 && cl->perWeaponHits[w] == 0 && cl->perWeaponDamageGiven[w] == 0 && cl->perWeaponDamageTaken[w] == 0 ) {
+                continue;
+        }
+            any = qtrue;
+        shots = cl->perWeaponShots[w];
+        hits = cl->perWeaponHits[w];
+        // Special-case SG accuracy to count any-hit as one hit (not pellets)
+        if ( w == WP_SHOTGUN && hits > 0 ) {
+            hits = hits > 0 ? 1 : 0;
+        }
+
+        if ( shots > 0 ) {
+            // percent with one decimal: floor( (hits*1000)/shots ) => X.Y
+            int num = hits * 1000;
+            int pct = shots ? num / shots : 0;
+            accInt = pct / 10;
+            accFrac = pct % 10;
+        } else {
+            accInt = 0; accFrac = 0;
+        }
+
+        Com_sprintf( line, sizeof(line), "%-13s %8d.%1d    %2d/%-6d  %6d  %6d %6d  %5d\n",
+            (w < (int)ARRAY_LEN(s_weaponLabel) ? s_weaponLabel[w] : "Weapon:"),
+            accInt, accFrac, hits, shots,
+            cl->perWeaponKills[w], cl->perWeaponDeaths[w],
+            cl->perWeaponPickups[w], cl->perWeaponDrops[w] );
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
+        }
+        if ( !any ) {
+            trap_SendServerCommand( ent - g_entities, va("print \"No weapon info available.\n\"") );
+            return; // don't draw footer when no info
+        }
+    }
+
+    trap_SendServerCommand( ent - g_entities, va("print \"\n\"" ) );
+    Com_sprintf( line, sizeof(line), "^3Damage Given: ^7%d", cl->totalDamageGiven );
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
+    Com_sprintf( line, sizeof(line), "     ^2Armor Taken : ^7%d", cl->armorPickedTotal );
+    if ( cl->armorRACount > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^1RA^2)", cl->armorRACount) );
+    }
+    if ( cl->armorYACount > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^3YA^2)", cl->armorYACount) );
+    }
+    if ( cl->armorShardCount > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^2SH^2)", cl->armorShardCount) );
+    }
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
+    Com_sprintf( line, sizeof(line), "\n^3Damage Recvd: ^7%d", cl->totalDamageTaken );
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
+    Com_sprintf( line, sizeof(line), "     ^2Health Taken: ^7%d", cl->healthPickedTotal );
+    if ( cl->healthMegaCount > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^5MEGA^2)", cl->healthMegaCount) );
+    }
+    if ( cl->health50Count > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^150^2)", cl->health50Count) );
+    }
+    if ( cl->health25Count > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^325^2)", cl->health25Count) );
+    }
+    if ( cl->health5Count > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^25)^2", cl->health5Count) );
+    }
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
+    if ( cl->totalDamageTaken > 0 ) {
+        // reference shows Damage Ratio as Given/Taken with two decimals
+        // 48 given / 0 taken is special-cased there; here if taken>0, compute precise ratio
+        int ratioTimes100 = (cl->totalDamageGiven * 100) / cl->totalDamageTaken;
+        Com_sprintf( line, sizeof(line), "\n^3Damage Ratio: ^7%d.%02d\n",
+            ratioTimes100 / 100, ratioTimes100 % 100 );
+    } else {
+        Com_sprintf( line, sizeof(line), "\n^3Damage Ratio: ^70.00\n" );
+    }
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", line) );
 }
 
 static void Cmd_Test_f( gentity_t *ent ) {

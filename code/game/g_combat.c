@@ -1034,7 +1034,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			targ->health, take, asave );
 	}
 
-	// add to the attacker's hit counter (if the target isn't a general entity like a prox mine)
+    // add to the attacker's hit counter (if the target isn't a general entity like a prox mine)
 	if ( attacker->client && client && targ != attacker && targ->health > 0
 			&& targ->s.eType != ET_MISSILE
 			&& targ->s.eType != ET_GENERAL) {
@@ -1051,11 +1051,16 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		// so usual PERS_HITS increments/decrements could result in ZERO delta
 		if ( OnSameTeam( targ, attacker ) ) {
 			attacker->client->damage.team++;
-		} else {
-			attacker->client->damage.enemy++;
-			// accumulate damage during server frame
-			attacker->client->damage.amount += take + asave;
-		}
+        } else {
+            attacker->client->damage.enemy++;
+            // accumulate damage during server frame
+            attacker->client->damage.amount += take + asave;
+            // stats: attribute damage by current weapon on attacker snapshot
+            attacker->client->totalDamageGiven += take + asave;
+            attacker->client->perWeaponDamageGiven[ attacker->s.weapon ] += take + asave;
+            client->totalDamageTaken += take + asave;
+            client->perWeaponDamageTaken[ attacker->s.weapon ] += take + asave;
+        }
 #endif
 	}
 
@@ -1106,7 +1111,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 			attacker->health = g_vampireMaxHealth.integer;
 	}
 
-	// do the damage
+    // do the damage
 	if (take) {
 		targ->health = targ->health - take;
 		if ( targ->client ) {
@@ -1121,7 +1126,18 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				targ->health = -999;
 
 			targ->enemy = attacker;
-			targ->die (targ, inflictor, attacker, take, mod);
+            // increment deaths and attacker's kills
+            if ( targ->client ) {
+                targ->client->deaths++;
+            }
+            if ( attacker && attacker->client && attacker != targ && !OnSameTeam(targ, attacker) ) {
+                attacker->client->kills++;
+                // attribute per-weapon kill to current attacker weapon
+                if ( attacker->s.weapon >= 0 && attacker->s.weapon < WP_NUM_WEAPONS ) {
+                    attacker->client->perWeaponKills[ attacker->s.weapon ]++;
+                }
+            }
+            targ->die (targ, inflictor, attacker, take, mod);
 			return;
 		} else if ( targ->pain ) {
 			targ->pain (targ, attacker, take);
@@ -1277,6 +1293,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 	vec3_t		dir;
 	int			i, e;
 	qboolean	hitClient = qfalse;
+	int		hitCount = 0;
 
 	if ( radius < 1 ) {
 		radius = 1;
@@ -1318,6 +1335,7 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		if( CanDamage (ent, origin) || g_damageThroughWalls.integer) {
 			if( LogAccuracyHit( ent, attacker ) ) {
 				hitClient = qtrue;
+				hitCount++;
 			}
 			VectorSubtract (ent->r.currentOrigin, origin, dir);
 			// push the center of mass higher than the origin so players
@@ -1327,5 +1345,10 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		}
 	}
 
+	if ( hitCount > 0 && attacker && attacker->client ) {
+		int w = attacker->s.weapon;
+		if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+		attacker->client->perWeaponHits[w] += hitCount;
+	}
 	return hitClient;
 }

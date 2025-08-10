@@ -301,7 +301,7 @@ static int Pickup_Weapon( gentity_t *ent, gentity_t *other ) {
 		}
 	}
 
-	// add the weapon
+    // add the weapon
 	other->client->ps.stats[STAT_WEAPONS] |= ( 1 << ent->item->giTag );
 
 	Add_Ammo( other, ent->item->giTag, quantity );
@@ -315,7 +315,11 @@ static int Pickup_Weapon( gentity_t *ent, gentity_t *other ) {
 	//} else {
 	//	return g_weaponRespawn.integer;
 	//}
-	return SpawnTime( ent, qfalse );
+    // stats: count weapon pickup
+    if ( other->client && ent->item->giType == IT_WEAPON && ent->item->giTag >= 0 && ent->item->giTag < WP_NUM_WEAPONS ) {
+        other->client->perWeaponPickups[ ent->item->giTag ]++;
+    }
+    return SpawnTime( ent, qfalse );
 }
 
 
@@ -349,7 +353,15 @@ static int Pickup_Health( gentity_t *ent, gentity_t *other ) {
 	if (other->health > max ) {
 		other->health = max;
 	}
-	other->client->ps.stats[STAT_HEALTH] = other->health;
+    other->client->ps.stats[STAT_HEALTH] = other->health;
+    // stats: accumulate health picked up
+    if ( other->client ) {
+        other->client->healthPickedTotal += quantity;
+        if ( quantity == 100 ) other->client->healthMegaCount++;
+        else if ( quantity == 50 ) other->client->health50Count++;
+        else if ( quantity == 25 ) other->client->health25Count++;
+        else if ( quantity == 5 ) other->client->health5Count++;
+    }
 
 	//if ( ent->item->quantity == 100 ) { // mega health respawns slow
 	//	return RESPAWN_MEGAHEALTH;
@@ -366,7 +378,7 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other ) {
 #ifdef MISSIONPACK
 	int		upperBound;
 
-	other->client->ps.stats[STAT_ARMOR] += ent->item->quantity;
+    other->client->ps.stats[STAT_ARMOR] += ent->item->quantity;
 
 	if( other->client && bg_itemlist[other->client->ps.stats[STAT_PERSISTANT_POWERUP]].giTag == PW_GUARD ) {
 		upperBound = other->client->ps.stats[STAT_MAX_HEALTH];
@@ -385,7 +397,14 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other ) {
 	}
 #endif
 
-	return SpawnTime( ent, qfalse ); // return RESPAWN_ARMOR;
+    // stats: accumulate armor pickups, and categorize counts if possible
+    if ( other->client ) {
+        other->client->armorPickedTotal += ent->item->quantity;
+        if ( ent->item->quantity == 50 ) other->client->armorYACount++;
+        else if ( ent->item->quantity == 100 ) other->client->armorRACount++;
+        else if ( ent->item->quantity == 5 ) other->client->armorShardCount++;
+    }
+    return SpawnTime( ent, qfalse ); // return RESPAWN_ARMOR;
 }
 
 //======================================================================

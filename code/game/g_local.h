@@ -302,6 +302,31 @@ struct gclient_s {
 	int			accuracy_shots;		// total number of shots
 	int			accuracy_hits;		// total number of hits
 
+	// per-client stats (cleared on spawn)
+	int			totalDamageGiven;
+	int			totalDamageTaken;
+	int			perWeaponDamageGiven[WP_NUM_WEAPONS];
+	int			perWeaponDamageTaken[WP_NUM_WEAPONS];
+	int			perWeaponShots[WP_NUM_WEAPONS];
+	int			perWeaponHits[WP_NUM_WEAPONS];
+	int			perWeaponKills[WP_NUM_WEAPONS];
+	int			perWeaponDeaths[WP_NUM_WEAPONS];
+	int			perWeaponPickups[WP_NUM_WEAPONS];
+	int			perWeaponDrops[WP_NUM_WEAPONS];
+	int			kills;
+	int			deaths;
+
+	// pickups summary
+	int			armorPickedTotal;
+	int			armorYACount; // 50
+	int			armorRACount; // 100
+	int			armorShardCount; // 5
+	int			healthPickedTotal;
+	int			healthMegaCount; // 100
+	int			health50Count;  // 50
+	int			health25Count;  // 25
+	int			health5Count;   // 5
+
 	//
 	int			lastkilled_client;	// last client that this client killed
 	int			lasthurt_client;	// last client that damaged this client
