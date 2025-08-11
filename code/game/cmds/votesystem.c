@@ -348,17 +348,43 @@ void Cmd_Vote_f( gentity_t *ent ) {
         trap_SendServerCommand( ent-g_entities, "print \"No vote in progress.\n\"" );
         return;
     }
-    if ( ent->client->pers.voted != 0 ) {
-        trap_SendServerCommand( ent-g_entities, "print \"Vote already cast.\n\"" );
-        return;
-    }
     if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
         trap_SendServerCommand( ent-g_entities, "print \"Not allowed to vote as spectator.\n\"" );
         return;
     }
-    trap_SendServerCommand( ent-g_entities, "print \"Vote cast.\n\"" );
-    ent->client->ps.eFlags |= EF_VOTED;
+
     trap_Argv( 1, msg, sizeof( msg ) );
+    if ( msg[0] != 'y' && msg[0] != 'Y' && msg[0] != '1' && msg[0] != 'n' && msg[0] != 'N' && msg[0] != '0' ) {
+        trap_SendServerCommand( ent-g_entities, "print \"Usage: vote <yes|no>\n\"" );
+        return;
+    }
+
+    /* handle vote (and possibly change) */
+    if ( ent->client->pers.voted != 0 ) {
+        if ( !g_allowVoteChange.integer ) {
+            trap_SendServerCommand( ent-g_entities, "print \"Vote already cast.\n\"" );
+            return;
+        }
+        /* revert previous vote */
+        if ( ent->client->pers.voted == 1 ) {
+            if ( msg[0] == 'y' || msg[0] == 'Y' || msg[0] == '1' ) {
+                trap_SendServerCommand( ent-g_entities, "print \"Vote already cast.\n\"" );
+                return;
+            }
+            if ( level.voteYes > 0 ) level.voteYes--;
+        } else if ( ent->client->pers.voted == -1 ) {
+            if ( msg[0] == 'n' || msg[0] == 'N' || msg[0] == '0' ) {
+                trap_SendServerCommand( ent-g_entities, "print \"Vote already cast.\n\"" );
+                return;
+            }
+            if ( level.voteNo > 0 ) level.voteNo--;
+        }
+    } else {
+        /* first time voting */
+        trap_SendServerCommand( ent-g_entities, "print \"Vote cast.\n\"" );
+        ent->client->ps.eFlags |= EF_VOTED;
+    }
+
     if ( msg[0] == 'y' || msg[0] == 'Y' || msg[0] == '1' ) {
         level.voteYes++;
         ent->client->pers.voted = 1;

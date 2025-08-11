@@ -69,6 +69,8 @@ G_CVAR( g_podiumDist, "g_podiumDist", "80", 0, 0, qfalse, qfalse )
 G_CVAR( g_podiumDrop, "g_podiumDrop", "70", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_allowVote, "g_allowVote", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* allow changing an already cast vote (0 = off, 1 = on) */
+G_CVAR( g_allowVoteChange, "g_allowVoteChange", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_listEntity, "g_listEntity", "0", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_unlagged, "g_unlagged", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )
