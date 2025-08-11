@@ -1574,6 +1574,8 @@ static void Cmd_Test_f( gentity_t *ent );
 void playsound_f( gentity_t *ent );
 void map_restart_f( gentity_t *ent );
 void osptest( gentity_t *ent );
+static void Cmd_Ready_f( gentity_t *ent );
+static void Cmd_Unready_f( gentity_t *ent );
 
 // lightweight wrappers for commands that need fixed params
 static void Cmd_FollowNext_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, 1 ); }
@@ -1582,8 +1584,7 @@ static void Cmd_Help_f( gentity_t *ent );
 static void Cmd_ScoresText_f( gentity_t *ent );
 static void Cmd_MapList_f( gentity_t *ent );
 static void Cmd_Rotation_f( gentity_t *ent );
-static void Cmd_CV_f( gentity_t *ent );
-static void Cmd_CV_HelpList( gentity_t *ent );
+void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
 
 typedef void (*gameCmdHandler_t)( gentity_t *ent );
 typedef struct {
@@ -1640,6 +1641,8 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "playerlist",      Cmd_Plrlist_f },
     { "players",         Cmd_Plrlist_f },
     { "from",            Cmd_From_f },
+    { "ready",           Cmd_Ready_f },
+    { "unready",         Cmd_Unready_f },
 };
 
 static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {
@@ -1653,23 +1656,12 @@ static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {
     return qfalse;
 }
 
-static const char *voteCommands[] = {
-	"map_restart",
-	"map",
-	"rotate",
-	"nextmap",
-	"kick",
-	"clientkick",
-	"g_gametype",
-    "g_freeze",
-    "instagib",
-    "quad",
-	"timelimit",
-	"fraglimit",
-	"capturelimit"
-};
+/* voteCommands moved to cmds/votesystem.c */
 
 
+/* moved to cmds/votesystem.c */
+#if 0
+#if 0 /* moved to cmds/votesystem.c */
 /*
 ==================
 ValidVoteCommand
@@ -1677,7 +1669,7 @@ ValidVoteCommand
 Input string can be modified by overwriting gametype number instead of text value, for example
 ==================
 */
-static qboolean ValidVoteCommand( int clientNum, char *command ) 
+static qboolean ValidVoteCommand_old( int clientNum, char *command ) 
 {
 	char buf[ MAX_CVAR_VALUE_STRING ];
 	char *base;
@@ -1701,15 +1693,15 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
 	while ( *command == ' ' || *command == '\t' )
 		command++;
 
-	for ( i = 0; i < ARRAY_LEN( voteCommands ); i++ ) {
-		if ( !Q_stricmp( buf, voteCommands[i] ) ) {
+    for ( i = 0; i < 0; i++ ) {
+        if ( 0 ) {
 			break;
 		}
 	}
 
     if ( i == ARRAY_LEN( voteCommands ) ) {
         /* show same help as cv with colors */
-        Cmd_CV_HelpList( g_entities + clientNum );
+        Cmd_CV_HelpList_old( g_entities + clientNum );
         return qfalse;
     }
 
@@ -1840,6 +1832,7 @@ static qboolean ValidVoteCommand( int clientNum, char *command )
 
 	return qtrue;
 }
+#endif /* moved to cmds/votesystem.c */
 
 
 /*
@@ -1854,7 +1847,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 
     /* If user typed just 'callvote' or 'callvote map' (no arg), show options */
     if ( trap_Argc() == 1 ) {
-        Cmd_CV_HelpList( ent );
+        Cmd_CV_HelpList_old( ent );
         return;
     } else if ( trap_Argc() == 2 ) {
         trap_Argv( 1, cmd, sizeof( cmd ) );
@@ -1990,6 +1983,7 @@ void Cmd_Vote_f( gentity_t *ent ) {
 	// a majority will be determined in CheckVote, which will also account
 	// for players entering or leaving
 }
+#endif /* moved to cmds/votesystem.c */
 
 
 void G_RevertVote( gclient_t *client ) {
@@ -2850,10 +2844,11 @@ static void Cmd_Rotation_f( gentity_t *ent ) {
 Cmd_CV_f
 =================
 */
-static void Cmd_CV_f( gentity_t *ent ) {
+/* moved to cmds/votesystem.c */
+static void Cmd_CV_f_old( gentity_t *ent ) {
     // If cv map with no argument: show maplist and return
     if ( trap_Argc() == 1 ) {
-        Cmd_CV_HelpList( ent );
+        Cmd_CV_HelpList_old( ent );
         return;
     } else if ( trap_Argc() == 2 ) {
         char sub[MAX_TOKEN_CHARS];
@@ -2868,7 +2863,8 @@ static void Cmd_CV_f( gentity_t *ent ) {
 }
 
 /* keep colored helper for listing when no args via callvote */
-static void Cmd_CV_HelpList( gentity_t *ent ) {
+/* moved to cmds/votesystem.c */
+static void Cmd_CV_HelpList_old( gentity_t *ent ) {
     char buf[MAX_STRING_CHARS];
     int len = 0;
     int gt;
@@ -3106,4 +3102,112 @@ void ClientCommand( int clientNum ) {
     }
     Com_Printf("@ ^ unknown command\n");
     trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^7%s^3' not recognized.^3\n^1! ^3Type '^7\\kill'^3 for no reason lol\n\"", cmd ) );
+}
+
+/*
+==================
+Cmd_Ready_f / Cmd_Unready_f
+
+Warmup ready system: during warmup, players can type \ready or \unready.
+When all non-spectator human players are ready, we announce and start a 5s countdown.
+==================
+*/
+static void G_CheckAllReadyAndStart(void) {
+    int i;
+    int totalHumans;
+    int readyHumans;
+
+    if ( level.warmupTime == 0 ) {
+        return;
+    }
+
+    totalHumans = 0;
+    readyHumans = 0;
+    for ( i = 0; i < level.maxclients; i++ ) {
+        gentity_t *e = &g_entities[i];
+        gclient_t *cl = &level.clients[i];
+        if ( cl->pers.connected != CON_CONNECTED ) {
+            continue;
+        }
+        if ( e->r.svFlags & SVF_BOT ) {
+            continue;
+        }
+        if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
+            continue;
+        }
+        totalHumans++;
+        if ( e->readyBegin ) {
+            readyHumans++;
+        }
+    }
+
+    if ( totalHumans > 0 && readyHumans == totalHumans ) {
+        /* Announce and set warmup to 5 seconds from now */
+        G_BroadcastServerCommand( -1, "cp \"^3All players ready!\"" );
+        level.warmupTime = level.time + 5000;
+        level.readyCountdownStarted = qtrue;
+        trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+    }
+}
+
+static void Cmd_Ready_f( gentity_t *ent ) {
+    if ( !ent || !ent->client ) {
+        return;
+    }
+    if ( g_gametype.integer == GT_SINGLE_PLAYER ) {
+        return;
+    }
+    if ( level.warmupTime == 0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Not in warmup.\n\"" );
+        return;
+    }
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Spectators don't need to ready.\n\"" );
+        return;
+    }
+    if ( ent->r.svFlags & SVF_BOT ) {
+        return;
+    }
+    if ( ent->readyBegin ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3You are already ready.\n\"" );
+        return;
+    }
+    ent->readyBegin = qtrue;
+    G_BroadcastServerCommand( -1, va( "print \"%s ^3is ^2ready\n\"", ent->client->pers.netname ) );
+    /* Update scoreboard ready mask bit */
+    ftmod_checkDelay();
+    G_CheckAllReadyAndStart();
+}
+
+static void Cmd_Unready_f( gentity_t *ent ) {
+    if ( !ent || !ent->client ) {
+        return;
+    }
+    if ( g_gametype.integer == GT_SINGLE_PLAYER ) {
+        return;
+    }
+    if ( level.warmupTime == 0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Not in warmup.\n\"" );
+        return;
+    }
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+        return;
+    }
+    if ( ent->r.svFlags & SVF_BOT ) {
+        return;
+    }
+    if ( !ent->readyBegin ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3You are not ready.\n\"" );
+        return;
+    }
+    /* Do not allow cancelling countdown once started by all-ready trigger */
+    if ( level.readyCountdownStarted && level.warmupTime > 0 && level.time < level.warmupTime ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Countdown in progress; cannot unready.\n\"" );
+        return;
+    }
+
+    ent->readyBegin = qfalse;
+    G_BroadcastServerCommand( -1, va( "print \"%s ^3is ^1not ready\n\"", ent->client->pers.netname ) );
+    /* Update scoreboard ready mask bit */
+    ftmod_checkDelay();
 }

@@ -487,6 +487,9 @@ typedef struct {
 	// unlagged
 	int			frameStartTime;
 
+	// ready system: true if the 5s warmup countdown was triggered by All players ready
+	qboolean	readyCountdownStarted;
+
 } level_locals_t;
 
 

@@ -1670,7 +1670,8 @@ static void G_WarmupEnd( void )
 
 	memset( level.teamScores, 0, sizeof( level.teamScores ) );
 
-	level.warmupTime = 0;
+    level.warmupTime = 0;
+    level.readyCountdownStarted = qfalse;
 	level.startTime = level.time;
 	if ( g_freeze.integer ) {
     	level.freezeRoundStartTime = level.time;
@@ -1898,6 +1899,7 @@ static void CheckTournament( void ) {
 		if ( notEnough ) {
 			if ( level.warmupTime != -1 ) {
 				level.warmupTime = -1;
+				level.readyCountdownStarted = qfalse;
 				trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
 				G_LogPrintf( "Warmup:\n" );
 			}
