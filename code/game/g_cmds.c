@@ -1719,7 +1719,7 @@ static void Cmd_CallTeamVote_f( gentity_t *ent ) {
 		trap_SendServerCommand( ent-g_entities, "print \"A team vote is already in progress.\n\"" );
 		return;
 	}
-	if ( ent->client->pers.teamVoteCount >= MAX_VOTE_COUNT ) {
+    if ( ent->client->pers.teamVoteCount >= g_teamVoteLimit.integer ) {
 		trap_SendServerCommand( ent-g_entities, "print \"You have called the maximum number of team votes.\n\"" );
 		return;
 	}

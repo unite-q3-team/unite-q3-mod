@@ -294,7 +294,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
         trap_SendServerCommand( ent-g_entities, "print \"Previous vote command is waiting execution^1.^7\n\"" );
         return;
     }
-    if ( ent->client->pers.voteCount >= MAX_VOTE_COUNT ) {
+    if ( ent->client->pers.voteCount >= g_voteLimit.integer ) {
         trap_SendServerCommand( ent-g_entities, "print \"You have called the maximum number of votes.\n\"" );
         return;
     }
@@ -389,10 +389,12 @@ void Cmd_Vote_f( gentity_t *ent ) {
         level.voteYes++;
         ent->client->pers.voted = 1;
         trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
+        trap_SendServerCommand( ent-g_entities, "print \"Your vote: ^2YES\n\"" );
     } else {
         level.voteNo++;
         ent->client->pers.voted = -1;
         trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
+        trap_SendServerCommand( ent-g_entities, "print \"Your vote: ^1NO\n\"" );
     }
 }
 
