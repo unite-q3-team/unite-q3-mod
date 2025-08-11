@@ -413,5 +413,151 @@ void Cmd_CV_f( gentity_t *ent ) {
     Cmd_CallVote_f( ent );
 }
 
+/* Move from g_cmds.c: revert player and team votes on leave/team change */
+void G_RevertVote( gclient_t *client ) {
+    if ( level.voteTime ) {
+        if ( client->pers.voted == 1 ) {
+            level.voteYes--;
+            client->pers.voted = 0;
+            client->ps.eFlags &= ~EF_VOTED;
+            trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
+        } else if ( client->pers.voted == -1 ) {
+            level.voteNo--;
+            client->pers.voted = 0;
+            client->ps.eFlags &= ~EF_VOTED;
+            trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
+        }
+    }
+    if ( client->sess.sessionTeam == TEAM_RED || client->sess.sessionTeam == TEAM_BLUE ) {
+        int cs_offset;
+        if ( client->sess.sessionTeam == TEAM_RED ) cs_offset = 0; else cs_offset = 1;
+        if ( client->pers.teamVoted == 1 ) {
+            level.teamVoteYes[cs_offset]--;
+            client->pers.teamVoted = 0;
+            client->ps.eFlags &= ~EF_TEAMVOTED;
+            trap_SetConfigstring( CS_TEAMVOTE_YES + cs_offset, va("%i", level.teamVoteYes[cs_offset] ) );
+        } else if ( client->pers.teamVoted == -1 ) {
+            level.teamVoteNo[cs_offset]--;
+            client->pers.teamVoted = 0;
+            client->ps.eFlags &= ~EF_TEAMVOTED;
+            trap_SetConfigstring( CS_TEAMVOTE_NO + cs_offset, va("%i", level.teamVoteNo[cs_offset] ) );
+        }
+    }
+}
+
+/* Move from g_cmds.c: team vote call */
+void Cmd_CallTeamVote_f( gentity_t *ent ) {
+    int i, team, cs_offset;
+    char arg1[MAX_STRING_TOKENS];
+    char arg2[MAX_STRING_TOKENS];
+
+    team = ent->client->sess.sessionTeam;
+    if ( team == TEAM_RED ) cs_offset = 0; else if ( team == TEAM_BLUE ) cs_offset = 1; else return;
+
+    if ( !g_allowVote.integer ) {
+        trap_SendServerCommand( ent-g_entities, "print \"Voting not allowed here.\n\"" );
+        return;
+    }
+    if ( level.teamVoteTime[cs_offset] ) {
+        trap_SendServerCommand( ent-g_entities, "print \"A team vote is already in progress.\n\"" );
+        return;
+    }
+    if ( ent->client->pers.teamVoteCount >= g_teamVoteLimit.integer ) {
+        trap_SendServerCommand( ent-g_entities, "print \"You have called the maximum number of team votes.\n\"" );
+        return;
+    }
+    if ( level.voteExecuteTime || level.restarted ) {
+        return;
+    }
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+        trap_SendServerCommand( ent-g_entities, "print \"Not allowed to call a vote as spectator.\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg1, sizeof( arg1 ) );
+    arg2[0] = '\0';
+    for ( i = 2; i < trap_Argc(); i++ ) {
+        if ( i > 2 ) strcat( arg2, " " );
+        trap_Argv( i, &arg2[strlen(arg2)], sizeof( arg2 ) - (int)strlen(arg2) );
+    }
+    if ( strchr( arg1, ';' ) || strchr( arg2, ';' ) || strchr( arg2, '\n' ) || strchr( arg2, '\r' ) ) {
+        trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
+        return;
+    }
+
+    if ( !Q_stricmp( arg1, "leader" ) ) {
+        char netname[MAX_NETNAME], leader[MAX_NETNAME];
+        if ( !arg2[0] ) {
+            i = ent->client->ps.clientNum;
+        } else {
+            int k;
+            for ( k = 0; k < 3; k++ ) { if ( !arg2[k] || arg2[k] < '0' || arg2[k] > '9' ) break; }
+            if ( k >= 3 || !arg2[k] ) {
+                i = atoi( arg2 );
+                if ( i < 0 || i >= level.maxclients ) { trap_SendServerCommand( ent-g_entities, va("print \"Bad client slot: %i\n\"", i) ); return; }
+                if ( !g_entities[i].inuse ) { trap_SendServerCommand( ent-g_entities, va("print \"Client %i is not active\n\"", i) ); return; }
+            } else {
+                Q_strncpyz( leader, arg2, sizeof(leader) ); Q_CleanStr( leader );
+                for ( i = 0; i < level.maxclients; i++ ) {
+                    if ( level.clients[i].pers.connected == CON_DISCONNECTED ) continue;
+                    if ( level.clients[i].sess.sessionTeam != team ) continue;
+                    Q_strncpyz( netname, level.clients[i].pers.netname, sizeof(netname) ); Q_CleanStr( netname );
+                    if ( !Q_stricmp( netname, leader ) ) break;
+                }
+                if ( i >= level.maxclients ) { trap_SendServerCommand( ent-g_entities, va("print \"%s is not a valid player on your team.\n\"", arg2) ); return; }
+            }
+        }
+        Com_sprintf( arg2, sizeof(arg2), "%d", i );
+    } else {
+        trap_SendServerCommand( ent-g_entities, "print \"Invalid vote string.\n\"" );
+        trap_SendServerCommand( ent-g_entities, "print \"Team vote commands are: leader <player>.\n\"" );
+        return;
+    }
+
+    Com_sprintf( level.teamVoteString[cs_offset], sizeof( level.teamVoteString[cs_offset] ), "%s %s", arg1, arg2 );
+    for ( i = 0; i < level.maxclients; i++ ) {
+        if ( level.clients[i].pers.connected == CON_DISCONNECTED ) continue;
+        if ( level.clients[i].sess.sessionTeam == team ) trap_SendServerCommand( i, va("print \"%s called a team vote.\n\"", ent->client->pers.netname ) );
+    }
+    level.teamVoteTime[cs_offset] = level.time;
+    level.teamVoteYes[cs_offset] = 1;
+    level.teamVoteNo[cs_offset]  = 0;
+    for ( i = 0; i < level.maxclients; i++ ) {
+        if ( level.clients[i].sess.sessionTeam == team ) {
+            level.clients[i].ps.eFlags &= ~EF_TEAMVOTED;
+            level.clients[i].pers.teamVoted = 0;
+        }
+    }
+    ent->client->ps.eFlags |= EF_TEAMVOTED;
+    ent->client->pers.teamVoted = 1;
+    ent->client->pers.teamVoteCount++;
+    trap_SetConfigstring( CS_TEAMVOTE_TIME + cs_offset, va("%i", level.teamVoteTime[cs_offset] ) );
+    trap_SetConfigstring( CS_TEAMVOTE_STRING + cs_offset, level.teamVoteString[cs_offset] );
+    trap_SetConfigstring( CS_TEAMVOTE_YES + cs_offset, va("%i", level.teamVoteYes[cs_offset] ) );
+    trap_SetConfigstring( CS_TEAMVOTE_NO + cs_offset, va("%i", level.teamVoteNo[cs_offset] ) );
+}
+
+/* Move from g_cmds.c: team vote cast */
+void Cmd_TeamVote_f( gentity_t *ent ) {
+    int team, cs_offset;
+    char msg[64];
+    team = ent->client->sess.sessionTeam;
+    if ( team == TEAM_RED ) cs_offset = 0; else if ( team == TEAM_BLUE ) cs_offset = 1; else return;
+    if ( !level.teamVoteTime[cs_offset] ) { trap_SendServerCommand( ent-g_entities, "print \"No team vote in progress.\n\"" ); return; }
+    if ( ent->client->pers.teamVoted != 0 ) { trap_SendServerCommand( ent-g_entities, "print \"Team vote already cast.\n\"" ); return; }
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) { trap_SendServerCommand( ent-g_entities, "print \"Not allowed to vote as spectator.\n\"" ); return; }
+    trap_SendServerCommand( ent-g_entities, "print \"Team vote cast.\n\"" );
+    ent->client->ps.eFlags |= EF_TEAMVOTED;
+    ent->client->pers.teamVoteCount++;
+    trap_Argv( 1, msg, sizeof( msg ) );
+    if ( msg[0] == 'y' || msg[0] == 'Y' || msg[0] == '1' ) {
+        level.teamVoteYes[cs_offset]++;
+        trap_SetConfigstring( CS_TEAMVOTE_YES + cs_offset, va("%i", level.teamVoteYes[cs_offset] ) );
+    } else {
+        level.teamVoteNo[cs_offset]++;
+        trap_SetConfigstring( CS_TEAMVOTE_NO + cs_offset, va("%i", level.teamVoteNo[cs_offset] ) );
+    }
+}
+
 /* end */
 

@@ -1657,39 +1657,7 @@ static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {
 
 
 
-void G_RevertVote( gclient_t *client ) {
-	if ( level.voteTime ) {
-		if ( client->pers.voted == 1 ) {
-			level.voteYes--;
-			client->pers.voted = 0;
-			client->ps.eFlags &= ~EF_VOTED;
-			trap_SetConfigstring( CS_VOTE_YES, va( "%i", level.voteYes ) );
-		} else if ( client->pers.voted == -1 ) {
-			level.voteNo--;
-			client->pers.voted = 0;
-			client->ps.eFlags &= ~EF_VOTED;
-			trap_SetConfigstring( CS_VOTE_NO, va( "%i", level.voteNo ) );
-		}
-	}
-	if ( client->sess.sessionTeam == TEAM_RED || client->sess.sessionTeam == TEAM_BLUE ) {
-		int cs_offset;
-		if ( client->sess.sessionTeam == TEAM_RED )
-			cs_offset = 0;
-		else
-			cs_offset = 1;
-		if ( client->pers.teamVoted == 1 ) {
-			level.teamVoteYes[cs_offset]--;
-			client->pers.teamVoted = 0;
-			client->ps.eFlags &= ~EF_TEAMVOTED;
-			trap_SetConfigstring( CS_TEAMVOTE_YES + cs_offset, va("%i", level.teamVoteYes[cs_offset] ) );
-		} else if ( client->pers.teamVoted == -1 ) {
-			level.teamVoteNo[cs_offset]--;
-			client->pers.teamVoted = 0;
-			client->ps.eFlags &= ~EF_TEAMVOTED;
-			trap_SetConfigstring( CS_TEAMVOTE_NO + cs_offset, va("%i", level.teamVoteNo[cs_offset] ) );
-		}
-	} 
-}
+/* moved to cmds/votesystem.c */
 
 
 /*
