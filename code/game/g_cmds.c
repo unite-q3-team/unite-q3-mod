@@ -2905,6 +2905,13 @@ static void Cmd_Awards_f( gentity_t *ent ) {
     /* Placeholders if we don't track them */
     int bestStreakClient = -1, bestStreak = 0;
     int bestSkillClient = -1, bestSkill = 0;
+    int mostChatFragClient = -1, mostChatFrags = -1;
+    int mostImpressiveClient = -1, mostImpressive = -1;
+    int mostExcellentClient = -1, mostExcellent = -1;
+    int mostDefendClient = -1, mostDefend = -1;
+    int mostAssistClient = -1, mostAssist = -1;
+    int mostCapturesClient = -1, mostCaptures = -1;
+    int mostGauntletClient = -1, mostGauntlet = -1;
 
     char buf[MAX_STRING_CHARS];
     char line[256];
@@ -2937,6 +2944,42 @@ static void Cmd_Awards_f( gentity_t *ent ) {
         if ( cl->bestKillStreak > bestStreak ) {
             bestStreak = cl->bestKillStreak;
             bestStreakClient = i;
+        }
+
+        /* track chat frags */
+        if ( cl->chatFragCount > mostChatFrags ) {
+            mostChatFrags = cl->chatFragCount;
+            mostChatFragClient = i;
+        }
+
+        /* track most impressive: PERS_IMPRESSIVE_COUNT */
+        if ( cl->ps.persistant[PERS_IMPRESSIVE_COUNT] > mostImpressive ) {
+            mostImpressive = cl->ps.persistant[PERS_IMPRESSIVE_COUNT];
+            mostImpressiveClient = i;
+        }
+
+        /* track most gauntlet kills */
+        if ( cl->perWeaponKills[WP_GAUNTLET] > mostGauntlet ) {
+            mostGauntlet = cl->perWeaponKills[WP_GAUNTLET];
+            mostGauntletClient = i;
+        }
+
+        /* track other built-in awards */
+        if ( cl->ps.persistant[PERS_EXCELLENT_COUNT] > mostExcellent ) {
+            mostExcellent = cl->ps.persistant[PERS_EXCELLENT_COUNT];
+            mostExcellentClient = i;
+        }
+        if ( cl->ps.persistant[PERS_DEFEND_COUNT] > mostDefend ) {
+            mostDefend = cl->ps.persistant[PERS_DEFEND_COUNT];
+            mostDefendClient = i;
+        }
+        if ( cl->ps.persistant[PERS_ASSIST_COUNT] > mostAssist ) {
+            mostAssist = cl->ps.persistant[PERS_ASSIST_COUNT];
+            mostAssistClient = i;
+        }
+        if ( cl->ps.persistant[PERS_CAPTURES] > mostCaptures ) {
+            mostCaptures = cl->ps.persistant[PERS_CAPTURES];
+            mostCapturesClient = i;
         }
     }
 
@@ -2983,6 +3026,42 @@ static void Cmd_Awards_f( gentity_t *ent ) {
     if ( bestSkillClient >= 0 ) {
         Com_sprintf( line, sizeof(line), "^3Best Skill              ^1%4d    ^7%s\n",
             bestSkill, level.clients[bestSkillClient].pers.netname );
+        APPEND_LINE( line );
+    }
+
+    if ( mostChatFragClient >= 0 && mostChatFrags > 0 ) {
+        Com_sprintf( line, sizeof(line), "^1Most Chat Frags         ^1%2d    ^7%s\n",
+            mostChatFrags, level.clients[mostChatFragClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostImpressiveClient >= 0 && mostImpressive > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Impressive         ^1%2d    ^7%s\n",
+            mostImpressive, level.clients[mostImpressiveClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostExcellentClient >= 0 && mostExcellent > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Excellent          ^1%2d    ^7%s\n",
+            mostExcellent, level.clients[mostExcellentClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostDefendClient >= 0 && mostDefend > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Defends            ^1%2d    ^7%s\n",
+            mostDefend, level.clients[mostDefendClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostAssistClient >= 0 && mostAssist > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Assists            ^1%2d    ^7%s\n",
+            mostAssist, level.clients[mostAssistClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostCapturesClient >= 0 && mostCaptures > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Captures           ^1%2d    ^7%s\n",
+            mostCaptures, level.clients[mostCapturesClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostGauntletClient >= 0 && mostGauntlet > 0 ) {
+        Com_sprintf( line, sizeof(line), "^3Most Gauntlet Kills     ^1%2d    ^7%s\n",
+            mostGauntlet, level.clients[mostGauntletClient].pers.netname );
         APPEND_LINE( line );
     }
 

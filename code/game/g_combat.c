@@ -488,6 +488,18 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		obit = modNames[ meansOfDeath ];
 	}
 
+  /* Chat frag message: victim killed while chat was open */
+  if ( attacker && attacker->client ) {
+      if ( self->client && ( self->client->ps.eFlags & EF_TALK ) ) {
+          G_BroadcastServerCommand( -1,
+              va( "print \"%s^7 was ^1chat fragged ^7by %s\n\"",
+                  self->client->pers.netname,
+                  attacker->client->pers.netname ) );
+          /* increment attacker's chat-frag counter */
+          attacker->client->chatFragCount++;
+      }
+  }
+
 	if (dbg_events.integer == 1)
 		G_LogPrintf("Kill: %i %i %i: %s killed %s by %s\n", 
 		killer, self->s.number, meansOfDeath, killerName, 

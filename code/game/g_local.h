@@ -316,6 +316,9 @@ struct gclient_s {
 	int			kills;
 	int			deaths;
 
+	/* custom per-match counters */
+	int			chatFragCount; /* kills against chatting victims */
+
 	/* kill streak tracking */
 	int			currentKillStreak; /* kills since last death */
 	int			bestKillStreak;    /* best streak achieved this match */
