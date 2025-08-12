@@ -1816,19 +1816,19 @@ static void Cmd_TeamVote_f( gentity_t *ent ) {
 		return;
 
 	if ( !level.teamVoteTime[cs_offset] ) {
-		trap_SendServerCommand( ent-g_entities, "print \"No team vote in progress.\n\"" );
+		trap_SendServerCommand( ent-g_entities, "print \"^3No team vote in progress.\n\"" );
 		return;
 	}
 	if ( ent->client->pers.teamVoted != 0 ) {
-		trap_SendServerCommand( ent-g_entities, "print \"Team vote already cast.\n\"" );
+		trap_SendServerCommand( ent-g_entities, "print \"^3Team vote already cast.\n\"" );
 		return;
 	}
 	if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
-		trap_SendServerCommand( ent-g_entities, "print \"Not allowed to vote as spectator.\n\"" );
+		trap_SendServerCommand( ent-g_entities, "print \"^3Not allowed to vote as spectator.\n\"" );
 		return;
 	}
 
-	trap_SendServerCommand( ent-g_entities, "print \"Team vote cast.\n\"" );
+	// trap_SendServerCommand( ent-g_entities, "print \"Team vote cast.\n\"" );
 
 	ent->client->ps.eFlags |= EF_TEAMVOTED;
 	ent->client->pers.teamVoteCount++;
@@ -2841,6 +2841,7 @@ static void Cmd_Ready_f( gentity_t *ent ) {
     }
     ent->readyBegin = qtrue;
     G_BroadcastServerCommand( -1, va( "print \"%s ^3is ^2ready\n\"", ent->client->pers.netname ) );
+	G_BroadcastServerCommand( -1, va( "cp \"%s ^3is ^2ready\n\"", ent->client->pers.netname ) );
     /* Update scoreboard ready mask bit */
     ftmod_checkDelay();
     G_CheckAllReadyAndStart();
@@ -2875,6 +2876,7 @@ static void Cmd_Unready_f( gentity_t *ent ) {
 
     ent->readyBegin = qfalse;
     G_BroadcastServerCommand( -1, va( "print \"%s ^3is ^1not ready\n\"", ent->client->pers.netname ) );
+	G_BroadcastServerCommand( -1, va( "cp \"%s ^3is ^1not ready\n\"", ent->client->pers.netname ) );
     /* Update scoreboard ready mask bit */
     ftmod_checkDelay();
 }

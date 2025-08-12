@@ -1,0 +1,87 @@
+# votesystem.txt — runtime vote rules
+# Lines support key=value, comments start with # or //
+# Key format: <voteName>.<attr>
+# Attributes:
+#   enabled:      1 or 0 (default 1)
+#   action:       server command template; {arg} is replaced by the vote argument
+#   usage:        message shown when argument is missing/invalid
+#   requireArg:   1 if argument is required (default 0)
+#   numericOnly:  1 if argument must be a number (default 0)
+
+# Disable or enable built-ins
+map.name = Map change
+map.enabled = 1
+map_restart.name = Map restart
+map_restart.enabled = 1
+map_restart.action = map_restart
+nextmap.name = Next map
+nextmap.enabled = 1
+nextmap.action = rotate
+rotate.enabled = 1
+
+# Simple boolean toggles
+instagib.name = Instagib
+instagib.cvar = g_instagib
+instagib.enabled = 1
+instagib.action = g_instagib {arg}; map_restart
+instagib.requireArg = 1
+instagib.numericOnly = 1
+instagib.usage = Usage: instagib <0|1>
+
+g_freeze.name = Freeze mode
+g_freeze.cvar = g_freeze
+g_freeze.enabled = 1
+g_freeze.action = g_freeze {arg}; map_restart
+g_freeze.requireArg = 1
+g_freeze.numericOnly = 1
+g_freeze.usage = Usage: g_freeze <0|1>
+
+quad.name = Quad
+quad.cvar = disable_item_quad
+quad.enabled = 1
+quad.action = set disable_item_quad {arg}; map_restart
+quad.requireArg = 1
+quad.numericOnly = 1
+quad.usage = Usage: quad <0|1>
+
+# Limits
+timelimit.name = Time limit
+timelimit.cvar = timelimit
+timelimit.enabled = 1
+timelimit.action = timelimit {arg}
+timelimit.requireArg = 1
+timelimit.numericOnly = 1
+
+fraglimit.name = Frag limit
+fraglimit.cvar = fraglimit
+fraglimit.enabled = 1
+fraglimit.action = fraglimit {arg}
+fraglimit.requireArg = 1
+fraglimit.numericOnly = 1
+
+capturelimit.name = Capture limit
+capturelimit.cvar = capturelimit
+capturelimit.enabled = 1
+capturelimit.action = capturelimit {arg}
+capturelimit.requireArg = 1
+capturelimit.numericOnly = 1
+
+# Kicking
+clientkick.name = Kick client
+clientkick.enabled = 1
+clientkick.action = clientkick {arg}
+clientkick.requireArg = 1
+clientkick.numericOnly = 1
+clientkick.usage = Usage: clientkick <clientNum>
+
+kick.name = Kick player
+kick.enabled = 1
+kick.action = kick {arg}
+kick.requireArg = 1
+kick.numericOnly = 0
+kick.usage = Usage: kick <name>
+
+# Example: disable the map vote entirely
+# map.enabled = 0
+
+

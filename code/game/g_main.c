@@ -230,7 +230,7 @@ void G_RegisterCvars( void ) {
 	cvarTable_t *cv;
 	int i;
 
-	for ( i = 0, cv = gameCvarTable ; i < ARRAY_LEN( gameCvarTable ) ; i++, cv++ ) {
+    for ( i = 0, cv = gameCvarTable ; i < ARRAY_LEN( gameCvarTable ) ; i++, cv++ ) {
 		trap_Cvar_Register( cv->vmCvar, cv->cvarName,
 			cv->defaultString, cv->cvarFlags );
 		if ( cv->vmCvar )
@@ -254,9 +254,13 @@ void G_RegisterCvars( void ) {
 
 	level.warmupModificationCount = g_warmup.modificationCount;
 
-	// force g_doWarmup to 1
+    // force g_doWarmup to 1
 	trap_Cvar_Register( NULL, "g_doWarmup", "1", CVAR_ROM );
 	trap_Cvar_Set( "g_doWarmup", "1" );
+
+    // register vote timing cvars (server admins can adjust at runtime)
+    trap_Cvar_Register( NULL, "g_voteTime", "30", CVAR_ARCHIVE ); // seconds for vote timeout
+    trap_Cvar_Register( NULL, "g_voteExecuteDelayMs", "3000", CVAR_ARCHIVE ); // delay before executing passed vote command
 }
 
 void G_UpdateRatFlags( void ) {
@@ -578,7 +582,10 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	G_RegisterCvars();
 
-	G_InitFireRatios();
+    G_InitFireRatios();
+
+    /* initialize vote system rules file early so default gets created if missing */
+    VS_Init();
 
     /* build cached map list once at startup */
     G_EnsureMapListCache();
@@ -1956,14 +1963,18 @@ static void CheckVote( void ) {
 		return;
 	}
 
-	if ( level.time - level.voteTime >= VOTE_TIME ) {
+    if ( level.time - level.voteTime >= (int)(trap_Cvar_VariableIntegerValue("g_voteTime") > 0 ? trap_Cvar_VariableIntegerValue("g_voteTime") * 1000 : VOTE_TIME) ) {
 		G_BroadcastServerCommand( -1, "print \"Vote failed.\n\"" );
 	} else {
 		// ATVI Q3 1.32 Patch #9, WNF
 		if ( level.voteYes > level.numVotingClients/2 ) {
 			// execute the command, then remove the vote
-			G_BroadcastServerCommand( -1, "print \"Vote passed.\n\"" );
-			level.voteExecuteTime = level.time + 3000;
+            G_BroadcastServerCommand( -1, "print \"Vote passed.\n\"" );
+            {
+                int execDelayMs = (int)trap_Cvar_VariableIntegerValue("g_voteExecuteDelayMs");
+                if ( execDelayMs < 0 ) execDelayMs = 0;
+                level.voteExecuteTime = level.time + (execDelayMs > 0 ? execDelayMs : 3000);
+            }
 		} else if ( level.voteNo >= level.numVotingClients/2 ) {
 			// same behavior as a timeout
 			G_BroadcastServerCommand( -1, "print \"Vote failed.\n\"" );
