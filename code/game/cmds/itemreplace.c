@@ -125,19 +125,29 @@ static int ir_orig_itemCount = 0;
 
 static const char *ir_defaultText =
     "# itemreplace.txt — per-map item replacement rules\n"
-    "# Format: key = value, comments: # or //\n"
-    "# See docs inside code for details.\n"
+    "# Lines support key=value, comments: # or //\n"
+    "# Key format: map.<map>.<section>\n"
+    "# Sections:\n"
+    "#   classmap.<fromClass> = <toClass>           # replace all occurrences of a class on the map\n"
+    "#   rule.<id>.match.classname = <class>        # required for targeted rule\n"
+    "#   rule.<id>.match.origin = X Y Z             # optional: match only near XYZ\n"
+    "#   rule.<id>.match.tolerance = N              # optional: distance tolerance (default 32)\n"
+    "#   rule.<id>.apply.classname = <class>        # optional: new class\n"
+    "#   rule.<id>.apply.origin = X Y Z             # optional: new origin\n"
+    "#   rule.<id>.apply.angles = P Y R             # optional: new angles\n"
+    "#   rule.<id>.apply.angle = Y                  # optional: new yaw only\n"
+    "#   rule.<id>.apply.spawnflags = N             # optional: new spawnflags\n"
+    "#   rule.<id>.apply.remove = 1                 # optional: remove entity\n"
     "\n"
-    "# Example: on q3dm6 replace Quad with MegaHealth\n"
+    "# Example: on q3dm6 replace all Quads with MegaHealth\n"
     "map.q3dm6.classmap.item_quad = item_health_mega\n"
     "\n"
-    "# Example targeted override (uncomment and adjust):\n"
+    "# Example targeted override\n"
     "# map.q3dm6.rule.r1.match.classname = item_quad\n"
     "# map.q3dm6.rule.r1.match.origin = 848 -456 312\n"
     "# map.q3dm6.rule.r1.apply.classname = item_health_mega\n"
     "# map.q3dm6.rule.r1.apply.origin = 860 -460 312\n"
-    "# map.q3dm6.rule.r1.apply.angles = 0 180 0\n"
-    ;
+    "# map.q3dm6.rule.r1.apply.angles = 0 180 0\n";
 
 static void IR_CreateDefaultFile(void) {
     fileHandle_t f; int r;
