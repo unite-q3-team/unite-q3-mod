@@ -1593,61 +1593,79 @@ typedef void (*gameCmdHandler_t)( gentity_t *ent );
 typedef struct {
     const char *name;
     gameCmdHandler_t handler;
+    qboolean requiresAuth;
 } gameCommandDef_t;
 
 // Command dispatch table (simple gentity_t* signature only)
 static const gameCommandDef_t gameCommandTable[] = {
-    { "help",           Cmd_Help_f },
-    { "give",            Cmd_Give_f },
-    { "god",             Cmd_God_f },
-    { "notarget",        Cmd_Notarget_f },
-    { "noclip",          Cmd_Noclip_f },
-    { "kill",            Cmd_Kill_f },
-    { "teamtask",        Cmd_TeamTask_f },
-    { "levelshot",       Cmd_LevelShot_f },
-    { "follow",          Cmd_Follow_f },
-    { "follownext",      Cmd_FollowNext_f },
-    { "followprev",      Cmd_FollowPrev_f },
-    { "team",            Cmd_Team_f },
-    { "where",           Cmd_Where_f },
-    { "time",            Cmd_Time_f },
-    { "servertime",      Cmd_Time_f },
-    { "callvote",        Cmd_CallVote_f },
-    { "vote",            Cmd_Vote_f },
+    { "help",           Cmd_Help_f,          qfalse },
+    { "give",            Cmd_Give_f,         qfalse },
+    { "god",             Cmd_God_f,          qfalse },
+    { "notarget",        Cmd_Notarget_f,     qfalse },
+    { "noclip",          Cmd_Noclip_f,       qfalse },
+    { "kill",            Cmd_Kill_f,         qfalse },
+    { "teamtask",        Cmd_TeamTask_f,     qfalse },
+    { "levelshot",       Cmd_LevelShot_f,    qfalse },
+    { "follow",          Cmd_Follow_f,       qfalse },
+    { "follownext",      Cmd_FollowNext_f,   qfalse },
+    { "followprev",      Cmd_FollowPrev_f,   qfalse },
+    { "team",            Cmd_Team_f,         qfalse },
+    { "where",           Cmd_Where_f,        qfalse },
+    { "time",            Cmd_Time_f,         qfalse },
+    { "servertime",      Cmd_Time_f,         qfalse },
+    { "callvote",        Cmd_CallVote_f,     qfalse },
+    { "vote",            Cmd_Vote_f,         qfalse },
     /* team votes removed from g_cmds; handled elsewhere or not supported */
-    { "gc",              Cmd_GameCommand_f },
-    { "setviewpos",      Cmd_SetViewpos_f },
-    { "getpos",          getpos_f },
-    { "setpos",          setpos_f },
-    { "poscp",          poscp_f },
-    { "hi",              hi_f },
-    { "fteam",           fteam_f },
-    { "fukk",            fteam_f },
-    { "auth",            plsauth_f },
-    { "deauth",          deauth_f },
-    { "checkauth",       checkauth_f },
-    { "sndplay",         playsound_f },
-    { "killplayer",      killplayer_f },
-    { "svfps",           Cmd_svfps_f },
-    { "restart",         map_restart_f },
-    { "getstatsinfo",    osptest },
-    { "stats",           Cmd_Stats_f },
-    { "statsall",        Cmd_StatsAll_f },
-    { "topshots",        Cmd_Topshots_f },
-    { "awards",          Cmd_Awards_f },
-    { "scores",          Cmd_ScoresText_f },
-    { "maplist",         Cmd_MapList_f },
-    { "rotation",        Cmd_Rotation_f },
-    { "cv",              Cmd_CV_f },
-    { "ftest",           Cmd_Test_f },
-    { "atest",           Cmd_NewTest_f },
-    { "listitems",       listitems_f },
-    { "items",           items_f },
-    { "playerlist",      Cmd_Plrlist_f },
-    { "players",         Cmd_Plrlist_f },
-    { "from",            Cmd_From_f },
-    { "ready",           Cmd_Ready_f },
-    { "unready",         Cmd_Unready_f },
+    { "gc",              Cmd_GameCommand_f,  qfalse },
+    { "setviewpos",      Cmd_SetViewpos_f,   qfalse },
+    { "getpos",          getpos_f,           qfalse },
+    { "setpos",          setpos_f,           qtrue  },
+    { "poscp",           poscp_f,            qtrue  },
+    { "hi",              hi_f,               qfalse },
+    { "fteam",           fteam_f,            qtrue  },
+    { "fukk",            fteam_f,            qtrue  },
+    { "auth",            plsauth_f,          qfalse },
+    { "deauth",          deauth_f,           qfalse },
+    { "checkauth",       checkauth_f,        qfalse },
+    { "sndplay",         playsound_f,        qtrue  },
+    { "killplayer",      killplayer_f,       qtrue  },
+    { "svfps",           Cmd_svfps_f,        qfalse },
+    { "restart",         map_restart_f,      qtrue  },
+    { "getstatsinfo",    osptest,            qfalse },
+    { "stats",           Cmd_Stats_f,        qfalse },
+    { "statsall",        Cmd_StatsAll_f,     qfalse },
+    { "topshots",        Cmd_Topshots_f,     qfalse },
+    { "awards",          Cmd_Awards_f,       qfalse },
+    { "scores",          Cmd_ScoresText_f,   qfalse },
+    { "maplist",         Cmd_MapList_f,      qfalse },
+    { "rotation",        Cmd_Rotation_f,     qfalse },
+    { "cv",              Cmd_CV_f,           qfalse },
+    { "ftest",           Cmd_Test_f,         qfalse },
+    { "atest",           Cmd_NewTest_f,      qfalse },
+    { "listitems",       listitems_f,        qtrue  },
+    { "items",           items_f,            qtrue  },
+    { "playerlist",      Cmd_Plrlist_f,      qfalse },
+    { "players",         Cmd_Plrlist_f,      qfalse },
+    { "from",            Cmd_From_f,         qfalse },
+    { "ready",           Cmd_Ready_f,        qfalse },
+    { "unready",         Cmd_Unready_f,      qfalse },
+};
+
+/* Commands handled directly in ClientCommand (not via table) */
+static const char *const s_directClientCmds[] = {
+    "say",
+    "say_team",
+    "tell",
+#ifdef MISSIONPACK
+    "vsay",
+    "vsay_team",
+    "vtell",
+    "vosay",
+    "vosay_team",
+    "votell",
+    "vtaunt",
+#endif
+    "score"
 };
 
 static qboolean DispatchGameCommand( const char *cmd, gentity_t *ent ) {
@@ -2242,15 +2260,117 @@ Cmd_Help_f
 */
 static void Cmd_Help_f( gentity_t *ent ) {
     char buf[MAX_STRING_CHARS];
+    char cell[64];
+    char row[256];
     int len = 0;
+    int i;
+    qboolean isAuthed = (ent && ent->authed);
+    /* collect names */
+    const char *names[512];
+    int disabled[512];
+    int count;
+    const char *authNames[256];
+    int authDisabled[256];
+    int authCount;
+    int maxLen;
+    int colWidth;
+    int perRow;
+    int idx;
     buf[0] = '\0';
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Available Server Commands:^7\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7--------------------------\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "help             scores           maplist          rotation\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "stats            statsall         topshots         awards\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "callvote         cv               team             follow\n" );
-    len += Com_sprintf( buf + len, sizeof(buf) - len, "follownext       followprev       where            time\n" );
-    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+
+    count = 0;
+    authCount = 0;
+
+    /* core commands */
+    for ( i = 0; i < (int)ARRAY_LEN( s_directClientCmds ); ++i ) {
+        if ( count < (int)ARRAY_LEN(names) ) {
+            names[count] = s_directClientCmds[i];
+            disabled[count] = DC_IsDisabled( s_directClientCmds[i] );
+            count++;
+        }
+    }
+    /* table commands */
+    for ( i = 0; i < (int)ARRAY_LEN( gameCommandTable ); ++i ) {
+        if ( gameCommandTable[i].requiresAuth ) {
+            if ( authCount < (int)ARRAY_LEN(authNames) ) {
+                authNames[authCount] = gameCommandTable[i].name;
+                authDisabled[authCount] = DC_IsDisabled( gameCommandTable[i].name );
+                authCount++;
+            }
+        } else {
+            if ( count < (int)ARRAY_LEN(names) ) {
+                names[count] = gameCommandTable[i].name;
+                disabled[count] = DC_IsDisabled( gameCommandTable[i].name );
+                count++;
+            }
+        }
+    }
+
+    /* print general commands in a grid */
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Commands:^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7---------\n" );
+    maxLen = 0;
+    for ( i = 0; i < count; ++i ) {
+        int nlen = (int)strlen( names[i] );
+        if ( nlen > maxLen ) maxLen = nlen;
+    }
+    if ( maxLen < 1 ) maxLen = 1;
+    if ( maxLen > 14 ) maxLen = 14;
+    colWidth = maxLen + 2;
+    perRow = 4;
+    row[0] = '\0';
+    for ( idx = 0; idx < count; ++idx ) {
+        const char *color = disabled[idx] ? "^1" : "^7";
+        Com_sprintf( cell, sizeof(cell), "%s%-*s^7", color, colWidth, names[idx] );
+        Q_strcat( row, sizeof(row), cell );
+        if ( ((idx+1) % perRow) == 0 || idx+1 == count ) {
+            len += Com_sprintf( buf + len, sizeof(buf) - len, "%s\n", row );
+            row[0] = '\0';
+            if ( len > (int)sizeof(buf) - 256 ) {
+                trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+                buf[0] = '\0';
+                len = 0;
+            }
+        } else {
+            Q_strcat( row, sizeof(row), " " );
+        }
+    }
+
+    /* print auth-only commands in a separate grid (only for authed users) */
+    if ( isAuthed && authCount > 0 ) {
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "\n^2Commands (auth required):^7\n" );
+        len += Com_sprintf( buf + len, sizeof(buf) - len, "^7-------------------------\n" );
+        maxLen = 0;
+        for ( i = 0; i < authCount; ++i ) {
+            int nlen2 = (int)strlen( authNames[i] );
+            if ( nlen2 > maxLen ) maxLen = nlen2;
+        }
+        if ( maxLen < 1 ) maxLen = 1;
+        if ( maxLen > 14 ) maxLen = 14;
+        colWidth = maxLen + 2;
+        perRow = 4;
+        row[0] = '\0';
+        for ( idx = 0; idx < authCount; ++idx ) {
+            const char *color2 = authDisabled[idx] ? "^1" : "^3"; /* auth ones in yellow unless disabled */
+            Com_sprintf( cell, sizeof(cell), "%s%-*s^7", color2, colWidth, authNames[idx] );
+            Q_strcat( row, sizeof(row), cell );
+            if ( ((idx+1) % perRow) == 0 || idx+1 == authCount ) {
+                len += Com_sprintf( buf + len, sizeof(buf) - len, "%s\n", row );
+                row[0] = '\0';
+                if ( len > (int)sizeof(buf) - 256 ) {
+                    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+                    buf[0] = '\0';
+                    len = 0;
+                }
+            } else {
+                Q_strcat( row, sizeof(row), " " );
+            }
+        }
+    }
+
+    if ( len > 0 ) {
+        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", buf) );
+    }
 }
 
 /*
