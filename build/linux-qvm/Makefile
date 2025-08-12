@@ -3,17 +3,17 @@ include config.mk  # Include configuration settings from config.mk
 # Define a function to generate source file paths
 srcs = $(foreach file,$1,$(if $(patsubst %.asm,,$(file)),$2/$(file).asm,$(file)))
 
-# Generate assembly source files for different components
+# Generate assembly source files for different components (server-only)
 qa_asm = $(call srcs,$(QA_SRC),vm/game)  # Assembly sources for the game
-#cg_asm = $(call srcs,$(CG_SRC),vm/cgame)  # Assembly sources for the cgame
-ui_asm = $(call srcs,$(UI_SRC),vm/ui)      # Assembly sources for the UI
+#cg_asm = $(call srcs,$(CG_SRC),vm/cgame)  # Assembly sources for the cgame (disabled)
+#ui_asm = $(call srcs,$(UI_SRC),vm/ui)      # Assembly sources for the UI (disabled)
 
 # Define the default target 'all' which depends on 'dirs' and the PK3 file
 all: dirs $(PK3)
 
 # Create necessary directories for the build
 dirs:
-	mkdir -p vm/game vm/cgame vm/ui vm/game/cmds vm/game/svcmds vm/game/cmds/osp  # Create directories if they do not exist
+	mkdir -p vm/game vm/game/cmds vm/game/svcmds vm/game/cmds/osp  # Create directories if they do not exist
 
 .PHONY: all dirs testc  # Declare 'all', 'dirs', and 'testc' as phony targets
 
@@ -37,8 +37,8 @@ qa_cc = $(call cc,game,$(QA_CFLAGS))  # Compilation command for the game
 vm/qagame.qvm: $(qa_asm)
 	$(Q3ASM) -o $@ $(qa_asm)  # Assemble game sources into QVM
 
-vm/cgame.qvm: $(cg_asm)
-	$(Q3ASM) -o $@ $(cg_asm)  # Assemble cgame sources into QVM
+#vm/cgame.qvm: $(cg_asm)
+#	$(Q3ASM) -o $@ $(cg_asm)  # Assemble cgame sources into QVM
 
 #vm/ui.qvm: $(ui_asm)
 #	$(Q3ASM) -o $@ $(ui_asm)  # Assemble UI sources into QVM
@@ -49,8 +49,8 @@ vm/game/svcmds/%.asm: $(QADIR)/svcmds/%.c; $(qa_cc)  # Generate assembly for gam
 vm/game/cmds/osp/%.asm: $(QADIR)/cmds/osp/%.c; $(qa_cc)  # Generate assembly for game/svcmds from C
 vm/game/%.asm: $(QADIR)/%.c; $(qa_cc)  # Generate assembly for game from C
 # vm/game/%.asm: ../../code/game/%.c; $(qa_cc)
-vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C
-vm/cgame/%.asm: $(CGDIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C in CGDIR
+#vm/cgame/%.asm: $(QADIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C
+#vm/cgame/%.asm: $(CGDIR)/%.c; $(cg_cc)  # Generate assembly for cgame from C in CGDIR
 #vm/ui/%.asm: $(QADIR)/%.c; $(ui_cc)      # Generate assembly for UI from C
 #vm/ui/%.asm: $(UIDIR)/%.c; $(ui_cc)      # Generate assembly for UI from C in UIDIR
 # vm/cgame/%.asm: $(COMDIR)/%.c; $(cg_cc)
