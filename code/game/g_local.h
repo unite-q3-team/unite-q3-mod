@@ -315,6 +315,7 @@ struct gclient_s {
 	int			perWeaponDrops[WP_NUM_WEAPONS];
 	int			kills;
 	int			deaths;
+		int			suicides; /* self-kills during the match */
 
 	/* custom per-match counters */
 	int			chatFragCount; /* kills against chatting victims */

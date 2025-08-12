@@ -488,8 +488,8 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		obit = modNames[ meansOfDeath ];
 	}
 
-  /* Chat frag message: victim killed while chat was open */
-  if ( attacker && attacker->client ) {
+  /* Chat frag message: victim killed while chat was open and attacker is a different client */
+  if ( attacker && attacker->client && attacker != self ) {
       if ( self->client && ( self->client->ps.eFlags & EF_TALK ) ) {
           G_BroadcastServerCommand( -1,
               va( "print \"%s^7 was ^1chat fragged ^7by %s\n\"",
@@ -497,6 +497,15 @@ void player_die( gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
                   attacker->client->pers.netname ) );
           /* increment attacker's chat-frag counter */
           attacker->client->chatFragCount++;
+      }
+  }
+
+  /* Count suicides: self-kill, world/hazard death, or explicit MOD_SUICIDE */
+  if ( self->client ) {
+      if ( (attacker && attacker->client && attacker == self)
+           || (meansOfDeath == MOD_SUICIDE)
+           || (killer == ENTITYNUM_WORLD) ) {
+          self->client->suicides++;
       }
   }
 
@@ -1138,7 +1147,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 				targ->health = -999;
 
 			targ->enemy = attacker;
-            // increment deaths and attacker's kills
+            // increment deaths / kills (suicides are now counted in player_die)
             if ( targ->client ) {
                 targ->client->deaths++;
             }

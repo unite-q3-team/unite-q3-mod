@@ -1407,6 +1407,7 @@ void ClientSpawn(gentity_t *ent) {
 	int		perWeaponPickups[WP_NUM_WEAPONS];
 	int		perWeaponDrops[WP_NUM_WEAPONS];
 	int		kills, deaths;
+	int		suicides;
 	int		armorPickedTotal, armorYACount, armorRACount, armorShardCount;
 	int		healthPickedTotal, healthMegaCount, health50Count, health25Count, health5Count;
 
@@ -1496,6 +1497,7 @@ void ClientSpawn(gentity_t *ent) {
 	}
 	kills = client->kills;
 	deaths = client->deaths;
+	suicides = client->suicides;
 	armorPickedTotal = client->armorPickedTotal;
 	armorYACount = client->armorYACount;
 	armorRACount = client->armorRACount;
@@ -1534,6 +1536,7 @@ void ClientSpawn(gentity_t *ent) {
 		}
 		client->kills = kills;
 		client->deaths = deaths;
+		client->suicides = suicides;
 		client->armorPickedTotal = armorPickedTotal;
 		client->armorYACount = armorYACount;
 		client->armorRACount = armorRACount;

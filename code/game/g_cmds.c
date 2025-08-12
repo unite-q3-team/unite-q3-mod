@@ -2500,6 +2500,7 @@ static void Cmd_Awards_f( gentity_t *ent ) {
     int bestStreakClient = -1, bestStreak = 0;
     int bestSkillClient = -1, bestSkill = 0;
     int mostChatFragClient = -1, mostChatFrags = -1;
+    int mostSuicidesClient = -1, mostSuicides = -1;
     int mostImpressiveClient = -1, mostImpressive = -1;
     int mostExcellentClient = -1, mostExcellent = -1;
     int mostDefendClient = -1, mostDefend = -1;
@@ -2544,6 +2545,12 @@ static void Cmd_Awards_f( gentity_t *ent ) {
         if ( cl->chatFragCount > mostChatFrags ) {
             mostChatFrags = cl->chatFragCount;
             mostChatFragClient = i;
+        }
+
+        /* track suicides */
+        if ( cl->suicides > mostSuicides ) {
+            mostSuicides = cl->suicides;
+            mostSuicidesClient = i;
         }
 
         /* track most impressive: PERS_IMPRESSIVE_COUNT */
@@ -2626,6 +2633,11 @@ static void Cmd_Awards_f( gentity_t *ent ) {
     if ( mostChatFragClient >= 0 && mostChatFrags > 0 ) {
         Com_sprintf( line, sizeof(line), "^1Most Chat Frags         ^1%2d    ^7%s\n",
             mostChatFrags, level.clients[mostChatFragClient].pers.netname );
+        APPEND_LINE( line );
+    }
+    if ( mostSuicidesClient >= 0 && mostSuicides > 0 ) {
+        Com_sprintf( line, sizeof(line), "^1Most Suicides           ^1%2d    ^7%s\n",
+            mostSuicides, level.clients[mostSuicidesClient].pers.netname );
         APPEND_LINE( line );
     }
     if ( mostImpressiveClient >= 0 && mostImpressive > 0 ) {
