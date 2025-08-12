@@ -3,6 +3,40 @@
 
 #include "g_local.h"
 
+/* helper: send CenterPrint coordinates if toggle is enabled, with throttling */
+static void MaybeSendPosCP( gentity_t *ent ) {
+    vec3_t p;
+    int targetClient;
+    gclient_t *tcl;
+
+    if ( !ent || !ent->client ) return;
+    if ( !ent->client->pers.posCpEnabled ) return;
+    if ( level.time < ent->client->pers.posCpNextTime ) return;
+
+    /* choose source of coordinates: follow target or self */
+    if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+        targetClient = ent->client->sess.spectatorClient;
+        if ( targetClient == FOLLOW_ACTIVE1 ) targetClient = level.follow1;
+        else if ( targetClient == FOLLOW_ACTIVE2 ) targetClient = level.follow2;
+
+        if ( (unsigned)targetClient < (unsigned)level.maxclients ) {
+            tcl = &level.clients[targetClient];
+            if ( tcl->pers.connected == CON_CONNECTED ) {
+                VectorCopy( tcl->ps.origin, p );
+            } else {
+                VectorCopy( ent->client->ps.origin, p );
+            }
+        } else {
+            VectorCopy( ent->client->ps.origin, p );
+        }
+    } else {
+        VectorCopy( ent->client->ps.origin, p );
+    }
+
+    trap_SendServerCommand( ent - g_entities, va( "cp \"%2.f %2.f %2.f\"", p[0], p[1], p[2] ) );
+    ent->client->pers.posCpNextTime = level.time + 100; /* 10 Hz */
+}
+
 
 /*
 ===============
@@ -892,25 +926,29 @@ void ClientThink_real( gentity_t *ent ) {
 		return;
 	}
 
-	// spectators don't do much
-	//freeze
-	if (g_freeze.integer) {
-		if (ftmod_isSpectator(client)) {
-			if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
-				return;
-			}
-			SpectatorThink(ent, ucmd);
-			return;
-		}
-	} else {
-		if (client->sess.sessionTeam == TEAM_SPECTATOR) {
-			if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
-				return;
-			}
-			SpectatorThink(ent, ucmd);
-			return;
-		}
-	}
+    // spectators don't do much
+    //freeze
+    if (g_freeze.integer) {
+        if (ftmod_isSpectator(client)) {
+            if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
+                MaybeSendPosCP(ent);
+                return;
+            }
+            SpectatorThink(ent, ucmd);
+            MaybeSendPosCP(ent);
+            return;
+        }
+    } else {
+        if (client->sess.sessionTeam == TEAM_SPECTATOR) {
+            if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
+                MaybeSendPosCP(ent);
+                return;
+            }
+            SpectatorThink(ent, ucmd);
+            MaybeSendPosCP(ent);
+            return;
+        }
+    }
 
 
 	// check for inactivity timer, but never drop the local client of a non-dedicated server
@@ -1117,15 +1155,8 @@ void ClientThink_real( gentity_t *ent ) {
 	// perform once-a-second actions
 	ClientTimerActions( ent, msec );
 
-    /* Coordinate CenterPrint toggle: send at ~10 Hz when enabled */
-    if ( ent->client->pers.posCpEnabled ) {
-        if ( level.time >= ent->client->pers.posCpNextTime ) {
-            vec3_t p;
-            VectorCopy( ent->client->ps.origin, p );
-            trap_SendServerCommand( ent - g_entities, va( "cp \"%2.f %2.f %2.f\"", p[0], p[1], p[2] ) );
-            ent->client->pers.posCpNextTime = level.time + 100; /* 100 ms */
-        }
-    }
+    /* Coordinate CenterPrint toggle updates */
+    MaybeSendPosCP( ent );
 }
 
 
@@ -1172,6 +1203,9 @@ SpectatorClientEndFrame
 void SpectatorClientEndFrame( gentity_t *ent ) {
 	gclient_t	*cl;
 
+    /* send CP updates for spectators too */
+    MaybeSendPosCP( ent );
+
 	// if we are doing a chase cam or a remote view, grab the latest info
 	if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
 		int		clientNum, flags;
@@ -1203,7 +1237,8 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
                             break;
                         }
                         if ( ent->client->sess.spectatorClient != clientNum ) {
-                            return;
+            MaybeSendPosCP( ent );
+            return;
                         }
                     }
                 }
@@ -1212,7 +1247,8 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 				ftmod_persistantSpectator(ent, cl);
 				ent->client->ps.pm_flags |= PMF_FOLLOW;
 				ent->client->ps.eFlags = flags;
-				return;
+                MaybeSendPosCP( ent );
+                return;
 			} else {
 				// drop them to free spectators unless they are dedicated camera followers
 				if (ent->client->sess.spectatorClient >= 0) {
@@ -1237,7 +1273,8 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
                         }
                         if ( ent->client->sess.spectatorClient != clientNum ) {
                             /* next loop tick will pick up new target */
-                            return;
+                MaybeSendPosCP( ent );
+                return;
                         }
                         /* fall through if we didn't find better (should not happen) */
                     }
@@ -1247,7 +1284,8 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 				ent->client->ps = cl->ps;
 				ent->client->ps.pm_flags |= PMF_FOLLOW;
 				ent->client->ps.eFlags = flags;
-				return;
+                MaybeSendPosCP( ent );
+                return;
 			} else {
 				if (ent->client->sess.spectatorClient >= 0) {
 					ent->client->sess.spectatorState = SPECTATOR_FREE;

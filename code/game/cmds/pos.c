@@ -130,7 +130,22 @@ void poscp_f(gentity_t *ent) {
     ent->client->pers.posCpEnabled = !ent->client->pers.posCpEnabled;
     if ( ent->client->pers.posCpEnabled ) {
         vec3_t p;
-        VectorCopy(ent->client->ps.origin, p);
+        /* If following someone, show their coords immediately */
+        if ( ent->client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+            int targetClient = ent->client->sess.spectatorClient;
+            gclient_t *tcl = NULL;
+            if ( targetClient == FOLLOW_ACTIVE1 ) targetClient = level.follow1;
+            else if ( targetClient == FOLLOW_ACTIVE2 ) targetClient = level.follow2;
+            if ( (unsigned)targetClient < (unsigned)level.maxclients ) {
+                tcl = &level.clients[targetClient];
+            }
+            if ( tcl && tcl->pers.connected == CON_CONNECTED )
+                VectorCopy(tcl->ps.origin, p);
+            else
+                VectorCopy(ent->client->ps.origin, p);
+        } else {
+            VectorCopy(ent->client->ps.origin, p);
+        }
         ent->client->pers.posCpNextTime = level.time; /* allow immediate push */
         trap_SendServerCommand(ent - g_entities, va("cp \"%2.f %2.f %2.f\"", p[0], p[1], p[2]));
     }
