@@ -2783,6 +2783,12 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 
+    /* Check disabled commands list before dispatch */
+    if ( DC_IsDisabled( cmd ) ) {
+        trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^1%s^3' is disabled on this server.\n\"", cmd ) );
+        return;
+    }
+
     if ( DispatchGameCommand( cmd, ent ) ) {
         return;
     }

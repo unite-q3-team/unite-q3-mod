@@ -583,7 +583,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	srand( randomSeed );
 
-	G_RegisterCvars();
+    G_RegisterCvars();
+    /* initialize disabled commands list */
+    DC_Init();
 
     G_InitFireRatios();
 

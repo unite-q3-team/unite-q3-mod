@@ -7,6 +7,10 @@ void Cmd_From_f(gentity_t *ent);
 void getpos_f(gentity_t *ent);
 void setpos_f(gentity_t *ent);
 void poscp_f(gentity_t *ent);
+
+/* disabled commands subsystem */
+void DC_Init(void);
+qboolean DC_IsDisabled(const char *cmdName);
 void hi_f(gentity_t *ent);
 void checkauth_f(gentity_t *ent);
 void plsauth_f(gentity_t *ent);

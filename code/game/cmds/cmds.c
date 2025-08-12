@@ -1,6 +1,76 @@
 // code/game/cmds/cmds.c
 #include "cmds.h"
 
+/* ---------------- Disabled commands config (disabledcmds.txt) ---------------- */
+
+static char s_dc_names[256][32];
+static int s_dc_count = 0;
+static qboolean s_dc_loaded = qfalse;
+
+static void DC_Trim(char *s) {
+    int n = (int)strlen(s);
+    while ( n > 0 && (s[n-1] == ' ' || s[n-1] == '\t' || s[n-1] == '\r' || s[n-1] == '\n') ) { s[n-1] = '\0'; n--; }
+    while ( *s == ' ' || *s == '\t' ) { memmove(s, s+1, strlen(s)); }
+}
+
+void DC_Init(void) {
+    fileHandle_t f; int flen; char *buf; char *p;
+    char line[256]; char *nl; int linelen;
+    if ( s_dc_loaded ) return; s_dc_loaded = qtrue; s_dc_count = 0;
+    flen = trap_FS_FOpenFile("disabledcmds.txt", &f, FS_READ);
+    if ( flen <= 0 ) {
+        /* create a default example file */
+        fileHandle_t wf; int wr;
+        static const char *dc_defaultText =
+            "# disabledcmds.txt — one command per line to disable\n"
+            "# comments with # or // are supported; blank lines ignored\n"
+            "# Example: disable give and god, and a custom command\n"
+            "# give\n"
+            "# god\n"
+            "# poscp\n";
+        wr = trap_FS_FOpenFile("disabledcmds.txt", &wf, FS_WRITE);
+        if ( wr >= 0 ) {
+            G_Printf("disabledcmds: creating default disabledcmds.txt\n");
+            trap_FS_Write(dc_defaultText, (int)strlen(dc_defaultText), wf);
+            trap_FS_FCloseFile(wf);
+        } else {
+            G_Printf("disabledcmds: failed to create disabledcmds.txt (FS_WRITE)\n");
+        }
+        /* try to read again; if still missing, silently proceed with none disabled */
+        flen = trap_FS_FOpenFile("disabledcmds.txt", &f, FS_READ);
+        if ( flen <= 0 ) {
+            return;
+        }
+    }
+    if ( flen > 64 * 1024 ) flen = 64 * 1024;
+    buf = (char*)G_Alloc(flen + 1); if ( !buf ) { trap_FS_FCloseFile(f); return; }
+    trap_FS_Read(buf, flen, f); trap_FS_FCloseFile(f); buf[flen] = '\0';
+    p = buf;
+    while ( *p ) {
+        nl = strchr(p, '\n'); if ( nl ) linelen = (int)(nl - p); else linelen = (int)strlen(p);
+        if ( linelen > (int)sizeof(line) - 1 ) linelen = (int)sizeof(line) - 1;
+        Q_strncpyz(line, p, linelen + 1);
+        if ( nl ) p = nl + 1; else p = p + linelen;
+        /* strip comments starting with # or // */
+        { char *c = strstr(line, "//"); if ( c ) *c = '\0'; }
+        { char *c = strchr(line, '#'); if ( c ) *c = '\0'; }
+        DC_Trim(line); if ( !line[0] ) continue;
+        if ( s_dc_count < (int)(sizeof(s_dc_names)/sizeof(s_dc_names[0])) ) {
+            Q_strncpyz( s_dc_names[s_dc_count], line, sizeof(s_dc_names[0]) );
+            s_dc_count++;
+        }
+    }
+}
+
+qboolean DC_IsDisabled(const char *cmdName) {
+    int i; if ( !s_dc_loaded ) DC_Init();
+    if ( !cmdName || !*cmdName ) return qfalse;
+    for ( i = 0; i < s_dc_count; ++i ) {
+        if ( Q_stricmp( cmdName, s_dc_names[i] ) == 0 ) return qtrue;
+    }
+    return qfalse;
+}
+
 /* GeoIP Legacy: country ID -> ISO code/name tables (0..254) */
 #define GEOIP_NUM_COUNTRIES 255
 static const char *GeoIPCountryCodes[GEOIP_NUM_COUNTRIES] = {
