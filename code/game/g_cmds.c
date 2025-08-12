@@ -989,8 +989,9 @@ static void Cmd_Follow_f( gentity_t *ent ) {
         if (ftmod_isSpectator(&level.clients[i])) {
             return;
         }
-        /* In team modes, optionally restrict following to teammates (freeze) */
-        if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+        /* In team modes, optionally restrict following to teammates (freeze)
+           Only restrict if the follower is NOT a true spectator (spectator team) */
+        if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
             if ( level.clients[i].sess.sessionTeam != ent->client->sess.sessionTeam ) {
                 return;
             }
@@ -999,8 +1000,9 @@ static void Cmd_Follow_f( gentity_t *ent ) {
 		if (level.clients[i].sess.sessionTeam == TEAM_SPECTATOR) {
 			return;
 		}
-		/* In team modes, optionally restrict following to teammates */
-		if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+        /* In team modes, optionally restrict following to teammates
+           Only restrict if the follower is NOT a true spectator */
+        if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
 			if ( level.clients[i].sess.sessionTeam != ent->client->sess.sessionTeam ) {
 				return;
 			}
@@ -1090,8 +1092,9 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
             if (ftmod_isSpectator(&level.clients[clientnum])) {
                 continue;
             }
-            /* In team modes, optionally restrict following to teammates (freeze) */
-            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+            /* In team modes, optionally restrict following to teammates (freeze)
+               Only restrict if the follower is NOT a true spectator (spectator team) */
+            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && client->sess.sessionTeam != TEAM_SPECTATOR ) {
                 if ( level.clients[clientnum].sess.sessionTeam != ent->client->sess.sessionTeam ) {
                     continue;
                 }
@@ -1100,8 +1103,9 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
             if (level.clients[clientnum].sess.sessionTeam == TEAM_SPECTATOR) {
                 continue;
             }
-            /* If in team gametype and enemy spectate disabled, skip enemies */
-            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+            /* If in team gametype and enemy spectate disabled, skip enemies
+               Only restrict if the follower is NOT a true spectator */
+            if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && client->sess.sessionTeam != TEAM_SPECTATOR ) {
                 if ( level.clients[clientnum].sess.sessionTeam != ent->client->sess.sessionTeam ) {
                     continue;
                 }

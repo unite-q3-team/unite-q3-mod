@@ -1175,10 +1175,11 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
     if ( (unsigned)clientNum < MAX_CLIENTS ) {
 		cl = &level.clients[clientNum];
 		//freeze
-		if (g_freeze.integer) {
+        if (g_freeze.integer) {
 			if (cl->pers.connected == CON_CONNECTED && !ftmod_isSpectator(cl)) {
-                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates */
-                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates
+                   Only restrict if the follower is NOT a true spectator (spectator team) */
+                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
                     if ( cl->sess.sessionTeam != ent->client->sess.sessionTeam ) {
                         int k;
                         for ( k = 0; k < level.maxclients; ++k ) {
@@ -1208,8 +1209,9 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 			}
         } else {
             if (cl->pers.connected == CON_CONNECTED && cl->sess.sessionTeam != TEAM_SPECTATOR) {
-                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates */
-                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer ) {
+                /* In team modes, if enemy spectate is disabled, ensure we only follow teammates
+                   Only restrict if the follower is NOT a true spectator */
+                if ( g_gametype.integer >= GT_TEAM && !g_teamAllowEnemySpectate.integer && ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
                     if ( cl->sess.sessionTeam != ent->client->sess.sessionTeam ) {
                         /* Try to find a valid teammate to follow; if none, drop to free */
                         int k;
