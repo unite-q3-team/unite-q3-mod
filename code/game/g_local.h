@@ -255,6 +255,8 @@ typedef struct {
 	int			teamVoted;
 
 	qboolean	inGame;
+	qboolean	posCpEnabled; /* show coordinates via CenterPrint */
+	int			posCpNextTime; /* ms timestamp to throttle CenterPrint updates */
 } clientPersistant_t;
 
 // unlagged

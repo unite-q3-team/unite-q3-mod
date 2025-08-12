@@ -121,3 +121,23 @@ void setpos_f(gentity_t *ent) {
         return;
     }
 }
+
+/* Toggle CenterPrint coordinates display for the caller (requires auth) */
+void poscp_f(gentity_t *ent) {
+    if (!ent || !ent->client) return;
+    if (!ent->authed) return;
+
+    ent->client->pers.posCpEnabled = !ent->client->pers.posCpEnabled;
+    if ( ent->client->pers.posCpEnabled ) {
+        vec3_t p;
+        VectorCopy(ent->client->ps.origin, p);
+        ent->client->pers.posCpNextTime = level.time; /* allow immediate push */
+        trap_SendServerCommand(ent - g_entities, va("cp \"%2.f %2.f %2.f\"", p[0], p[1], p[2]));
+    }
+    trap_SendServerCommand(
+        ent - g_entities,
+        ent->client->pers.posCpEnabled
+            ? "print \"^3poscp: ^2ON\n\""
+            : "print \"^3poscp: ^1OFF\n\""
+    );
+}

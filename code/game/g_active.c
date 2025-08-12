@@ -479,7 +479,9 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
 		// count down armor when over max
 		if ( client->ps.stats[STAT_ARMOR] > client->ps.stats[STAT_MAX_HEALTH] ) {
 			client->ps.stats[STAT_ARMOR]--;
-		}
+        }
+
+        /* moved frequent cp updates to ClientThink_real with throttling */
 	}
 #ifdef MISSIONPACK
 	if( bg_itemlist[client->ps.stats[STAT_PERSISTANT_POWERUP]].giTag == PW_AMMOREGEN ) {
@@ -1114,6 +1116,16 @@ void ClientThink_real( gentity_t *ent ) {
 
 	// perform once-a-second actions
 	ClientTimerActions( ent, msec );
+
+    /* Coordinate CenterPrint toggle: send at ~10 Hz when enabled */
+    if ( ent->client->pers.posCpEnabled ) {
+        if ( level.time >= ent->client->pers.posCpNextTime ) {
+            vec3_t p;
+            VectorCopy( ent->client->ps.origin, p );
+            trap_SendServerCommand( ent - g_entities, va( "cp \"%2.f %2.f %2.f\"", p[0], p[1], p[2] ) );
+            ent->client->pers.posCpNextTime = level.time + 100; /* 100 ms */
+        }
+    }
 }
 
 

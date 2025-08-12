@@ -1619,6 +1619,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "setviewpos",      Cmd_SetViewpos_f },
     { "getpos",          getpos_f },
     { "setpos",          setpos_f },
+    { "poscp",          poscp_f },
     { "hi",              hi_f },
     { "fteam",           fteam_f },
     { "fukk",            fteam_f },
