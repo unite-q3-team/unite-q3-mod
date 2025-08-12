@@ -1232,14 +1232,16 @@ const char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 	ent->readyBegin = qfalse;
 	//freeze
 
-	if( isBot ) {
+    if( isBot ) {
 		if( !G_BotConnect( clientNum, !firstTime ) ) {
 			return "BotConnectfailed";
 		}
 		ent->r.svFlags |= SVF_BOT;
 		client->sess.spectatorClient = clientNum;
 	}
-	ent->inuse = qtrue;
+    ent->inuse = qtrue;
+    /* restore auth state from session */
+    ent->authed = client->sess.authed;
 
 	// get and distribute relevant paramters
 	G_LogPrintf( "ClientConnect: %i\n", clientNum );

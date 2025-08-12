@@ -24,14 +24,15 @@ void G_WriteClientSessionData( gclient_t *client ) {
 	const char	*s;
 	const char	*var;
 
-	s = va("%i %i %i %i %i %i %i", 
+    s = va("%i %i %i %i %i %i %i %i", 
 		client->sess.sessionTeam,
 		client->sess.spectatorTime,
 		client->sess.spectatorState,
 		client->sess.spectatorClient,
 		client->sess.wins,
 		client->sess.losses,
-		client->sess.teamLeader
+        client->sess.teamLeader,
+        client->sess.authed
 		);
 
 	var = va( "session%i", client - level.clients );
@@ -50,26 +51,29 @@ Called on a reconnect
 void G_ReadClientSessionData( gclient_t *client ) {
 	char	s[MAX_STRING_CHARS];
 	const char	*var;
-	int teamLeader;
+    int teamLeader;
+    int authed;
 	int spectatorState;
 	int sessionTeam;
 
 	var = va( "session%i", client - level.clients );
 	trap_Cvar_VariableStringBuffer( var, s, sizeof(s) );
 
-	Q_sscanf( s, "%i %i %i %i %i %i %i",
+    Q_sscanf( s, "%i %i %i %i %i %i %i %i",
 		&sessionTeam,
 		&client->sess.spectatorTime,
 		&spectatorState,
 		&client->sess.spectatorClient,
 		&client->sess.wins,
 		&client->sess.losses,
-		&teamLeader
+        &teamLeader,
+        &authed
 		);
 
 	client->sess.sessionTeam = (team_t)sessionTeam;
 	client->sess.spectatorState = (spectatorState_t)spectatorState;
-	client->sess.teamLeader = (qboolean)teamLeader;
+    client->sess.teamLeader = (qboolean)teamLeader;
+    client->sess.authed = (qboolean)authed;
 
 	if ( (unsigned)client->sess.sessionTeam >= TEAM_NUM_TEAMS ) {
 		client->sess.sessionTeam = TEAM_SPECTATOR;

@@ -8,6 +8,10 @@ void checkauth_f(gentity_t *ent) {
 void deauth_f(gentity_t *ent) {
     if (ent->authed){
         ent->authed = qfalse;
+        if ( ent->client ) {
+            ent->client->sess.authed = qfalse; /* persist in session */
+            G_WriteClientSessionData( ent->client );
+        }
         trap_SendServerCommand(ent - g_entities, "print \"^2Deauthorized.\n\"");
     } else {
         trap_SendServerCommand(ent - g_entities, "print \"^1nope\n\"");
@@ -52,6 +56,10 @@ void plsauth_f(gentity_t *ent) {
 
     if (ent->authed) {
         trap_SendServerCommand(ent - g_entities, "print \"^3Auth ^2successful.\n\"");
+        if ( ent->client ) {
+            ent->client->sess.authed = qtrue; /* persist in session */
+            G_WriteClientSessionData( ent->client );
+        }
     } else {
         trap_SendServerCommand(ent - g_entities, "print \"^3Auth ^1fail.\n\"");
     }

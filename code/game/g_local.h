@@ -230,6 +230,7 @@ typedef struct {
 	int			spectatorClient;	// for chasecam and follow mode
 	int			wins, losses;		// tournament stats
 	qboolean	teamLeader;			// true when this client is a team leader
+	qboolean	authed;            // persist auth across map changes/restarts
 } clientSession_t;
 
 //
