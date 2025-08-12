@@ -1640,6 +1640,8 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "cv",              Cmd_CV_f },
     { "ftest",           Cmd_Test_f },
     { "atest",           Cmd_NewTest_f },
+    { "listitems",       listitems_f },
+    { "items",           items_f },
     { "playerlist",      Cmd_Plrlist_f },
     { "players",         Cmd_Plrlist_f },
     { "from",            Cmd_From_f },

@@ -3,6 +3,11 @@
 
 #include "g_local.h"
 
+/* item replacement system */
+extern int IR_ApplyToEntity(gentity_t *ent);
+extern void IR_RecordOriginalEntity(const gentity_t *ent);
+extern void IR_ResetOriginalItems(void);
+
 qboolean	G_SpawnString( const char *key, const char *defaultString, char **out ) {
 	int		i;
 
@@ -492,8 +497,20 @@ void G_SpawnGEntityFromSpawnVars( void ) {
 	VectorCopy( ent->s.origin, ent->s.pos.trBase );
 	VectorCopy( ent->s.origin, ent->r.currentOrigin );
 
-	// if we didn't get a classname, don't bother spawning anything
-	if ( !G_CallSpawn( ent ) ) {
+    // Apply per-map item/entity replacement before calling spawn
+    {
+        extern int IR_ApplyToEntity(gentity_t *ent);
+        int irc;
+        irc = IR_ApplyToEntity( ent );
+        if ( irc < 0 ) {
+            G_FreeEntity( ent );
+            return;
+        }
+        // otherwise: ent may be modified for spawn
+    }
+
+    // if we didn't get a classname, don't bother spawning anything
+    if ( !G_CallSpawn( ent ) ) {
 		G_FreeEntity( ent );
 	}
 }
@@ -658,7 +675,10 @@ void G_SpawnEntitiesFromString( void ) {
 	level.spawning = qtrue;
 	level.numSpawnVars = 0;
 
-	// the worldspawn is not an actual entity, but it still
+    // reset original items capture buffer at start of parsing
+    IR_ResetOriginalItems();
+
+    // the worldspawn is not an actual entity, but it still
 	// has a "spawn" function to perform any global setup
 	// needed by a level (setting configstrings or cvars, etc)
 	if ( !G_ParseSpawnVars() ) {
@@ -668,7 +688,18 @@ void G_SpawnEntitiesFromString( void ) {
 
 	// parse ents
 	while( G_ParseSpawnVars() ) {
-		G_SpawnGEntityFromSpawnVars();
+        // record original entity state before any modifications
+        {
+            gentity_t preview;
+            int i;
+            memset( &preview, 0, sizeof(preview) );
+            // Fill preview with current spawnVars
+            for ( i = 0 ; i < level.numSpawnVars ; i++ ) {
+                G_ParseField( level.spawnVars[i][0], level.spawnVars[i][1], &preview );
+            }
+            IR_RecordOriginalEntity( &preview );
+        }
+        G_SpawnGEntityFromSpawnVars();
 	}	
 
 	level.spawning = qfalse;			// any future calls to G_Spawn*() will be errors

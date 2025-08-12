@@ -3,6 +3,9 @@
 
 #include "g_local.h"
 
+/* item replacement system */
+extern void IR_Init(void);
+
 level_locals_t	level;
 
 typedef struct {
@@ -586,6 +589,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
     /* initialize vote system rules file early so default gets created if missing */
     VS_Init();
+
+    /* initialize item replacement system */
+    IR_Init();
 
     /* build cached map list once at startup */
     G_EnsureMapListCache();

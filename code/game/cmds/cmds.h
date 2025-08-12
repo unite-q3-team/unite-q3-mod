@@ -14,6 +14,10 @@ void killplayer_f(gentity_t *ent);
 void Cmd_svfps_f(gentity_t *ent);
 void fteam_f(gentity_t *ent);
 
+/* from itemreplace.c */
+void listitems_f(gentity_t *ent);
+void items_f(gentity_t *ent);
+
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);
     if (!val || !val[0])

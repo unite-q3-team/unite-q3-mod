@@ -8,6 +8,7 @@ Unofficial Quake III Arena gamecode patch
  * upstream security fixes
  * floatfix
  * fixed vote system
+ * item replacement system (per-map) via itemreplace.txt
  * fixed spawn system
  * fixed in-game crosshair proportions
  * fixed UI mouse sensitivity for high-resolution
@@ -32,6 +33,24 @@ Unofficial Quake III Arena gamecode patch
 # Documentation
 
 See /docs/
+
+## Item replacement (itemreplace.txt)
+
+Create or edit `itemreplace.txt` in the mod folder. Example:
+
+```
+# Replace all Quads on q3dm6 with MegaHealth
+map.q3dm6.classmap.item_quad = item_health_mega
+
+# Targeted rule example (coordinates are examples)
+map.q3dm6.rule.r1.match.classname = item_quad
+map.q3dm6.rule.r1.match.origin = 848 -456 312
+map.q3dm6.rule.r1.apply.classname = item_health_mega
+map.q3dm6.rule.r1.apply.origin = 860 -460 312
+map.q3dm6.rule.r1.apply.angles = 0 180 0
+```
+
+Rules are applied per-map at spawn time. Targeted rules (rule.*) run before class mappings and can also remove entities via `apply.remove = 1`.
 
 # Compilation and installation
 
