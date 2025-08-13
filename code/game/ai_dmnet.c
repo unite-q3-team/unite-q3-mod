@@ -167,11 +167,89 @@ int BotGoForAir(bot_state_t *bs, int tfl, bot_goal_t *ltg, float range) {
 
 /*
 ==================
+BotFindRescueGoal (FreezeTag)
+
+Find nearest frozen teammate body (classname "freezebody") and build a goal.
+Returns qtrue and fills 'goal' if found and reachable.
+==================
+*/
+static int BotFindRescueGoal(bot_state_t *bs, int tfl, bot_goal_t *goal) {
+    gentity_t *spot;
+    gentity_t *botent;
+    int myTeam;
+    int bestTime;
+    int timeTo;
+    int area;
+    vec3_t org;
+    int found;
+
+    if (!g_freeze.integer) {
+        return qfalse;
+    }
+
+    botent = &g_entities[bs->client];
+    if (!botent || !botent->client) {
+        return qfalse;
+    }
+    myTeam = botent->client->sess.sessionTeam;
+    if (myTeam != TEAM_RED && myTeam != TEAM_BLUE) {
+        return qfalse;
+    }
+
+    bestTime = 0;
+    found = qfalse;
+    spot = NULL;
+    while ( (spot = G_Find(spot, FOFS(classname), "freezebody")) != NULL ) {
+        if (!spot->freezeState) {
+            continue;
+        }
+        /* same team only */
+        if (spot->spawnflags != myTeam) {
+            continue;
+        }
+        VectorCopy(spot->s.pos.trBase, org);
+        area = BotPointAreaNum(org);
+        if (!area) {
+            continue;
+        }
+        timeTo = trap_AAS_AreaTravelTimeToGoalArea(bs->areanum, bs->origin, area, tfl);
+        if (timeTo <= 0) {
+            continue;
+        }
+        if (!found || timeTo < bestTime) {
+            bestTime = timeTo;
+            /* fill goal */
+            VectorCopy(org, goal->origin);
+            goal->areanum = area;
+            goal->mins[0] = -24; goal->mins[1] = -24; goal->mins[2] = -8;
+            goal->maxs[0] =  24; goal->maxs[1] =  24; goal->maxs[2] =  8;
+            /* mark as 'touch' goal similar to air so BotReachedGoal can complete */
+            goal->flags = GFL_AIR;
+            goal->number = 0;
+            goal->iteminfo = 0;
+            goal->entitynum = spot->s.number;
+            found = qtrue;
+        }
+    }
+    return found;
+}
+
+/*
+==================
 BotNearbyGoal
 ==================
 */
 int BotNearbyGoal(bot_state_t *bs, int tfl, bot_goal_t *ltg, float range) {
-	int ret;
+    int ret;
+
+    /* FreezeTag rescue: prioritize saving frozen teammates as a nearby goal */
+    {
+        bot_goal_t rescue;
+        if ( BotFindRescueGoal(bs, tfl, &rescue) ) {
+            trap_BotPushGoal(bs->gs, &rescue);
+            return qtrue;
+        }
+    }
 
 	//check if the bot should go for air
 	if (BotGoForAir(bs, tfl, ltg, range)) return qtrue;
@@ -1839,6 +1917,19 @@ int AINode_Seek_LTG(bot_state_t *bs)
 	BotMapScripts(bs);
 	//no enemy
 	bs->enemy = -1;
+	//
+    /* FreezeTag: prioritize rescue by setting as LTG (stable) */
+    {
+        bot_goal_t rescue;
+        if ( BotFindRescueGoal(bs, bs->tfl, &rescue) ) {
+            trap_BotEmptyGoalStack(bs->gs);
+            trap_BotPushGoal(bs->gs, &rescue);
+            trap_BotResetLastAvoidReach(bs->ms);
+            bs->ltg_time = FloatTime() + 8.0f;
+            /* continue in Seek_LTG with this top goal */
+        }
+    }
+
 	//
 	if (bs->killedenemy_time > FloatTime() - 2) {
 		if (random() < bs->thinktime * 1) {
