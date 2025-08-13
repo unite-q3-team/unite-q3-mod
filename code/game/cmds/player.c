@@ -1,5 +1,50 @@
 // code/game/cmds/player.c
 #include "cmds.h"
+/* Toggle: visualize available spawn points with harmless plasma blobs */
+void spawns_f(gentity_t *ent) {
+    qboolean enable;
+    int i;
+    if ( !ent || !ent->client || !ent->authed ) return;
+    enable = !ent->client->pers.showSpawnMarkers;
+    ent->client->pers.showSpawnMarkers = enable;
+    if ( enable ) {
+        int sent = 0;
+        for ( i = 0; i < level.numSpawnSpots; ++i ) {
+            gentity_t *spot = level.spawnSpots[i];
+            vec3_t org;
+            vec3_t dir;
+            gentity_t *m;
+            if ( !spot ) continue;
+            VectorCopy( spot->s.origin, org );
+            org[2] += 24;
+            VectorSet( dir, 0, 0, 1 );
+            m = fire_plasma( ent, org, dir );
+            if ( !m ) continue;
+            /* make it a harmless, stationary marker visible only to this client */
+            m->damage = 0;
+            m->splashDamage = 0;
+            m->splashRadius = 0;
+            m->clipmask = 0;
+            m->r.contents = 0;
+            m->touch = NULL;
+            m->s.pos.trType = TR_STATIONARY;
+            m->s.pos.trTime = level.time;
+            VectorClear( m->s.pos.trDelta );
+            m->s.time = level.time;
+            m->r.svFlags |= SVF_SINGLECLIENT;
+            m->r.singleClient = ent->s.number;
+            m->think = G_FreeEntity;
+            m->nextthink = level.time + 3200;
+            sent++;
+            if ( sent >= 128 ) break; /* throttle per call */
+        }
+        trap_SendServerCommand( ent - g_entities, "print \"^3spawns: ^2ON\n\"" );
+    } else {
+        trap_SendServerCommand( ent - g_entities, "print \"^3spawns: ^1OFF\n\"" );
+    }
+}
+
+#include "../g_team.h"
 
 /* GeoIP Legacy tables (codes and names) subset imported from cmds.c to avoid cross-file deps */
 #define GEOIP_NUM_COUNTRIES 255

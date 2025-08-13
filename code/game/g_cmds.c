@@ -1621,6 +1621,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "getpos",          getpos_f,           qfalse },
     { "setpos",          setpos_f,           qtrue  },
     { "poscp",           poscp_f,            qtrue  },
+    { "spawns",          spawns_f,           qtrue  },
     { "hi",              hi_f,               qfalse },
     { "fteam",           fteam_f,            qtrue  },
     { "fukk",            fteam_f,            qtrue  },

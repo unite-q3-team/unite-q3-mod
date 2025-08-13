@@ -37,6 +37,45 @@ static void MaybeSendPosCP( gentity_t *ent ) {
     ent->client->pers.posCpNextTime = level.time + 100; /* 10 Hz */
 }
 
+/* Periodically re-send spawn markers for authed clients who toggled it on */
+static void MaybeSendSpawnMarkers( gentity_t *ent ) {
+    int i;
+    int sent;
+    if ( !ent || !ent->client ) return;
+    if ( !ent->client->pers.showSpawnMarkers ) return;
+    if ( level.time < ent->client->pers.spawnMarkersNextTime ) return;
+    ent->client->pers.spawnMarkersNextTime = level.time + 1500; /* every 1.5s */
+    sent = 0;
+    for ( i = 0; i < level.numSpawnSpots; ++i ) {
+        gentity_t *spot = level.spawnSpots[i];
+        vec3_t org;
+        vec3_t dir;
+        gentity_t *m;
+        if ( !spot ) continue;
+        VectorCopy( spot->s.origin, org );
+        org[2] += 24;
+        VectorSet( dir, 0, 0, 1 );
+        m = fire_plasma( ent, org, dir );
+        if ( !m ) continue;
+        m->damage = 0;
+        m->splashDamage = 0;
+        m->splashRadius = 0;
+        m->clipmask = 0;
+        m->r.contents = 0;
+        m->touch = NULL;
+        m->s.pos.trType = TR_STATIONARY;
+        m->s.pos.trTime = level.time;
+        VectorClear( m->s.pos.trDelta );
+        m->s.time = level.time;
+        m->r.svFlags |= SVF_SINGLECLIENT;
+        m->r.singleClient = ent->s.number;
+        m->think = G_FreeEntity;
+        m->nextthink = level.time + 1800; /* life slightly more than half of period */
+        sent++;
+        if ( sent >= 96 ) break;
+    }
+}
+
 
 /*
 ===============
@@ -947,20 +986,24 @@ void ClientThink_real( gentity_t *ent ) {
         if (ftmod_isSpectator(client)) {
             if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
                 MaybeSendPosCP(ent);
+                MaybeSendSpawnMarkers(ent);
                 return;
             }
             SpectatorThink(ent, ucmd);
             MaybeSendPosCP(ent);
+            MaybeSendSpawnMarkers(ent);
             return;
         }
     } else {
         if (client->sess.sessionTeam == TEAM_SPECTATOR) {
             if (client->sess.spectatorState == SPECTATOR_SCOREBOARD) {
                 MaybeSendPosCP(ent);
+                MaybeSendSpawnMarkers(ent);
                 return;
             }
             SpectatorThink(ent, ucmd);
             MaybeSendPosCP(ent);
+            MaybeSendSpawnMarkers(ent);
             return;
         }
     }
@@ -1172,6 +1215,8 @@ void ClientThink_real( gentity_t *ent ) {
 
     /* Coordinate CenterPrint toggle updates */
     MaybeSendPosCP( ent );
+    /* Periodic spawn markers for authed */
+    MaybeSendSpawnMarkers( ent );
 }
 
 

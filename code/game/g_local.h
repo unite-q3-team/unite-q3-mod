@@ -255,9 +255,11 @@ typedef struct {
 	int			voted;
 	int			teamVoted;
 
-	qboolean	inGame;
-	qboolean	posCpEnabled; /* show coordinates via CenterPrint */
+		qboolean	inGame;
+		qboolean	posCpEnabled; /* show coordinates via CenterPrint */
+		qboolean	showSpawnMarkers; /* toggle to show spawn points with temp effects */
 	int			posCpNextTime; /* ms timestamp to throttle CenterPrint updates */
+		int			spawnMarkersNextTime; /* throttle per-client marker bursts */
 } clientPersistant_t;
 
 // unlagged
