@@ -3309,7 +3309,10 @@ void BotAimAtEnemy(bot_state_t *bs) {
 #endif
 		//aim at the obelisk
 		VectorSubtract(target, bs->eye, dir);
-		vectoangles(dir, bs->ideal_viewangles);
+            vectoangles(dir, bs->ideal_viewangles);
+            /* add slight saccade/jitter when free-looking */
+            bs->ideal_viewangles[0] += crandom() * 0.5f;
+            bs->ideal_viewangles[1] += crandom() * 0.5f;
 		//set the aim target before trying to attack
 		VectorCopy(target, bs->aimtarget);
 		return;
@@ -3550,7 +3553,9 @@ void BotAimAtEnemy(bot_state_t *bs) {
 		for (i = 0; i < 3; i++) dir[i] += 0.3 * crandom() * (1 - aim_accuracy);
 	}
 	//set the ideal view angles
-	vectoangles(dir, bs->ideal_viewangles);
+            vectoangles(dir, bs->ideal_viewangles);
+            bs->ideal_viewangles[0] += crandom() * 0.5f;
+            bs->ideal_viewangles[1] += crandom() * 0.5f;
 	//take the weapon spread into account for lower skilled bots
 	bs->ideal_viewangles[PITCH] += 6 * wi.vspread * crandom() * (1 - aim_accuracy);
 	bs->ideal_viewangles[PITCH] = AngleMod(bs->ideal_viewangles[PITCH]);

@@ -755,14 +755,14 @@ void BotChangeViewAngles(bot_state_t *bs, float thinktime) {
 
 	if (bs->ideal_viewangles[PITCH] > 180) bs->ideal_viewangles[PITCH] -= 360;
 	//
-	if (bs->enemy >= 0) {
-		factor = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_VIEW_FACTOR, 0.01f, 1);
-		maxchange = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_VIEW_MAXCHANGE, 1, 1800);
-	}
-	else {
-		factor = 0.05f;
-		maxchange = 360;
-	}
+    if (bs->enemy >= 0) {
+        factor = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_VIEW_FACTOR, 0.01f, 1);
+        maxchange = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_VIEW_MAXCHANGE, 1, 1800);
+    }
+    else {
+        factor = 0.08f; /* slightly snappier for non-combat, feels more human */
+        maxchange = 300; /* cap turn rate */
+    }
 	if (maxchange < 240) maxchange = 240;
 	maxchange *= thinktime;
 	for (i = 0; i < 2; i++) {
@@ -779,18 +779,18 @@ void BotChangeViewAngles(bot_state_t *bs, float thinktime) {
 			//over reaction view model
 			bs->viewangles[i] = AngleMod(bs->viewangles[i]);
 			bs->ideal_viewangles[i] = AngleMod(bs->ideal_viewangles[i]);
-			diff = AngleDifference(bs->viewangles[i], bs->ideal_viewangles[i]);
-			disired_speed = diff * factor;
-			bs->viewanglespeed[i] += (bs->viewanglespeed[i] - disired_speed);
-			if (bs->viewanglespeed[i] > 180) bs->viewanglespeed[i] = maxchange;
-			if (bs->viewanglespeed[i] < -180) bs->viewanglespeed[i] = -maxchange;
-			anglespeed = bs->viewanglespeed[i];
+            diff = AngleDifference(bs->viewangles[i], bs->ideal_viewangles[i]);
+            /* critically damped spring towards ideal */
+            disired_speed = diff * factor;
+            bs->viewanglespeed[i] += (disired_speed - bs->viewanglespeed[i]) * 0.5f;
+            anglespeed = bs->viewanglespeed[i];
 			if (anglespeed > maxchange) anglespeed = maxchange;
 			if (anglespeed < -maxchange) anglespeed = -maxchange;
 			bs->viewangles[i] += anglespeed;
 			bs->viewangles[i] = AngleMod(bs->viewangles[i]);
-			//demping
-			bs->viewanglespeed[i] *= 0.45 * (1 - factor);
+            // mild damping with micro jitter to avoid robotic locking
+            bs->viewanglespeed[i] *= 0.7f;
+            bs->viewangles[i] += crandom() * 0.2f;
 		}
 		//BotAI_Print(PRT_MESSAGE, "ideal_angles %f %f\n", bs->ideal_viewangles[0], bs->ideal_viewangles[1], bs->ideal_viewangles[2]);`
 		//bs->viewangles[i] = bs->ideal_viewangles[i];
