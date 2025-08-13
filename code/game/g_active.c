@@ -397,6 +397,21 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 	client->oldbuttons = client->buttons;
 	client->buttons = ucmd->buttons;
 
+	/* Jump while following: drop to free spectate depending on team/cvar */
+	if ( client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+		if ( ucmd->upmove >= 10 ) {
+			if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
+				/* true spectator: always allow free */
+				StopFollowing( ent, qtrue );
+			} else {
+				/* not on spectator team: obey team free-spectate lock */
+				if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) ) {
+					StopFollowingNew( ent );
+				}
+			}
+		}
+	}
+
 	// attack button cycles through spectators
 	if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
 		/* In team modes, obey enemy spectate restriction while cycling */
