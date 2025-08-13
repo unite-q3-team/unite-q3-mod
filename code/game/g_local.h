@@ -262,6 +262,9 @@ typedef struct {
 		int			posCpNextTime; /* ms timestamp to throttle CenterPrint updates */
 		int			spawnCpNextTime; /* ms timestamp to throttle spawn CP updates */
 		int			spawnMarkersNextTime; /* throttle per-client marker bursts */
+		/* itemreplace live CP */
+		qboolean	itemCpEnabled;
+		int			itemCpNextTime;
 } clientPersistant_t;
 
 // unlagged

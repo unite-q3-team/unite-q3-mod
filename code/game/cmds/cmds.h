@@ -35,6 +35,17 @@ void spawnang_f(gentity_t *ent);
 /* from itemreplace.c */
 void listitems_f(gentity_t *ent);
 void items_f(gentity_t *ent);
+void irreload_f(gentity_t *ent);
+void irlist_f(gentity_t *ent);
+void irmatchcp_f(gentity_t *ent);
+void iradd_f(gentity_t *ent);
+void irrm_f(gentity_t *ent);
+void irrepl_f(gentity_t *ent);
+void irsave_f(gentity_t *ent);
+void irmove_f(gentity_t *ent);
+void irundo_f(gentity_t *ent);
+void irredo_f(gentity_t *ent);
+void irrespawn_f(gentity_t *ent);
 
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);

@@ -5,6 +5,7 @@
 
 /* item replacement system */
 extern void IR_Init(void);
+extern void IR_SpawnAdds(void);
 
 level_locals_t	level;
 
@@ -787,15 +788,14 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
     /* initialize vote system rules file early so default gets created if missing */
     VS_Init();
 
-    /* initialize item replacement system */
-    IR_Init();
-
     /* build cached map list once at startup */
     G_EnsureMapListCache();
 
 	G_ProcessIPBans();
 
 	G_InitMemory();
+    /* initialize item replacement system (after memory init) */
+    IR_Init();
 
 	// set some level globals
 	memset( &level, 0, sizeof( level ) );
@@ -862,8 +862,13 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	ClearRegisteredItems();
 
-	// parse the key/value pairs and spawn gentities
-	G_SpawnEntitiesFromString();
+    // parse the key/value pairs and spawn gentities
+    G_SpawnEntitiesFromString();
+
+    // spawn persistent item additions after map entities are spawned
+    if ( g_itemReplace.integer ) {
+        IR_SpawnAdds();
+    }
 
 	// general initialization
 	G_FindTeams();

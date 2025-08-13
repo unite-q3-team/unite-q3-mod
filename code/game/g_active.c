@@ -70,6 +70,31 @@ static void MaybeSendSpawnCP( gentity_t *ent ) {
     }
 }
 
+/* helper: show nearest map item and matched rule (if any), live CP */
+static void MaybeSendItemCP( gentity_t *ent ) {
+    gentity_t *best = NULL; float bestD2 = 9e9f; vec3_t p; int i;
+    if ( !ent || !ent->client ) return;
+    if ( !ent->client->pers.itemCpEnabled ) return;
+    if ( level.time < ent->client->pers.itemCpNextTime ) return;
+    VectorCopy( ent->client->ps.origin, p );
+    for ( i = 0; i < level.num_entities; ++i ) {
+        gentity_t *e = &g_entities[i]; float dx, dy, dz, d2;
+        if ( !e->inuse ) continue; if ( !e->item ) continue;
+        dx = e->r.currentOrigin[0]-p[0]; dy = e->r.currentOrigin[1]-p[1]; dz = e->r.currentOrigin[2]-p[2]; d2 = dx*dx+dy*dy+dz*dz;
+        if ( d2 < bestD2 ) { bestD2 = d2; best = e; }
+    }
+    if ( best && bestD2 <= (256.0f*256.0f) ) {
+        const char *cn = best->classname ? best->classname : "<unknown>";
+        trap_SendServerCommand( ent - g_entities,
+            va("cp \"item ^7%s | org: %2.f %2.f %2.f | yaw: %2.f\"",
+               cn,
+               best->r.currentOrigin[0], best->r.currentOrigin[1], best->r.currentOrigin[2],
+               best->s.angles[1])
+        );
+        ent->client->pers.itemCpNextTime = level.time + 200; /* 5 Hz */
+    }
+}
+
 /* Periodically re-send spawn markers for authed clients who toggled it on */
 static void MaybeSendSpawnMarkers( gentity_t *ent ) {
     int i;
@@ -1021,12 +1046,14 @@ void ClientThink_real( gentity_t *ent ) {
                 MaybeSendPosCP(ent);
                 MaybeSendSpawnMarkers(ent);
                 MaybeSendSpawnCP(ent);
+                MaybeSendItemCP(ent);
                 return;
             }
             SpectatorThink(ent, ucmd);
             MaybeSendPosCP(ent);
             MaybeSendSpawnMarkers(ent);
             MaybeSendSpawnCP(ent);
+            MaybeSendItemCP(ent);
             return;
         }
     } else {
@@ -1035,12 +1062,14 @@ void ClientThink_real( gentity_t *ent ) {
                 MaybeSendPosCP(ent);
                 MaybeSendSpawnMarkers(ent);
                 MaybeSendSpawnCP(ent);
+                MaybeSendItemCP(ent);
                 return;
             }
             SpectatorThink(ent, ucmd);
             MaybeSendPosCP(ent);
             MaybeSendSpawnMarkers(ent);
             MaybeSendSpawnCP(ent);
+            MaybeSendItemCP(ent);
             return;
         }
     }
@@ -1256,6 +1285,8 @@ void ClientThink_real( gentity_t *ent ) {
     MaybeSendSpawnMarkers( ent );
     /* Periodic nearest-spawn CP */
     MaybeSendSpawnCP( ent );
+    /* Periodic nearest-item CP */
+    MaybeSendItemCP( ent );
 }
 
 
