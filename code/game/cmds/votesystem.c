@@ -262,7 +262,15 @@ static const char *vs_defaultRulesText =
     "kick.action = kick {arg}\n"
     "kick.requireArg = 1\n"
     "kick.numericOnly = 0\n"
-    "kick.usage = Usage: kick <name>\n";
+    "kick.usage = Usage: kick <name>\n"
+    "\n"
+    "# Shuffle teams vote\n"
+    "shuffle.name = Shuffle teams\n"
+    "shuffle.enabled = 1\n"
+    "shuffle.visible = 1\n"
+    "shuffle.case.random = shuffle random\n"
+    "shuffle.case.score = shuffle score\n"
+    "shuffle.usage = Usage: shuffle <random|score>\n";
 
 static void VS_CreateDefaultRulesFile(void) {
     fileHandle_t f;

@@ -418,6 +418,91 @@ void fteam_f(gentity_t *ent){
 	SetTeam( &g_entities[victim->client - level.clients], str );
 }
 
+/* Soft team move without killing: returns qtrue if changed */
+static qboolean SoftMoveToTeam( gentity_t *ent, team_t newTeam ) {
+    gclient_t *client;
+    int clientNum;
+    team_t oldTeam;
+    int teamLeader;
+    qboolean hadFlag = qfalse;
+
+    if ( !ent || !ent->client ) return qfalse;
+    client = ent->client;
+    oldTeam = client->sess.sessionTeam;
+    if ( oldTeam == newTeam ) return qfalse;
+    clientNum = ent - g_entities;
+
+    /* Return CTF flags if carried */
+#ifdef MISSIONPACK
+    if ( client->ps.powerups[PW_NEUTRALFLAG] ) { Team_ReturnFlag( TEAM_FREE ); client->ps.powerups[PW_NEUTRALFLAG] = 0; hadFlag = qtrue; }
+#endif
+    if ( client->ps.powerups[PW_REDFLAG] ) { Team_ReturnFlag( TEAM_RED ); client->ps.powerups[PW_REDFLAG] = 0; hadFlag = qtrue; }
+    if ( client->ps.powerups[PW_BLUEFLAG] ) { Team_ReturnFlag( TEAM_BLUE ); client->ps.powerups[PW_BLUEFLAG] = 0; hadFlag = qtrue; }
+    /* Clear all powerups */
+    memset( client->ps.powerups, 0, sizeof(client->ps.powerups) );
+
+    /* Prepare to spawn on new team */
+    client->pers.teamState.state = TEAM_BEGIN;
+
+    /* Revert any cast votes when switching between playing teams */
+    if ( oldTeam != newTeam ) {
+        G_RevertVote( client );
+    }
+
+    /* Reset extended stats similar to SetTeam */
+    {
+        int w;
+        client->accuracy_hits = 0;
+        client->accuracy_shots = 0;
+        client->totalDamageGiven = 0;
+        client->totalDamageTaken = 0;
+        client->kills = 0;
+        client->deaths = 0;
+        client->currentKillStreak = 0;
+        client->armorPickedTotal = 0;
+        client->healthPickedTotal = 0;
+        for ( w = 0; w < WP_NUM_WEAPONS; ++w ) {
+            client->perWeaponDamageGiven[w] = 0;
+            client->perWeaponDamageTaken[w] = 0;
+            client->perWeaponShots[w] = 0;
+            client->perWeaponHits[w] = 0;
+            client->perWeaponKills[w] = 0;
+            client->perWeaponDeaths[w] = 0;
+            client->perWeaponPickups[w] = 0;
+            client->perWeaponDrops[w] = 0;
+        }
+    }
+
+    /* Apply team switch */
+    client->sess.sessionTeam = newTeam;
+    client->sess.spectatorState = SPECTATOR_NOT;
+    /* Maintain spectatorClient as-is */
+
+    /* Ensure team has a leader */
+    if ( newTeam == TEAM_RED || newTeam == TEAM_BLUE ) {
+        teamLeader = TeamLeader( newTeam );
+        if ( teamLeader == -1 || ( !(g_entities[clientNum].r.svFlags & SVF_BOT) && (g_entities[teamLeader].r.svFlags & SVF_BOT) ) ) {
+            SetLeader( newTeam, clientNum );
+        }
+    }
+    /* Maintain leader on the team the player left */
+    if ( oldTeam == TEAM_RED || oldTeam == TEAM_BLUE ) {
+        if ( client->sess.teamLeader ) {
+            CheckTeamLeader( oldTeam );
+        }
+        client->sess.teamLeader = qfalse;
+    }
+
+    G_WriteClientSessionData( client );
+    BroadcastTeamChange( client, oldTeam );
+    ClientUserinfoChanged( clientNum );
+    ent->freezeState = qfalse;
+    ClientBegin( clientNum );
+    /* Optional: announce soft swap silently; shuffle handles announcements */
+    (void)hadFlag;
+    return qtrue;
+}
+
 void shuffle_f(gentity_t *ent){
     int i;
     char mode[16];
@@ -553,11 +638,13 @@ void shuffle_f(gentity_t *ent){
         for (k = 0; k < numPlayers; ++k) {
             int ci = playerIdx[k];
             team_t t = assignedTeam[k];
-            const char *tStr = (t == TEAM_RED) ? "red" : "blue";
             const char *tDisp = (t == TEAM_RED) ? "^1RED" : "^4BLUE";
             gentity_t *ply = &g_entities[ci];
-            SetTeam(ply, tStr);
-            G_BroadcastServerCommand(-1, va("print \"^3Moved ^7%s ^3to %s ^3team\n\"", level.clients[ci].pers.netname, tDisp));
+            if ( level.clients[ci].sess.sessionTeam != t ) {
+                if ( SoftMoveToTeam( ply, t ) ) {
+                    G_BroadcastServerCommand(-1, va("print \"^3Moved ^7%s ^3to %s ^3team\n\"", level.clients[ci].pers.netname, tDisp));
+                }
+            }
         }
 
         if (oldTFB != 0) {
@@ -566,6 +653,111 @@ void shuffle_f(gentity_t *ent){
     }
 
     CalculateRanks();
+}
+
+/* Perform team shuffle with mode: "random" or "score"; returns qtrue if applied */
+qboolean Shuffle_Perform( const char *mode ) {
+    int i;
+    int playerIdx[MAX_CLIENTS];
+    int playerScore[MAX_CLIENTS];
+    int numPlayers;
+    int targetRed;
+    int targetBlue;
+    int oldTFB;
+    const char *modeText;
+    team_t assignedTeam[MAX_CLIENTS];
+    int redCount, blueCount, redSum, blueSum;
+    int k;
+
+    if ( !mode || !mode[0] ) return qfalse;
+    if ( g_gametype.integer < GT_TEAM ) return qfalse;
+
+    /* collect active players */
+    numPlayers = 0;
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gclient_t *cl = &level.clients[i];
+        if ( cl->pers.connected != CON_CONNECTED ) continue;
+        if ( g_freeze.integer ? ftmod_isSpectator(cl) : (cl->sess.sessionTeam == TEAM_SPECTATOR) ) continue;
+        playerIdx[numPlayers] = i;
+        playerScore[numPlayers] = cl->ps.persistant[PERS_SCORE];
+        numPlayers++;
+    }
+    if ( numPlayers < 2 ) return qfalse;
+
+    targetRed = numPlayers / 2;
+    targetBlue = numPlayers / 2;
+    if ( numPlayers % 2 ) {
+        if ( rand() & 1 ) targetRed++; else targetBlue++;
+    }
+
+    if ( Q_stricmp(mode, "random") == 0 ) {
+        int j;
+        for ( i = numPlayers - 1; i > 0; --i ) {
+            int r = rand() % (i + 1);
+            int tmpIdx = playerIdx[i];
+            int tmpSc = playerScore[i];
+            playerIdx[i] = playerIdx[r];
+            playerScore[i] = playerScore[r];
+            playerIdx[r] = tmpIdx;
+            playerScore[r] = tmpSc;
+        }
+        modeText = "RANDOM";
+    } else {
+        int a, b, maxPos;
+        for ( a = 0; a < numPlayers - 1; ++a ) {
+            maxPos = a;
+            for ( b = a + 1; b < numPlayers; ++b ) {
+                if ( playerScore[b] > playerScore[maxPos] ) maxPos = b;
+            }
+            if ( maxPos != a ) {
+                int ti = playerIdx[a];
+                int ts = playerScore[a];
+                playerIdx[a] = playerIdx[maxPos];
+                playerScore[a] = playerScore[maxPos];
+                playerIdx[maxPos] = ti;
+                playerScore[maxPos] = ts;
+            }
+        }
+        modeText = "SCORE";
+    }
+
+    redCount = 0; blueCount = 0; redSum = 0; blueSum = 0;
+    if ( Q_stricmp(mode, "score") == 0 ) {
+        for ( k = 0; k < numPlayers; ++k ) {
+            int sc = playerScore[k];
+            team_t t;
+            if ( redCount >= targetRed ) t = TEAM_BLUE;
+            else if ( blueCount >= targetBlue ) t = TEAM_RED;
+            else if ( redSum <= blueSum ) t = TEAM_RED;
+            else t = TEAM_BLUE;
+            assignedTeam[k] = t;
+            if ( t == TEAM_RED ) { redSum += sc; redCount++; } else { blueSum += sc; blueCount++; }
+        }
+    } else {
+        for ( k = 0; k < numPlayers; ++k ) {
+            team_t t = (redCount < targetRed) ? TEAM_RED : TEAM_BLUE;
+            assignedTeam[k] = t;
+            if ( t == TEAM_RED ) redCount++; else blueCount++;
+        }
+    }
+
+    G_BroadcastServerCommand( -1, va("print \"^3Shuffling teams:^1 %s\n\"", modeText) );
+    oldTFB = trap_Cvar_VariableIntegerValue("g_teamForceBalance");
+    if ( oldTFB != 0 ) trap_Cvar_Set("g_teamForceBalance", "0");
+    for ( k = 0; k < numPlayers; ++k ) {
+        int ci = playerIdx[k];
+        team_t t = assignedTeam[k];
+        const char *tDisp = (t == TEAM_RED) ? "^1RED" : "^4BLUE";
+        gentity_t *ply = &g_entities[ci];
+        if ( level.clients[ci].sess.sessionTeam != t ) {
+            if ( SoftMoveToTeam( ply, t ) ) {
+                G_BroadcastServerCommand( -1, va("print \"^3Moved ^7%s ^3to %s ^3team\n\"", level.clients[ci].pers.netname, tDisp) );
+            }
+        }
+    }
+    if ( oldTFB != 0 ) trap_Cvar_Set("g_teamForceBalance", va("%d", oldTFB) );
+    CalculateRanks();
+    return qtrue;
 }
 
 void printRoundTime (void) {

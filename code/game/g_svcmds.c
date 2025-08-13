@@ -6,6 +6,9 @@
 // #include "g_local.h"
 #include "svcmds/svcmds.h"
 
+/* forward decl to avoid heavy include duplication */
+qboolean Shuffle_Perform( const char *mode );
+
 /*
 ==============================================================================
 
@@ -506,6 +509,20 @@ qboolean	ConsoleCommand( void ) {
 		Svcmd_Rotate_f();
 		return qtrue;
 	}
+
+    if (Q_stricmp (cmd, "shuffle") == 0) {
+        char mode[16];
+        mode[0] = '\0';
+        if ( trap_Argc() >= 2 ) {
+            trap_Argv( 1, mode, sizeof(mode) );
+        } else {
+            Q_strncpyz( mode, "random", sizeof(mode) );
+        }
+        if ( !Shuffle_Perform( mode ) ) {
+            G_Printf("Usage: shuffle <random|score>\n");
+        }
+        return qtrue;
+    }
 
 	if (Q_stricmp (cmd, "test") == 0) {
 		Cmd_NewTestdsadsa_f();
