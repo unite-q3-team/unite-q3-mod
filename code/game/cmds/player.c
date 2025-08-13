@@ -418,6 +418,156 @@ void fteam_f(gentity_t *ent){
 	SetTeam( &g_entities[victim->client - level.clients], str );
 }
 
+void shuffle_f(gentity_t *ent){
+    int i;
+    char mode[16];
+    int playerIdx[MAX_CLIENTS];
+    int playerScore[MAX_CLIENTS];
+    int numPlayers;
+    int targetRed;
+    int targetBlue;
+    int oldTFB;
+    const char *modeText;
+
+    if (!ent || !ent->client || !ent->authed) {
+        return;
+    }
+
+    if (g_gametype.integer < GT_TEAM) {
+        trap_SendServerCommand(ent - g_entities, "print \"^1Command is only available in team gametypes.\n\"");
+        return;
+    }
+
+    if (trap_Argc() < 2) {
+        trap_SendServerCommand(ent - g_entities, "print \"^3Usage: shuffle <random|score>\n\"");
+        return;
+    }
+
+    trap_Argv(1, mode, sizeof(mode));
+
+    if (Q_stricmp(mode, "random") != 0 && Q_stricmp(mode, "score") != 0) {
+        trap_SendServerCommand(ent - g_entities, "print \"^3Usage: shuffle <random|score>\n\"");
+        return;
+    }
+
+    numPlayers = 0;
+    for (i = 0; i < level.maxclients; ++i) {
+        gclient_t *cl = &level.clients[i];
+        if (cl->pers.connected != CON_CONNECTED) {
+            continue;
+        }
+        if (g_freeze.integer ? ftmod_isSpectator(cl) : (cl->sess.sessionTeam == TEAM_SPECTATOR)) {
+            continue;
+        }
+        playerIdx[numPlayers] = i;
+        playerScore[numPlayers] = cl->ps.persistant[PERS_SCORE];
+        numPlayers++;
+    }
+
+    if (numPlayers < 2) {
+        trap_SendServerCommand(ent - g_entities, "print \"^1Not enough players to shuffle.\n\"");
+        return;
+    }
+
+    targetRed = numPlayers / 2;
+    targetBlue = numPlayers / 2;
+    if (numPlayers % 2) {
+        if (rand() & 1) targetRed++; else targetBlue++;
+    }
+
+    if (Q_stricmp(mode, "random") == 0) {
+        int j;
+        for (i = numPlayers - 1; i > 0; --i) {
+            int r = rand() % (i + 1);
+            int tmpIdx = playerIdx[i];
+            int tmpSc = playerScore[i];
+            playerIdx[i] = playerIdx[r];
+            playerScore[i] = playerScore[r];
+            playerIdx[r] = tmpIdx;
+            playerScore[r] = tmpSc;
+        }
+        modeText = "RANDOM";
+    } else {
+        int a, b, maxPos;
+        /* selection sort by score desc */
+        for (a = 0; a < numPlayers - 1; ++a) {
+            maxPos = a;
+            for (b = a + 1; b < numPlayers; ++b) {
+                if (playerScore[b] > playerScore[maxPos]) {
+                    maxPos = b;
+                }
+            }
+            if (maxPos != a) {
+                int ti = playerIdx[a];
+                int ts = playerScore[a];
+                playerIdx[a] = playerIdx[maxPos];
+                playerScore[a] = playerScore[maxPos];
+                playerIdx[maxPos] = ti;
+                playerScore[maxPos] = ts;
+            }
+        }
+        modeText = "SCORE";
+    }
+
+    /* For score mode, distribute to balance totals while respecting target counts */
+    {
+        int redCount = 0, blueCount = 0;
+        int redSum = 0, blueSum = 0;
+        team_t assignedTeam[MAX_CLIENTS];
+        int k;
+
+        if (Q_stricmp(mode, "score") == 0) {
+            for (k = 0; k < numPlayers; ++k) {
+                int sc = playerScore[k];
+                team_t t;
+                if (redCount >= targetRed) {
+                    t = TEAM_BLUE;
+                } else if (blueCount >= targetBlue) {
+                    t = TEAM_RED;
+                } else if (redSum <= blueSum) {
+                    t = TEAM_RED;
+                } else {
+                    t = TEAM_BLUE;
+                }
+                assignedTeam[k] = t;
+                if (t == TEAM_RED) { redSum += sc; redCount++; }
+                else { blueSum += sc; blueCount++; }
+            }
+        } else {
+            for (k = 0; k < numPlayers; ++k) {
+                team_t t = (redCount < targetRed) ? TEAM_RED : TEAM_BLUE;
+                assignedTeam[k] = t;
+                if (t == TEAM_RED) redCount++; else blueCount++;
+            }
+        }
+
+        /* Announce */
+        G_BroadcastServerCommand(-1, va("print \"^3Shuffling teams:^1 %s\n\"", modeText));
+
+        /* Temporarily disable team force-balance to avoid blocking reshuffle */
+        oldTFB = trap_Cvar_VariableIntegerValue("g_teamForceBalance");
+        if (oldTFB != 0) {
+            trap_Cvar_Set("g_teamForceBalance", "0");
+        }
+
+        for (k = 0; k < numPlayers; ++k) {
+            int ci = playerIdx[k];
+            team_t t = assignedTeam[k];
+            const char *tStr = (t == TEAM_RED) ? "red" : "blue";
+            const char *tDisp = (t == TEAM_RED) ? "^1RED" : "^4BLUE";
+            gentity_t *ply = &g_entities[ci];
+            SetTeam(ply, tStr);
+            G_BroadcastServerCommand(-1, va("print \"^3Moved ^7%s ^3to %s ^3team\n\"", level.clients[ci].pers.netname, tDisp));
+        }
+
+        if (oldTFB != 0) {
+            trap_Cvar_Set("g_teamForceBalance", va("%d", oldTFB));
+        }
+    }
+
+    CalculateRanks();
+}
+
 void printRoundTime (void) {
     Com_Printf("Round time:%i", level.freezeRoundStartTime);
 }

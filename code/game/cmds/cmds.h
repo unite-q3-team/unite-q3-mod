@@ -18,6 +18,7 @@ void deauth_f(gentity_t *ent);
 void killplayer_f(gentity_t *ent);
 void Cmd_svfps_f(gentity_t *ent);
 void fteam_f(gentity_t *ent);
+void shuffle_f(gentity_t *ent);
 
 /* from itemreplace.c */
 void listitems_f(gentity_t *ent);

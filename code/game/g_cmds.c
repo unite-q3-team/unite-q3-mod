@@ -1644,6 +1644,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "atest",           Cmd_NewTest_f,      qfalse },
     { "listitems",       listitems_f,        qtrue  },
     { "items",           items_f,            qtrue  },
+    { "shuffle",         shuffle_f,          qtrue  },
     { "playerlist",      Cmd_Plrlist_f,      qfalse },
     { "players",         Cmd_Plrlist_f,      qfalse },
     { "from",            Cmd_From_f,         qfalse },
