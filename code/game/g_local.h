@@ -258,7 +258,9 @@ typedef struct {
 		qboolean	inGame;
 		qboolean	posCpEnabled; /* show coordinates via CenterPrint */
 		qboolean	showSpawnMarkers; /* toggle to show spawn points with temp effects */
-	int			posCpNextTime; /* ms timestamp to throttle CenterPrint updates */
+		qboolean	spawnCpEnabled; /* show nearest spawn info via CenterPrint */
+		int			posCpNextTime; /* ms timestamp to throttle CenterPrint updates */
+		int			spawnCpNextTime; /* ms timestamp to throttle spawn CP updates */
 		int			spawnMarkersNextTime; /* throttle per-client marker bursts */
 } clientPersistant_t;
 
@@ -710,6 +712,7 @@ void QDECL G_LogPrintf( const char *fmt, ... );
 void QDECL G_Printf( const char *fmt, ... );
 void QDECL G_Error( const char *fmt, ... );
 void G_BroadcastServerCommand( int ignoreClient, const char *command );
+void G_LoadCustomSpawns( void );
 
 //
 // g_client.c

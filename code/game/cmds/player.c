@@ -14,6 +14,7 @@ void spawns_f(gentity_t *ent) {
             vec3_t org;
             vec3_t dir;
             gentity_t *m;
+            gentity_t *flag;
             if ( !spot ) continue;
             VectorCopy( spot->r.currentOrigin, org );
             org[2] += 24;
@@ -35,6 +36,17 @@ void spawns_f(gentity_t *ent) {
             m->r.singleClient = ent->s.number;
             m->think = G_FreeEntity;
             m->nextthink = level.time + 3200;
+            /* add team flag indicator for RED/BLUE */
+            if ( spot->fteam == TEAM_RED || spot->fteam == TEAM_BLUE ) {
+                flag = G_TempEntity( org, EV_GENERAL_SOUND ); /* temp entity type as carrier */
+                flag->s.eType = ET_ITEM;
+                flag->r.svFlags |= SVF_SINGLECLIENT;
+                flag->r.singleClient = ent->s.number;
+                /* reuse eventParm to signal red/blue; client can render default pickup effect; minimal */
+                flag->s.eventParm = (spot->fteam == TEAM_RED) ? PW_REDFLAG : PW_BLUEFLAG;
+                flag->think = G_FreeEntity;
+                flag->nextthink = level.time + 3200;
+            }
             sent++;
             if ( sent >= 128 ) break; /* throttle per call */
         }
@@ -848,6 +860,7 @@ void Cmd_UserinfoDump_f(gentity_t *ent) {
 void spawnadd_f(gentity_t *ent) {
     gentity_t *spot;
     vec3_t org;
+    SpawnHistory_Push();
     if ( !ent || !ent->client || !ent->authed ) return;
     if ( level.numSpawnSpots >= NUM_SPAWN_SPOTS - 1 ) {
         trap_SendServerCommand( ent - g_entities, "print \"^1Spawn list full\n\"" );
@@ -871,6 +884,7 @@ void spawnrm_f(gentity_t *ent) {
     int i, idx;
     float bestDist2;
     vec3_t p;
+    SpawnHistory_Push();
     if ( !ent || !ent->client || !ent->authed ) return;
     if ( level.numSpawnSpots <= 0 ) return;
     VectorCopy( ent->client->ps.origin, p );
@@ -905,7 +919,7 @@ void spawnsave_f(gentity_t *ent) {
     fileHandle_t f;
     int openRes;
     int i;
-    char line[128];
+    char line[192];
     if ( !ent || !ent->client || !ent->authed ) return;
     openRes = trap_FS_FOpenFile( "spawns.txt", &f, FS_WRITE );
     if ( openRes < 0 ) {
@@ -919,15 +933,133 @@ void spawnsave_f(gentity_t *ent) {
         if ( !spot ) continue;
         teamStr = (spot->fteam == TEAM_RED) ? "RED" : (spot->fteam == TEAM_BLUE) ? "BLUE" : "FREE";
         isBase = (spot->count == 0) ? 1 : 0;
-        Com_sprintf( line, sizeof(line), "spawn.%s.%04d = %s %d %d %d %d\n",
+        Com_sprintf( line, sizeof(line), "spawn.%s.%04d = %s %d %d %d %d %d %d %d\n",
             g_mapname.string,
             i,
             teamStr,
             isBase,
-            (int)spot->r.currentOrigin[0], (int)spot->r.currentOrigin[1], (int)spot->r.currentOrigin[2]
+            (int)spot->r.currentOrigin[0], (int)spot->r.currentOrigin[1], (int)spot->r.currentOrigin[2],
+            (int)spot->s.angles[PITCH], (int)spot->s.angles[YAW], (int)spot->s.angles[ROLL]
         );
         trap_FS_Write( line, (int)strlen(line), f );
     }
     trap_FS_FCloseFile( f );
     trap_SendServerCommand( ent - g_entities, va("print \"^2Saved %d spawns to spawns.txt\n\"", level.numSpawnSpots) );
+}
+
+/* Reload spawns.txt for current map without restart */
+void spawnreload_f(gentity_t *ent) {
+    if ( !ent || !ent->client || !ent->authed ) return;
+    if ( !g_customSpawns.integer ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3g_customSpawns is disabled\n\"" );
+        return;
+    }
+    G_LoadCustomSpawns();
+    trap_SendServerCommand( ent - g_entities, "print \"^2Custom spawns reloaded\n\"" );
+}
+
+/* Simple undo/redo stacks for spawns: store snapshots in memory */
+#define SPAWN_HISTORY_MAX 16
+static int s_spawnHistTop = 0; /* points to next free slot */
+static int s_spawnHistCount = 0;
+static struct { int count; vec3_t pos[128]; team_t team[128]; int base[128]; vec3_t ang[128]; } s_spawnHist[SPAWN_HISTORY_MAX];
+
+static void SpawnHistory_Push(void) {
+    int i;
+    int idx;
+    idx = s_spawnHistTop % SPAWN_HISTORY_MAX;
+    s_spawnHist[idx].count = level.numSpawnSpots;
+    for ( i = 0; i < level.numSpawnSpots && i < 128; ++i ) {
+        gentity_t *spot = level.spawnSpots[i];
+        VectorCopy( spot->r.currentOrigin, s_spawnHist[idx].pos[i] );
+        s_spawnHist[idx].team[i] = spot->fteam;
+        s_spawnHist[idx].base[i] = (spot->count == 0);
+        VectorCopy( spot->s.angles, s_spawnHist[idx].ang[i] );
+    }
+    s_spawnHistTop = (s_spawnHistTop + 1) % SPAWN_HISTORY_MAX;
+    if ( s_spawnHistCount < SPAWN_HISTORY_MAX ) s_spawnHistCount++;
+}
+
+static qboolean SpawnHistory_Restore(int stepBack) {
+    int idx;
+    int i;
+    if ( s_spawnHistCount <= 0 ) return qfalse;
+    /* stepBack 1 => previous snapshot */
+    idx = (s_spawnHistTop - stepBack - 1 + SPAWN_HISTORY_MAX) % SPAWN_HISTORY_MAX;
+    if ( s_spawnHist[idx].count <= 0 ) return qfalse;
+    level.numSpawnSpots = 0;
+    level.numSpawnSpotsFFA = 0;
+    level.numSpawnSpotsTeam = 0;
+    for ( i = 0; i < s_spawnHist[idx].count && i < 128; ++i ) {
+        gentity_t *spot = G_Spawn();
+        vec3_t org; VectorCopy( s_spawnHist[idx].pos[i], org );
+        if ( s_spawnHist[idx].team[i] == TEAM_FREE ) { spot->classname = "info_player_deathmatch"; level.numSpawnSpotsFFA++; }
+        else if ( s_spawnHist[idx].team[i] == TEAM_RED ) { spot->classname = s_spawnHist[idx].base[i] ? "team_CTF_redplayer" : "team_CTF_redspawn"; level.numSpawnSpotsTeam++; }
+        else { spot->classname = s_spawnHist[idx].base[i] ? "team_CTF_blueplayer" : "team_CTF_bluespawn"; level.numSpawnSpotsTeam++; }
+        spot->fteam = s_spawnHist[idx].team[i];
+        spot->count = s_spawnHist[idx].base[i] ? 0 : 1;
+        VectorCopy( s_spawnHist[idx].ang[i], spot->s.angles );
+        G_SetOrigin( spot, org ); VectorCopy(org, spot->s.origin); trap_LinkEntity( spot );
+        level.spawnSpots[level.numSpawnSpots++] = spot;
+    }
+    return qtrue;
+}
+
+void spawnundo_f(gentity_t *ent) {
+    if ( !ent || !ent->client || !ent->authed ) return;
+    if ( SpawnHistory_Restore(1) ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^2Undo OK\n\"" );
+    } else {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Nothing to undo\n\"" );
+    }
+}
+
+void spawnredo_f(gentity_t *ent) {
+    if ( !ent || !ent->client || !ent->authed ) return;
+    if ( SpawnHistory_Restore(0) ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^2Redo OK\n\"" );
+    } else {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Nothing to redo\n\"" );
+    }
+}
+
+/* Set yaw/pitch for nearest spawn */
+static gentity_t *FindNearestSpawn(gentity_t *ent, float *outDist2) {
+    int i; gentity_t *best=NULL; float bestD2=9e9f; vec3_t p; VectorCopy(ent->client->ps.origin, p);
+    for ( i=0;i<level.numSpawnSpots;i++ ) { gentity_t *s=level.spawnSpots[i]; float dx=s->r.currentOrigin[0]-p[0]; float dy=s->r.currentOrigin[1]-p[1]; float dz=s->r.currentOrigin[2]-p[2]; float d2=dx*dx+dy*dy+dz*dz; if ( d2<bestD2 ){bestD2=d2;best=s;} }
+    if ( outDist2 ) *outDist2 = bestD2;
+    return best;
+}
+
+/* Set both yaw and pitch with one command. Usage:
+   - spawnang <yaw> <pitch>
+   - spawnang          (copy angles from player's view)
+   - spawnang <yaw>    (set only yaw; keep pitch)
+*/
+void spawnang_f(gentity_t *ent) {
+    char byaw[32], bpitch[32];
+    int argc; gentity_t *s; float d2; float yaw=0, pitch=0; qboolean setYaw=qfalse, setPitch=qfalse;
+    if (!ent||!ent->client||!ent->authed) return;
+    argc = trap_Argc();
+    s = FindNearestSpawn(ent, &d2);
+    if (!s || d2> (128.0f*128.0f)) { trap_SendServerCommand(ent-g_entities, "print \"^3No nearby spawn (<=128u)\n\"" ); return; }
+    if (argc >= 2) { trap_Argv(1, byaw, sizeof(byaw)); yaw = (float)atof(byaw); setYaw = qtrue; }
+    if (argc >= 3) { trap_Argv(2, bpitch, sizeof(bpitch)); pitch = (float)atof(bpitch); setPitch = qtrue; }
+    if (!setYaw && !setPitch) {
+        yaw = ent->client->ps.viewangles[YAW];
+        pitch = ent->client->ps.viewangles[PITCH];
+        setYaw = setPitch = qtrue;
+    }
+    if (setYaw) s->s.angles[YAW] = yaw;
+    if (setPitch) s->s.angles[PITCH] = pitch;
+    trap_SendServerCommand(ent-g_entities, va("print \"^2Angles: yaw %.1f pitch %.1f\n\"", s->s.angles[YAW], s->s.angles[PITCH]));
+}
+
+/* CenterPrint info for nearest spawn */
+void spawnscp_f(gentity_t *ent) {
+    if (!ent||!ent->client||!ent->authed) return;
+    ent->client->pers.spawnCpEnabled = !ent->client->pers.spawnCpEnabled;
+    trap_SendServerCommand( ent - g_entities,
+        ent->client->pers.spawnCpEnabled ? "print \"^3spawnscp: ^2ON\n\"" : "print \"^3spawnscp: ^1OFF\n\""
+    );
 }

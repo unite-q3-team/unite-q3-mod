@@ -24,6 +24,13 @@ void spawns_f(gentity_t *ent);
 void spawnadd_f(gentity_t *ent);
 void spawnrm_f(gentity_t *ent);
 void spawnsave_f(gentity_t *ent);
+void spawnreload_f(gentity_t *ent);
+void spawnundo_f(gentity_t *ent);
+void spawnredo_f(gentity_t *ent);
+void spawnyaw_f(gentity_t *ent);
+void spawnpitch_f(gentity_t *ent);
+void spawnscp_f(gentity_t *ent);
+void spawnang_f(gentity_t *ent);
 
 /* from itemreplace.c */
 void listitems_f(gentity_t *ent);

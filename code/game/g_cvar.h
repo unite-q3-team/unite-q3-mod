@@ -75,6 +75,9 @@ G_CVAR( g_allowVoteChange, "g_allowVoteChange", "1", CVAR_ARCHIVE, 0, qfalse, qf
 G_CVAR( g_voteLimit, "g_voteLimit", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* maximum number of team votes a player can call in a map */
 G_CVAR( g_teamVoteLimit, "g_teamVoteLimit", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
+/* enable loading custom spawns from spawns.txt for current map */
+G_CVAR( g_customSpawns, "g_customSpawns", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_listEntity, "g_listEntity", "0", 0, 0, qfalse, qfalse )
 
 G_CVAR( g_unlagged, "g_unlagged", "1", CVAR_SERVERINFO | CVAR_ARCHIVE, 0, qfalse, qfalse )

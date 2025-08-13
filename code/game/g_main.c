@@ -535,7 +535,7 @@ static void G_LocateSpawnSpots( void )
 }
 
 /* Load per-map custom spawns from spawns.txt, overriding defaults */
-static void G_LoadCustomSpawns( void ) {
+void G_LoadCustomSpawns( void ) {
     fileHandle_t f;
     int flen;
     char *buf;
@@ -659,10 +659,12 @@ static void G_LoadCustomSpawns( void ) {
                     if ( dot ) {
                         int mapLen = (int)(dot - map);
                         char mapKey[64];
-                        char valcpy[128];
+                        char valcpy[160];
                         char teamStr[16];
                         int isBase;
                         int x, y, z;
+                        int haveAngles = 0;
+                        int pitchi = 0, yawi = 0, rolli = 0;
                         gentity_t *spot;
                         if ( mapLen > (int)sizeof(mapKey)-1 ) mapLen = (int)sizeof(mapKey)-1;
                         Q_strncpyz( mapKey, map, mapLen + 1 );
@@ -670,15 +672,22 @@ static void G_LoadCustomSpawns( void ) {
                         /* parse val without sscanf (not available in QVM) */
                         Q_strncpyz( valcpy, val, sizeof(valcpy) );
                         {
-                            char *tokv[6];
+                            char *tokv[9];
                             int parts;
-                            parts = Com_Split( valcpy, tokv, 6, ' ' );
-                            if ( parts < 5 ) continue;
+                            parts = Com_Split( valcpy, tokv, 9, ' ' );
+                            if ( parts < 5 ) continue; /* require at least TEAM BASE X Y Z */
                             Q_strncpyz( teamStr, tokv[0], sizeof(teamStr) );
                             isBase = atoi( tokv[1] );
                             x = atoi( tokv[2] );
                             y = atoi( tokv[3] );
                             z = atoi( tokv[4] );
+                            /* optional angles P Y R at [5..7] */
+                            if ( parts >= 8 ) {
+                                pitchi = atoi( tokv[5] );
+                                yawi   = atoi( tokv[6] );
+                                rolli  = atoi( tokv[7] );
+                                haveAngles = 1;
+                            }
                         }
                         spot = G_Spawn();
                         if ( !Q_stricmp( teamStr, "RED" ) ) { spot->fteam = TEAM_RED; }
@@ -705,6 +714,11 @@ static void G_LoadCustomSpawns( void ) {
                             /* many selection paths read spot->s.origin directly */
                             VectorCopy( org, spot->s.origin );
                             trap_LinkEntity( spot );
+                        }
+                        if ( haveAngles ) {
+                            spot->s.angles[PITCH] = (float)pitchi;
+                            spot->s.angles[YAW]   = (float)yawi;
+                            spot->s.angles[ROLL]  = (float)rolli;
                         }
                         if ( level.numSpawnSpots < NUM_SPAWN_SPOTS - 1 ) {
                             level.spawnSpots[ level.numSpawnSpots++ ] = spot;
@@ -864,7 +878,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	G_LocateSpawnSpots();
 
     /* Override with custom spawns if present */
-    G_LoadCustomSpawns();
+    if ( g_customSpawns.integer ) {
+        G_LoadCustomSpawns();
+    }
 
 	G_Printf ("-----------------------------------\n");
 
