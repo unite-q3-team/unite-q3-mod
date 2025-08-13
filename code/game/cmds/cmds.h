@@ -21,6 +21,9 @@ void fteam_f(gentity_t *ent);
 void shuffle_f(gentity_t *ent);
 qboolean Shuffle_Perform( const char *mode );
 void spawns_f(gentity_t *ent);
+void spawnadd_f(gentity_t *ent);
+void spawnrm_f(gentity_t *ent);
+void spawnsave_f(gentity_t *ent);
 
 /* from itemreplace.c */
 void listitems_f(gentity_t *ent);

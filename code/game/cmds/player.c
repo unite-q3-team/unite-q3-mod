@@ -15,7 +15,7 @@ void spawns_f(gentity_t *ent) {
             vec3_t dir;
             gentity_t *m;
             if ( !spot ) continue;
-            VectorCopy( spot->s.origin, org );
+            VectorCopy( spot->r.currentOrigin, org );
             org[2] += 24;
             VectorSet( dir, 0, 0, 1 );
             m = fire_plasma( ent, org, dir );
@@ -842,4 +842,92 @@ void Cmd_UserinfoDump_f(gentity_t *ent) {
     if (buffer[0]) {
         trap_SendServerCommand(ent - g_entities, va("print \"%s\n\"", buffer));
     }
+}
+
+/* Adds a new FFA spawn point at player's position */
+void spawnadd_f(gentity_t *ent) {
+    gentity_t *spot;
+    vec3_t org;
+    if ( !ent || !ent->client || !ent->authed ) return;
+    if ( level.numSpawnSpots >= NUM_SPAWN_SPOTS - 1 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Spawn list full\n\"" );
+        return;
+    }
+    VectorCopy( ent->client->ps.origin, org );
+    spot = G_Spawn();
+    spot->classname = "info_player_deathmatch";
+    spot->fteam = TEAM_FREE;
+    spot->count = 1;
+    G_SetOrigin( spot, org );
+    VectorCopy( org, spot->s.origin );
+    trap_LinkEntity( spot );
+    level.spawnSpots[ level.numSpawnSpots++ ] = spot;
+    level.numSpawnSpotsFFA++;
+    trap_SendServerCommand( ent - g_entities, va("print \"^2Added spawn at ^7%2.f %2.f %2.f\n\"", org[0], org[1], org[2]) );
+}
+
+/* Removes the nearest spawn point within small radius */
+void spawnrm_f(gentity_t *ent) {
+    int i, idx;
+    float bestDist2;
+    vec3_t p;
+    if ( !ent || !ent->client || !ent->authed ) return;
+    if ( level.numSpawnSpots <= 0 ) return;
+    VectorCopy( ent->client->ps.origin, p );
+    bestDist2 = 999999999.0f;
+    idx = -1;
+    for ( i = 0; i < level.numSpawnSpots; ++i ) {
+        gentity_t *spot = level.spawnSpots[i];
+        float dx, dy, dz, d2;
+        if ( !spot ) continue;
+        dx = spot->r.currentOrigin[0] - p[0];
+        dy = spot->r.currentOrigin[1] - p[1];
+        dz = spot->r.currentOrigin[2] - p[2];
+        d2 = dx*dx + dy*dy + dz*dz;
+        if ( d2 < bestDist2 ) { bestDist2 = d2; idx = i; }
+    }
+    if ( idx >= 0 && bestDist2 <= 128.0f * 128.0f ) {
+        gentity_t *spot = level.spawnSpots[idx];
+        trap_SendServerCommand( ent - g_entities, va("print \"^1Removed spawn at ^7%2.f %2.f %2.f\n\"", spot->r.currentOrigin[0], spot->r.currentOrigin[1], spot->r.currentOrigin[2]) );
+        G_FreeEntity( spot );
+        for ( i = idx + 1; i < level.numSpawnSpots; ++i ) {
+            level.spawnSpots[i - 1] = level.spawnSpots[i];
+        }
+        level.numSpawnSpots--;
+        if ( spot->fteam == TEAM_FREE && level.numSpawnSpotsFFA > 0 ) level.numSpawnSpotsFFA--;
+    } else {
+        trap_SendServerCommand( ent - g_entities, "print \"^3No spawn point nearby (<=128u)\n\"" );
+    }
+}
+
+/* Saves current spawn points to spawns.txt using simple key= values */
+void spawnsave_f(gentity_t *ent) {
+    fileHandle_t f;
+    int openRes;
+    int i;
+    char line[128];
+    if ( !ent || !ent->client || !ent->authed ) return;
+    openRes = trap_FS_FOpenFile( "spawns.txt", &f, FS_WRITE );
+    if ( openRes < 0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Failed to open spawns.txt for write\n\"" );
+        return;
+    }
+    for ( i = 0; i < level.numSpawnSpots; ++i ) {
+        gentity_t *spot = level.spawnSpots[i];
+        const char *teamStr;
+        int isBase;
+        if ( !spot ) continue;
+        teamStr = (spot->fteam == TEAM_RED) ? "RED" : (spot->fteam == TEAM_BLUE) ? "BLUE" : "FREE";
+        isBase = (spot->count == 0) ? 1 : 0;
+        Com_sprintf( line, sizeof(line), "spawn.%s.%04d = %s %d %d %d %d\n",
+            g_mapname.string,
+            i,
+            teamStr,
+            isBase,
+            (int)spot->r.currentOrigin[0], (int)spot->r.currentOrigin[1], (int)spot->r.currentOrigin[2]
+        );
+        trap_FS_Write( line, (int)strlen(line), f );
+    }
+    trap_FS_FCloseFile( f );
+    trap_SendServerCommand( ent - g_entities, va("print \"^2Saved %d spawns to spawns.txt\n\"", level.numSpawnSpots) );
 }

@@ -534,6 +534,187 @@ static void G_LocateSpawnSpots( void )
 	level.numSpawnSpots = n;
 }
 
+/* Load per-map custom spawns from spawns.txt, overriding defaults */
+static void G_LoadCustomSpawns( void ) {
+    fileHandle_t f;
+    int flen;
+    char *buf;
+    char *p;
+    int n;
+    if ( (flen = trap_FS_FOpenFile("spawns.txt", &f, FS_READ)) <= 0 ) {
+        return;
+    }
+    if ( flen > 64 * 1024 ) flen = 64 * 1024;
+    buf = (char*)G_Alloc( flen + 1 );
+    if ( !buf ) { trap_FS_FCloseFile(f); return; }
+    trap_FS_Read( buf, flen, f );
+    trap_FS_FCloseFile( f );
+    buf[flen] = '\0';
+
+    /* Parse lines: spawn.<map>.<idx> = TEAM BASE X Y Z */
+    /* If any line for current map is found, we will rebuild spawns using only those */
+    n = 0;
+    {
+        char *scan;
+        int foundAny;
+        foundAny = 0;
+        scan = buf;
+        while ( *scan ) {
+            char line[256];
+            char *nl;
+            int linelen;
+            nl = strchr( scan, '\n' );
+            if ( nl ) linelen = (int)(nl - scan); else linelen = (int)strlen(scan);
+            if ( linelen > (int)sizeof(line) - 1 ) linelen = (int)sizeof(line) - 1;
+            Q_strncpyz( line, scan, linelen + 1 );
+            scan = nl ? nl + 1 : scan + linelen;
+
+            /* trim spaces */
+            {
+                int i = (int)strlen(line);
+                while ( i > 0 && (line[i-1]=='\r' || line[i-1]==' ' || line[i-1]=='\t') ) { line[i-1] = '\0'; i--; }
+            }
+            if ( line[0] == '\0' || line[0] == '#' || (line[0]=='/' && line[1]=='/') ) continue;
+
+            /* split key = value */
+            {
+                char *eq = strchr( line, '=' );
+                if ( !eq ) continue;
+                *eq = '\0';
+                {
+                    char *key = line;
+                    char *val = eq + 1;
+                    /* trim key spaces */
+                    while ( *key == ' ' || *key == '\t' ) key++;
+                    {
+                        int i = (int)strlen(key);
+                        while ( i > 0 && (key[i-1]==' '||key[i-1]=='\t') ) { key[i-1]='\0'; i--; }
+                    }
+                    while ( *val == ' ' || *val == '\t' ) val++;
+                    {
+                        int i = (int)strlen(val);
+                        while ( i > 0 && (val[i-1]==' '||val[i-1]=='\t') ) { val[i-1]='\0'; i--; }
+                    }
+                    /* expect key like spawn.<map>.<idx> */
+                    if ( !Q_strncmp( key, "spawn.", 6 ) ) {
+                        const char *map = key + 6;
+                        const char *dot = strchr( map, '.' );
+                        if ( dot ) {
+                            int mapLen = (int)(dot - map);
+                            char mapKey[64];
+                            if ( mapLen > (int)sizeof(mapKey)-1 ) mapLen = (int)sizeof(mapKey)-1;
+                            Q_strncpyz( mapKey, map, mapLen + 1 );
+                            if ( !Q_stricmp( mapKey, g_mapname.string ) ) {
+                                foundAny = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if ( !foundAny ) {
+            return;
+        }
+    }
+
+    /* Reset arrays; keep intermission spot pointer as-is */
+    level.numSpawnSpots = 0;
+    level.numSpawnSpotsFFA = 0;
+    level.numSpawnSpotsTeam = 0;
+
+    p = buf;
+    while ( *p ) {
+        char line[256];
+        char *nl;
+        int linelen;
+        nl = strchr( p, '\n' );
+        if ( nl ) linelen = (int)(nl - p); else linelen = (int)strlen(p);
+        if ( linelen > (int)sizeof(line) - 1 ) linelen = (int)sizeof(line) - 1;
+        Q_strncpyz( line, p, linelen + 1 );
+        p = nl ? nl + 1 : p + linelen;
+
+        /* trim */
+        {
+            int i = (int)strlen(line);
+            while ( i > 0 && (line[i-1]=='\r'||line[i-1]==' '||line[i-1]=='\t') ) { line[i-1] = '\0'; i--; }
+        }
+        if ( line[0] == '\0' || line[0] == '#' || (line[0]=='/'&&line[1]=='/') ) continue;
+        {
+            char *eq = strchr( line, '=' );
+            if ( !eq ) continue;
+            *eq = '\0';
+            {
+                char *key = line;
+                char *val = eq + 1;
+                while ( *key==' '||*key=='\t' ) key++;
+                {
+                    int i=(int)strlen(key);
+                    while ( i>0 && (key[i-1]==' '||key[i-1]=='\t') ) { key[i-1]='\0'; i--; }
+                }
+                while ( *val==' '||*val=='\t' ) val++;
+
+                if ( !Q_strncmp( key, "spawn.", 6 ) ) {
+                    const char *map = key + 6;
+                    const char *dot = strchr( map, '.' );
+                    if ( dot ) {
+                        int mapLen = (int)(dot - map);
+                        char mapKey[64];
+                        char valcpy[128];
+                        char teamStr[16];
+                        int isBase;
+                        int x, y, z;
+                        gentity_t *spot;
+                        if ( mapLen > (int)sizeof(mapKey)-1 ) mapLen = (int)sizeof(mapKey)-1;
+                        Q_strncpyz( mapKey, map, mapLen + 1 );
+                        if ( Q_stricmp( mapKey, g_mapname.string ) ) continue;
+                        /* parse val without sscanf (not available in QVM) */
+                        Q_strncpyz( valcpy, val, sizeof(valcpy) );
+                        {
+                            char *tokv[6];
+                            int parts;
+                            parts = Com_Split( valcpy, tokv, 6, ' ' );
+                            if ( parts < 5 ) continue;
+                            Q_strncpyz( teamStr, tokv[0], sizeof(teamStr) );
+                            isBase = atoi( tokv[1] );
+                            x = atoi( tokv[2] );
+                            y = atoi( tokv[3] );
+                            z = atoi( tokv[4] );
+                        }
+                        spot = G_Spawn();
+                        if ( !Q_stricmp( teamStr, "RED" ) ) { spot->fteam = TEAM_RED; }
+                        else if ( !Q_stricmp( teamStr, "BLUE" ) ) { spot->fteam = TEAM_BLUE; }
+                        else { spot->fteam = TEAM_FREE; }
+                        /* base flag: 0 for base player spawn, 1 for regular */
+                        spot->count = (isBase ? 0 : 1);
+                        if ( spot->fteam == TEAM_FREE ) {
+                            spot->classname = "info_player_deathmatch";
+                            level.numSpawnSpotsFFA++;
+                        } else if ( spot->fteam == TEAM_RED ) {
+                            spot->classname = isBase ? "team_CTF_redplayer" : "team_CTF_redspawn";
+                            level.numSpawnSpotsTeam++;
+                        } else if ( spot->fteam == TEAM_BLUE ) {
+                            spot->classname = isBase ? "team_CTF_blueplayer" : "team_CTF_bluespawn";
+                            level.numSpawnSpotsTeam++;
+                        }
+                        {
+                            vec3_t org;
+                            org[0] = (float)x;
+                            org[1] = (float)y;
+                            org[2] = (float)z;
+                            G_SetOrigin( spot, org );
+                            /* many selection paths read spot->s.origin directly */
+                            VectorCopy( org, spot->s.origin );
+                            trap_LinkEntity( spot );
+                        }
+                        if ( level.numSpawnSpots < NUM_SPAWN_SPOTS - 1 ) {
+                            level.spawnSpots[ level.numSpawnSpots++ ] = spot;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 extern pmoveConfig_t pmoveConfig;
 
@@ -681,6 +862,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	SaveRegisteredItems();
 
 	G_LocateSpawnSpots();
+
+    /* Override with custom spawns if present */
+    G_LoadCustomSpawns();
 
 	G_Printf ("-----------------------------------\n");
 

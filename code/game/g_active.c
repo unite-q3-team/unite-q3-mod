@@ -52,7 +52,7 @@ static void MaybeSendSpawnMarkers( gentity_t *ent ) {
         vec3_t dir;
         gentity_t *m;
         if ( !spot ) continue;
-        VectorCopy( spot->s.origin, org );
+        VectorCopy( spot->r.currentOrigin, org );
         org[2] += 24;
         VectorSet( dir, 0, 0, 1 );
         m = fire_plasma( ent, org, dir );

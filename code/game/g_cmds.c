@@ -171,9 +171,9 @@ void SendSpawnCoordsToClient(gentity_t *ent) {
     for (i = 0; i < level.numSpawnSpots; i++) {
         spot = level.spawnSpots[i];
 
-        x = (int)(spot->s.origin[0]);
-        y = (int)(spot->s.origin[1]);
-        z = (int)(spot->s.origin[2]);
+        x = (int)(spot->r.currentOrigin[0]);
+        y = (int)(spot->r.currentOrigin[1]);
+        z = (int)(spot->r.currentOrigin[2]);
 
     
         written = Q_snprintf(spawnCoordsStr + len, sizeof(spawnCoordsStr) - len,
@@ -1622,6 +1622,9 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "setpos",          setpos_f,           qtrue  },
     { "poscp",           poscp_f,            qtrue  },
     { "spawns",          spawns_f,           qtrue  },
+    { "spawnadd",        spawnadd_f,         qtrue  },
+    { "spawnrm",         spawnrm_f,          qtrue  },
+    { "spawnsave",       spawnsave_f,        qtrue  },
     { "hi",              hi_f,               qfalse },
     { "fteam",           fteam_f,            qtrue  },
     { "fukk",            fteam_f,            qtrue  },
