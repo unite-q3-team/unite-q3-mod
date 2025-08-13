@@ -93,9 +93,9 @@ void TossClientItems( gentity_t *self ) {
             drop->s.time2 = item->quantity;
         }
 
-	// drop all the powerups if not in teamplay
-	if (!g_freeze.integer) {
-		if (g_gametype.integer != GT_TEAM) {
+    // drop powerups/holdable depending on cvars and mode
+    if (!g_freeze.integer) {
+        if ( g_dropPowerupsOnDeath.integer && g_gametype.integer != GT_TEAM ) {
 			angle = 45;
 			for (i = 1; i < PW_NUM_POWERUPS; i++) {
 				if (self->client->ps.powerups[i] > level.time) {
@@ -103,7 +103,11 @@ void TossClientItems( gentity_t *self ) {
 					if (!item) {
 						continue;
 					}
-					drop = Drop_Item(self, item, angle);
+                    if ( g_dropPowerupsOnDeath.integer ) {
+                        drop = Drop_Item(self, item, angle);
+                    } else {
+                        continue;
+                    }
 					// decide how many seconds it has left
 					drop->count = (self->client->ps.powerups[i] - level.time) / 1000;
 					if (drop->count < 1) {
@@ -116,7 +120,7 @@ void TossClientItems( gentity_t *self ) {
 			}
 		}
 	} else {
-		{
+        if ( g_dropPowerupsOnDeath.integer ) {
 			for (i = 1; i < HI_NUM_HOLDABLE; i++) {
 				if (i == HI_KAMIKAZE)
 					continue;
@@ -136,7 +140,7 @@ void TossClientItems( gentity_t *self ) {
 					if (!item) {
 						continue;
 					}
-					drop = Drop_Item(self, item, angle);
+                    drop = Drop_Item(self, item, angle);
 					// decide how many seconds it has left
 					drop->count = (self->client->ps.powerups[i] - level.time) / 1000;
 					if (drop->count < 1) {
@@ -147,7 +151,7 @@ void TossClientItems( gentity_t *self ) {
 					angle += 45;
 				}
 			}
-		}
+        }
 	}
 }
 

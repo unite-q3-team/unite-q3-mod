@@ -7,6 +7,7 @@ static char vs_cachedMaps[512][64];
 
 /* Runtime-configurable vote rules (loaded from votesystem.txt) */
 #define VS_MAX_RULES 64
+#define VS_MAX_CHOICES 32
 typedef struct {
     char name[32];
     int enabled;            /* 1 enabled (default), 0 disabled */
@@ -17,6 +18,11 @@ typedef struct {
     char displayName[64];   /* friendly name for lists/announcements */
     char valueCvar[64];     /* cvar to read current value from (optional) */
     int visible;            /* 1 visible in /cv by default (default 1) */
+    /* choice-based scripting: select action by argument value */
+    int choiceCount;                                  /* number of cases */
+    char choiceKeys[VS_MAX_CHOICES][32];              /* case key (value) */
+    char choiceActions[VS_MAX_CHOICES][256];          /* per-case action template */
+    char defaultAction[256];                          /* optional default action when no case matches */
 } vs_rule_t;
 
 static vs_rule_t vs_rules[VS_MAX_RULES];
@@ -36,6 +42,8 @@ static void VS_ResetRules(void) {
         vs_rules[i].displayName[0] = '\0';
         vs_rules[i].valueCvar[0] = '\0';
         vs_rules[i].visible = 1;
+        vs_rules[i].choiceCount = 0;
+        vs_rules[i].defaultAction[0] = '\0';
     }
 }
 
@@ -115,6 +123,8 @@ static vs_rule_t *VS_GetOrCreateRule(const char *name) {
     vs_rules[vs_ruleCount].displayName[0] = '\0';
     vs_rules[vs_ruleCount].valueCvar[0] = '\0';
     vs_rules[vs_ruleCount].visible = 1;
+    vs_rules[vs_ruleCount].choiceCount = 0;
+    vs_rules[vs_ruleCount].defaultAction[0] = '\0';
     vs_ruleCount++;
     return &vs_rules[vs_ruleCount - 1];
 }
@@ -177,6 +187,12 @@ static const char *vs_defaultRulesText =
     "g_gametype.enabled = 1\n"
     "g_gametype.visible = 1\n"
     "g_gametype.cvar = g_gametype\n"
+    "# Example of per-argument actions (cases)\n"
+    "g_gametype.case.ffa = g_gametype 0; map_restart\n"
+    "g_gametype.case.duel = g_gametype 1; map_restart\n"
+    "g_gametype.case.tdm = g_gametype 3; map_restart\n"
+    "g_gametype.case.ctf = g_gametype 4; map_restart\n"
+    "g_gametype.usage = Usage: g_gametype <ffa|duel|tdm|ctf>\n"
     "nextmap.name = Next map\n"
     "nextmap.enabled = 1\n"
     "nextmap.action = rotate\n"
@@ -305,6 +321,7 @@ static void VS_LoadRules(void) {
         char attr[64];
         vs_rule_t *rule;
         int dotPos;
+        int isCaseAttr;
 
         nl = strchr(p, '\n');
         if ( nl ) linelen = (int)(nl - p); else linelen = (int)strlen(p);
@@ -348,7 +365,7 @@ static void VS_LoadRules(void) {
 
         rule = VS_GetOrCreateRule(name);
         if ( !rule ) continue;
-
+        isCaseAttr = 0;
         if ( !Q_stricmp(attr, "enabled") ) {
             rule->enabled = VS_StringToBool(val, 1);
         } else if ( !Q_stricmp(attr, "action") ) {
@@ -365,6 +382,23 @@ static void VS_LoadRules(void) {
             Q_strncpyz(rule->valueCvar, val, sizeof(rule->valueCvar));
         } else if ( !Q_stricmp(attr, "visible") ) {
             rule->visible = VS_StringToBool(val, 1);
+        } else if ( !Q_stricmp(attr, "default") ) {
+            Q_strncpyz(rule->defaultAction, val, sizeof(rule->defaultAction));
+        } else {
+            /* case.<key> mapping */
+            const char *casePrefix = "case.";
+            int plen = (int)strlen(casePrefix);
+            if ( (int)strlen(attr) > plen && Q_strncmp(attr, casePrefix, plen) == 0 ) {
+                char ckey[32];
+                isCaseAttr = 1;
+                Q_strncpyz(ckey, attr + plen, sizeof(ckey));
+                VS_Trim(ckey);
+                if ( ckey[0] && rule->choiceCount < VS_MAX_CHOICES ) {
+                    Q_strncpyz(rule->choiceKeys[rule->choiceCount], ckey, sizeof(rule->choiceKeys[0]));
+                    Q_strncpyz(rule->choiceActions[rule->choiceCount], val, sizeof(rule->choiceActions[0]));
+                    rule->choiceCount++;
+                }
+            }
         }
     }
     /* buffer is allocated with G_Alloc; free is not required for VM */
@@ -614,7 +648,7 @@ static qboolean ValidVoteCommand( int clientNum, char *command ) {
             return qfalse;
         }
         /* fall through to default complex handling below */
-    } else if ( rule && rule->action[0] ) {
+    } else if ( rule && (rule->choiceCount > 0 || rule->action[0]) ) {
         char argbuf[MAX_CVAR_VALUE_STRING];
         int j;
         int isNum;
@@ -632,9 +666,52 @@ static qboolean ValidVoteCommand( int clientNum, char *command ) {
             else BG_sprintf( rebuilt, "%s", rule->name );
             Q_strncpyz( base, rebuilt, MAX_CVAR_VALUE_STRING );
         }
+        if ( rule->choiceCount > 0 ) {
+            int idx;
+            if ( argbuf[0] == '\0' ) {
+                if ( rule->usage[0] ) trap_SendServerCommand( clientNum, va("print \"%s\n\"", rule->usage) );
+                else {
+                    int k;
+                    char list[256];
+                    list[0] = '\0';
+                    for ( k = 0; k < rule->choiceCount; ++k ) {
+                        if ( k ) Q_strcat( list, sizeof(list), "|");
+                        Q_strcat( list, sizeof(list), rule->choiceKeys[k] );
+                    }
+                    trap_SendServerCommand( clientNum, va("print \"Usage: %s <%s>\n\"", rule->name, list) );
+                }
+                return qfalse;
+            }
+            /* match argument against allowed choices (case-insensitive) */
+            idx = -1;
+            for ( j = 0; j < rule->choiceCount; ++j ) {
+                if ( Q_stricmp( argbuf, rule->choiceKeys[j] ) == 0 ) { idx = j; break; }
+            }
+            if ( idx >= 0 ) {
+                VS_ReplaceTemplate( rule->choiceActions[idx], argbuf, expanded, sizeof(expanded) );
+                BG_sprintf( base, "%s", expanded );
+                return qtrue;
+            }
+            if ( rule->defaultAction[0] ) {
+                VS_ReplaceTemplate( rule->defaultAction, argbuf, expanded, sizeof(expanded) );
+                BG_sprintf( base, "%s", expanded );
+                return qtrue;
+            }
+            {
+                int k;
+                char list[256];
+                list[0] = '\0';
+                for ( k = 0; k < rule->choiceCount; ++k ) {
+                    if ( k ) Q_strcat( list, sizeof(list), ", ");
+                    Q_strcat( list, sizeof(list), rule->choiceKeys[k] );
+                }
+                trap_SendServerCommand( clientNum, va("print \"Invalid value '%s'. Allowed: %s\n\"", argbuf, list) );
+            }
+            return qfalse;
+        }
         if ( rule->requireArg && argbuf[0] == '\0' ) {
             if ( rule->usage[0] ) trap_SendServerCommand( clientNum, va("print \"%s\n\"", rule->usage) );
-            else trap_SendServerCommand( clientNum, va("print \"Usage: %s <arg>\n\"", buf) );
+            else trap_SendServerCommand( clientNum, va("print \"Usage: %s <arg>\n\"", rule->name) );
             return qfalse;
         }
         if ( rule->numericOnly ) {
@@ -644,7 +721,7 @@ static qboolean ValidVoteCommand( int clientNum, char *command ) {
             }
             if ( !isNum && argbuf[0] != '\0' ) {
                 if ( rule->usage[0] ) trap_SendServerCommand( clientNum, va("print \"%s\n\"", rule->usage) );
-                else trap_SendServerCommand( clientNum, va("print \"Usage: %s <number>\n\"", buf) );
+                else trap_SendServerCommand( clientNum, va("print \"Usage: %s <number>\n\"", rule->name) );
                 return qfalse;
             }
         }
