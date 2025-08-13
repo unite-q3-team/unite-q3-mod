@@ -183,7 +183,7 @@ static int BotFindRescueGoal(bot_state_t *bs, int tfl, bot_goal_t *goal) {
     vec3_t org;
     int found;
 
-    if (!g_freeze.integer) {
+    if (!g_freeze.integer || !g_botRescueFrozen.integer) {
         return qfalse;
     }
 
@@ -210,7 +210,29 @@ static int BotFindRescueGoal(bot_state_t *bs, int tfl, bot_goal_t *goal) {
         VectorCopy(spot->s.pos.trBase, org);
         area = BotPointAreaNum(org);
         if (!area) {
-            continue;
+            /* try ring around the body to find a reachable area */
+            {
+                int ri, ai;
+                float r;
+                vec3_t cand;
+                int foundArea = 0;
+                for ( r = 24.0f; r <= 96.0f && !foundArea; r += 24.0f ) {
+                    for ( ai = 0; ai < 8 && !foundArea; ++ai ) {
+                        float ang = (6.2831853f / 8.0f) * (float)ai;
+                        cand[0] = org[0] + r * (float)cos(ang);
+                        cand[1] = org[1] + r * (float)sin(ang);
+                        cand[2] = org[2];
+                        area = BotPointAreaNum(cand);
+                        if (area) {
+                            VectorCopy(cand, org);
+                            foundArea = 1;
+                        }
+                    }
+                }
+                if (!foundArea) {
+                    continue;
+                }
+            }
         }
         timeTo = trap_AAS_AreaTravelTimeToGoalArea(bs->areanum, bs->origin, area, tfl);
         if (timeTo <= 0) {
@@ -223,8 +245,8 @@ static int BotFindRescueGoal(bot_state_t *bs, int tfl, bot_goal_t *goal) {
             goal->areanum = area;
             goal->mins[0] = -24; goal->mins[1] = -24; goal->mins[2] = -8;
             goal->maxs[0] =  24; goal->maxs[1] =  24; goal->maxs[2] =  8;
-            /* mark as 'touch' goal similar to air so BotReachedGoal can complete */
-            goal->flags = GFL_AIR;
+            /* keep as non-touch goal so bot stays near until thaw completes */
+            goal->flags = GFL_NONE;
             goal->number = 0;
             goal->iteminfo = 0;
             goal->entitynum = spot->s.number;
@@ -243,11 +265,19 @@ int BotNearbyGoal(bot_state_t *bs, int tfl, bot_goal_t *ltg, float range) {
     int ret;
 
     /* FreezeTag rescue: prioritize saving frozen teammates as a nearby goal */
-    {
+    if ( g_freeze.integer && g_botRescueFrozen.integer ) {
         bot_goal_t rescue;
         if ( BotFindRescueGoal(bs, tfl, &rescue) ) {
-            trap_BotPushGoal(bs->gs, &rescue);
-            return qtrue;
+            if ( g_botRescuePriority.integer >= 2 ) {
+                /* override everything: clear goals & push as LTG */
+                trap_BotEmptyGoalStack(bs->gs);
+                trap_BotPushGoal(bs->gs, &rescue);
+                bs->ltg_time = FloatTime() + 10.0f;
+                return qtrue;
+            } else {
+                trap_BotPushGoal(bs->gs, &rescue);
+                return qtrue;
+            }
         }
     }
 
@@ -1797,8 +1827,20 @@ int AINode_Seek_NBG(bot_state_t *bs) {
 		return qfalse;
 	//initialize the movement state
 	BotSetupForMovement(bs);
-	//move towards the goal
-	trap_BotMoveToGoal(&moveresult, bs->ms, &goal, bs->tfl);
+    //move towards the goal
+    trap_BotMoveToGoal(&moveresult, bs->ms, &goal, bs->tfl);
+    /* If our LTG is a rescue goal, relax waiting and keep pushing forward */
+    if ( g_freeze.integer && g_botRescueFrozen.integer ) {
+        bot_goal_t top;
+        if ( trap_BotGetTopGoal( bs->gs, &top ) ) {
+            if ( top.entitynum >= 0 && top.entitynum < level.num_entities ) {
+                gentity_t *te = &g_entities[top.entitynum];
+                if ( te && ftmod_isBody( te ) && te->spawnflags == level.clients[bs->client].sess.sessionTeam ) {
+                    moveresult.flags &= ~MOVERESULT_WAITING;
+                }
+            }
+        }
+    }
 	//if the movement failed
 	if (moveresult.failure) {
 		//reset the avoid reach, otherwise bot is stuck in current area
@@ -1919,14 +1961,20 @@ int AINode_Seek_LTG(bot_state_t *bs)
 	bs->enemy = -1;
 	//
     /* FreezeTag: prioritize rescue by setting as LTG (stable) */
-    {
+    if ( g_freeze.integer && g_botRescueFrozen.integer ) {
         bot_goal_t rescue;
         if ( BotFindRescueGoal(bs, bs->tfl, &rescue) ) {
-            trap_BotEmptyGoalStack(bs->gs);
-            trap_BotPushGoal(bs->gs, &rescue);
-            trap_BotResetLastAvoidReach(bs->ms);
-            bs->ltg_time = FloatTime() + 8.0f;
-            /* continue in Seek_LTG with this top goal */
+            if ( g_botRescuePriority.integer >= 2 ) {
+                trap_BotEmptyGoalStack(bs->gs);
+                trap_BotPushGoal(bs->gs, &rescue);
+                trap_BotResetLastAvoidReach(bs->ms);
+                bs->ltg_time = FloatTime() + 12.0f;
+            } else if ( g_botRescuePriority.integer >= 1 ) {
+                trap_BotEmptyGoalStack(bs->gs);
+                trap_BotPushGoal(bs->gs, &rescue);
+                trap_BotResetLastAvoidReach(bs->ms);
+                bs->ltg_time = FloatTime() + 8.0f;
+            }
         }
     }
 

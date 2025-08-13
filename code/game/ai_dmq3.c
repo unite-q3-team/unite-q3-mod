@@ -4469,8 +4469,48 @@ void BotAIBlocked(bot_state_t *bs, bot_moveresult_t *moveresult, int activate) {
 		//
 		return;
 	}
-	// get info for the entity that is blocking the bot
-	BotEntityInfo(moveresult->blockentity, &entinfo);
+    // get info for the entity that is blocking the bot
+    BotEntityInfo(moveresult->blockentity, &entinfo);
+
+	// FreezeTag: if blocked by a frozen body, optionally try to shove it using a shot
+	if ( g_freeze.integer && g_botShoveBodies.integer && entinfo.number >= 0 && entinfo.number < MAX_GENTITIES ) {
+        gentity_t *blocker = &g_entities[ entinfo.number ];
+        if ( blocker && ftmod_isBody(blocker) ) {
+            vec3_t dir, to; /* declare first per C89 */
+            int desired;     /* weapon selection */
+            gentity_t *me;
+            int myTeam;
+
+            /* do NOT shove teammate bodies (those we should rescue). Only shove enemy bodies */
+            me = &g_entities[ bs->client ];
+            myTeam = (me && me->client) ? me->client->sess.sessionTeam : TEAM_FREE;
+            if ( blocker->spawnflags == myTeam ) {
+                return; /* teammate body: don't shove; wait or navigate */
+            }
+            /* add a small cooldown so we don't fire every frame */
+            if ( FloatTime() < bs->notblocked_time + 0.6f ) {
+                return;
+            }
+            /* face the blocker and fire once to nudge; prefer shotgun if available */
+            desired = WP_SHOTGUN;
+            VectorSubtract( blocker->r.currentOrigin, bs->eye, to );
+            vectoangles( to, bs->ideal_viewangles );
+            /* select shotgun if we have ammo, otherwise MG */
+            if ( bs->inventory[INVENTORY_SHELLS] > 0 ) {
+                desired = WP_SHOTGUN;
+            } else if ( bs->inventory[INVENTORY_BULLETS] > 0 ) {
+                desired = WP_MACHINEGUN;
+            }
+            trap_EA_SelectWeapon( bs->client, desired );
+            /* short tap of attack */
+            trap_EA_Attack( bs->client );
+            /* small step to avoid standing still */
+            AngleVectors( bs->viewangles, dir, NULL, NULL );
+            trap_BotMoveInDirection( bs->ms, dir, 200, MOVE_WALK );
+            bs->notblocked_time = FloatTime();
+            return;
+        }
+    }
 #ifdef OBSTACLEDEBUG
 	ClientName(bs->client, netname, sizeof(netname));
 	BotAI_Print(PRT_MESSAGE, "%s: I'm blocked by model %d\n", netname, entinfo.modelindex);

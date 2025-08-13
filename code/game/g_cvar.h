@@ -218,5 +218,11 @@ G_CVAR( g_x_drawDamage, "g_x_drawDamage", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtr
 G_CVAR( g_x_unfreezeFoe, "g_x_unfreezeFoe", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_x_drawHitbox, "g_x_drawHitbox", "1", CVAR_ARCHIVE | CVAR_LATCH, 0, qtrue, qfalse )
 
+/* Bot behavior toggles for FreezeTag support */
+G_CVAR( g_botRescueFrozen, "g_botRescueFrozen", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_botShoveBodies,  "g_botShoveBodies",  "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* 0 = off, 1 = high priority (current), 2 = override everything (suicidal rescue) */
+G_CVAR( g_botRescuePriority, "g_botRescuePriority", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 
 #undef G_CVAR
