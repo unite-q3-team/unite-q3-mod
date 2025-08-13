@@ -61,35 +61,37 @@ void TossClientItems( gentity_t *self ) {
 	int			i;
 	gentity_t	*drop;
 
-	// drop the weapon if not a gauntlet or machinegun
-	if (!g_items_deathDrop.integer || g_instagib.integer)
-		return;
-	weapon = self->s.weapon;
+    // drop the weapon if not a gauntlet or machinegun
+    if (!g_items_deathDrop.integer || !g_dropWeaponOnDeath.integer || g_instagib.integer)
+        return;
 
-	// make a special check to see if they are changing to a new
-	// weapon that isn't the mg or gauntlet.  Without this, a client
-	// can pick up a weapon, be killed, and not drop the weapon because
-	// their weapon change hasn't completed yet and they are still holding the MG.
-	if ( weapon == WP_MACHINEGUN || weapon == WP_GRAPPLING_HOOK ) {
-		if ( self->client->ps.weaponstate == WEAPON_DROPPING ) {
-			weapon = self->client->pers.cmd.weapon;
-		}
-		if ( !( self->client->ps.stats[STAT_WEAPONS] & ( 1 << weapon ) ) ) {
-			weapon = WP_NONE;
-		}
-	}
+    /* weapon drop policy is now controlled purely by cvars */
+        weapon = self->s.weapon;
 
-	if ( weapon > WP_MACHINEGUN && weapon != WP_GRAPPLING_HOOK && 
-		self->client->ps.ammo[ weapon ] ) {
-		// find the item type for this weapon
-		item = BG_FindItemForWeapon( weapon );
+        // make a special check to see if they are changing to a new
+        // weapon that isn't the mg or gauntlet.  Without this, a client
+        // can pick up a weapon, be killed, and not drop the weapon because
+        // their weapon change hasn't completed yet and they are still holding the MG.
+        if ( weapon == WP_MACHINEGUN || weapon == WP_GRAPPLING_HOOK ) {
+            if ( self->client->ps.weaponstate == WEAPON_DROPPING ) {
+                weapon = self->client->pers.cmd.weapon;
+            }
+            if ( !( self->client->ps.stats[STAT_WEAPONS] & ( 1 << weapon ) ) ) {
+                weapon = WP_NONE;
+            }
+        }
 
-		// spawn the item
-		drop = Drop_Item( self, item, 0 );
+        if ( weapon > WP_MACHINEGUN && weapon != WP_GRAPPLING_HOOK && 
+            self->client->ps.ammo[ weapon ] ) {
+            // find the item type for this weapon
+            item = BG_FindItemForWeapon( weapon );
 
-		// for pickup prediction
-		drop->s.time2 = item->quantity;
-	}
+            // spawn the item
+            drop = Drop_Item( self, item, 0 );
+
+            // for pickup prediction
+            drop->s.time2 = item->quantity;
+        }
 
 	// drop all the powerups if not in teamplay
 	if (!g_freeze.integer) {

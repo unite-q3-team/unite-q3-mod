@@ -161,6 +161,7 @@ G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, q
 G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
 G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_dropWeaponOnDeath, "g_dropWeaponOnDeath", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_spawn_items, "g_spawn_items", "63", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_spawn_quad, "g_spawn_quad", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
