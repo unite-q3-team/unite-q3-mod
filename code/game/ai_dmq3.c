@@ -4476,10 +4476,12 @@ void BotAIBlocked(bot_state_t *bs, bot_moveresult_t *moveresult, int activate) {
 	if ( g_freeze.integer && g_botShoveBodies.integer && entinfo.number >= 0 && entinfo.number < MAX_GENTITIES ) {
         gentity_t *blocker = &g_entities[ entinfo.number ];
         if ( blocker && ftmod_isBody(blocker) ) {
-            vec3_t dir, to; /* declare first per C89 */
+            vec3_t dir, to; /* vector to blocker */
+            vec3_t side;     /* lateral sidestep */
             int desired;     /* weapon selection */
             gentity_t *me;
             int myTeam;
+            float dist2;
 
             /* do NOT shove teammate bodies (those we should rescue). Only shove enemy bodies */
             me = &g_entities[ bs->client ];
@@ -4491,22 +4493,45 @@ void BotAIBlocked(bot_state_t *bs, bot_moveresult_t *moveresult, int activate) {
             if ( FloatTime() < bs->notblocked_time + 0.6f ) {
                 return;
             }
-            /* face the blocker and fire once to nudge; prefer shotgun if available */
+            /* compute planar vectors */
+            VectorSubtract( blocker->r.currentOrigin, bs->origin, to );
+            to[2] = 0.0f;
+            dist2 = to[0]*to[0] + to[1]*to[1];
+            if ( dist2 > 0.001f ) {
+                float inv = 1.0f / (float)sqrt( dist2 );
+                to[0] *= inv; to[1] *= inv;
+            }
+            /* side = perpendicular (rotate 90 deg) */
+            side[0] = -to[1]; side[1] = to[0]; side[2] = 0.0f;
+            /* alternate left/right over time to try to bypass */
+            if ( ((int)(FloatTime()*2.0f)) & 1 ) { side[0] = -side[0]; side[1] = -side[1]; }
+
+            /* prefer sidestep when too close or no safe ammo */
+            if ( bs->inventory[INVENTORY_SHELLS] <= 0 && bs->inventory[INVENTORY_BULLETS] <= 0 ) {
+                trap_BotMoveInDirection( bs->ms, side, 220, MOVE_WALK );
+                bs->notblocked_time = FloatTime();
+                return;
+            }
+
+            /* if very close, first try to sidestep then nudge */
+            if ( dist2 < 36.0f*36.0f ) {
+                trap_BotMoveInDirection( bs->ms, side, 220, MOVE_WALK );
+                bs->notblocked_time = FloatTime();
+                return;
+            }
+
+            /* face the blocker and fire once to nudge; force non-explosive weapon */
             desired = WP_SHOTGUN;
-            VectorSubtract( blocker->r.currentOrigin, bs->eye, to );
-            vectoangles( to, bs->ideal_viewangles );
-            /* select shotgun if we have ammo, otherwise MG */
+            { vec3_t toEye; VectorSubtract( blocker->r.currentOrigin, bs->eye, toEye ); vectoangles( toEye, bs->ideal_viewangles ); }
             if ( bs->inventory[INVENTORY_SHELLS] > 0 ) {
                 desired = WP_SHOTGUN;
-            } else if ( bs->inventory[INVENTORY_BULLETS] > 0 ) {
+            } else {
                 desired = WP_MACHINEGUN;
             }
             trap_EA_SelectWeapon( bs->client, desired );
-            /* short tap of attack */
             trap_EA_Attack( bs->client );
-            /* small step to avoid standing still */
-            AngleVectors( bs->viewangles, dir, NULL, NULL );
-            trap_BotMoveInDirection( bs->ms, dir, 200, MOVE_WALK );
+            /* also add slight forward push towards blocker to encourage progress */
+            trap_BotMoveInDirection( bs->ms, to, 200, MOVE_WALK );
             bs->notblocked_time = FloatTime();
             return;
         }
