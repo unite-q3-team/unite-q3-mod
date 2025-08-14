@@ -2870,6 +2870,30 @@ static void Cmd_Test_f( gentity_t *ent ) {
 	trap_SendServerCommand( ent-g_entities, "print \"Pohuui\n\"");
 }
 
+static void Cmd_HookOn_f( gentity_t *ent ) {
+    if ( !ent || !ent->client ) return;
+    if ( !g_hook.integer ) return;
+    if ( ent->client->hook ) return;
+    {
+        vec3_t forward, right, up;
+        vec3_t muzzle, origin;
+        AngleVectors( ent->client->ps.viewangles, forward, right, up );
+        VectorCopy( ent->client->ps.origin, origin );
+        origin[2] += ent->client->ps.viewheight;
+        VectorMA( origin, 14.0f, forward, muzzle );
+        fire_grapple( ent, muzzle, forward );
+        ent->client->fireHeld = qtrue;
+    }
+}
+
+static void Cmd_HookOff_f( gentity_t *ent ) {
+    if ( !ent || !ent->client ) return;
+    if ( ent->client->hook ) {
+        Weapon_HookFree( ent->client->hook );
+    }
+    ent->client->fireHeld = qfalse;
+}
+
 
 
 
@@ -2917,6 +2941,9 @@ void ClientCommand( int clientNum ) {
 		}
 		return;	// not fully in game yet
 	}
+
+    if (Q_stricmp (cmd, "+hook") == 0) { Cmd_HookOn_f(ent); return; }
+    if (Q_stricmp (cmd, "-hook") == 0) { Cmd_HookOff_f(ent); return; }
 
 	if (Q_stricmp (cmd, "say") == 0) {
 		Cmd_Say_f (ent, SAY_ALL, qfalse);

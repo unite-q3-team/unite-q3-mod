@@ -1108,11 +1108,41 @@ void ClientThink_real( gentity_t *ent ) {
 		client->ps.speed *= 1.3;
 	}
 
-	// Let go of the hook if we aren't firing
-	if ( client->ps.weapon == WP_GRAPPLING_HOOK &&
-		client->hook && !( ucmd->buttons & BUTTON_ATTACK ) ) {
-		Weapon_HookFree(client->hook);
+	/* Offhand hook on +button5 (BUTTON_AFFIRMATIVE) */
+	if ( g_hook.integer ) {
+		qboolean hookPress;
+		qboolean hookRelease;
+		hookPress = ( (ucmd->buttons & BUTTON_AFFIRMATIVE) && !(client->oldbuttons & BUTTON_AFFIRMATIVE) ) ? qtrue : qfalse;
+		hookRelease = ( !(ucmd->buttons & BUTTON_AFFIRMATIVE) && (client->oldbuttons & BUTTON_AFFIRMATIVE) ) ? qtrue : qfalse;
+		if ( hookPress && !client->hook ) {
+			vec3_t forward, right, up;
+			vec3_t origin, muzzle;
+			AngleVectors( client->ps.viewangles, forward, right, up );
+			VectorCopy( client->ps.origin, origin );
+			origin[2] += client->ps.viewheight;
+			VectorMA( origin, 14.0f, forward, muzzle );
+			fire_grapple( ent, muzzle, forward );
+			client->fireHeld = qtrue;
+		}
+		if ( hookRelease ) {
+			if ( client->hook ) {
+				Weapon_HookFree( client->hook );
+			}
+			client->fireHeld = qfalse;
+		}
 	}
+
+	// Let go of the hook if we aren't firing (also allow offhand hook when g_hook enabled)
+    if ( client->hook ) {
+        if ( client->ps.weapon == WP_GRAPPLING_HOOK ) {
+            if ( !( ucmd->buttons & BUTTON_ATTACK ) ) {
+                Weapon_HookFree(client->hook);
+            }
+        } else if ( g_hook.integer ) {
+            // offhand hook persists until -hook or weapon attack released via -hook
+            // nothing here; release handled by -hook command
+        }
+    }
 
 	// set up for pmove
 	oldEventSequence = client->ps.eventSequence;

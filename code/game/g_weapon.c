@@ -670,7 +670,41 @@ void Weapon_HookThink (gentity_t *ent)
 		G_SetOrigin( ent, v );
 	}
 
-	VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
+    VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
+    /* toggle visibility while pulling */
+    if ( g_hook_visiblePull.integer ) {
+        ent->r.svFlags &= ~SVF_NOCLIENT;
+    } else {
+        ent->r.svFlags |= SVF_NOCLIENT;
+    }
+
+    /* apply configurable pull speed */
+    if ( ent->parent && ent->parent->client ) {
+        float pull = (float)g_hook_pullSpeed.integer;
+        if ( pull > 0.0f ) {
+            vec3_t dir;
+            VectorSubtract( ent->r.currentOrigin, ent->parent->r.currentOrigin, dir );
+            dir[2] += 0; /* no vertical bias */
+            if ( VectorNormalize( dir ) ) {
+                ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
+                ent->parent->client->ps.velocity[0] = dir[0] * pull;
+                ent->parent->client->ps.velocity[1] = dir[1] * pull;
+                /* preserve vertical velocity, slight lift */
+                ent->parent->client->ps.velocity[2] += 0;
+            }
+        }
+        /* stop pulling if max distance exceeded */
+        if ( g_hook_maxDist.integer > 0 ) {
+            vec3_t delta;
+            float d2;
+            VectorSubtract( ent->r.currentOrigin, ent->parent->r.currentOrigin, delta );
+            d2 = delta[0]*delta[0] + delta[1]*delta[1] + delta[2]*delta[2];
+            if ( d2 > (float)g_hook_maxDist.integer * (float)g_hook_maxDist.integer ) {
+                Weapon_HookFree( ent );
+                return;
+            }
+        }
+    }
 }
 
 

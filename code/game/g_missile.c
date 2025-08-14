@@ -355,12 +355,18 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 	}
 #endif
 
-	if (!strcmp(ent->classname, "hook")) {
+    if (!strcmp(ent->classname, "hook")) {
 		gentity_t *nent;
 		vec3_t v;
 
 		nent = G_Spawn();
-		if ( other->takedamage && other->client ) {
+        if ( other->takedamage && other->client ) {
+            if ( !g_hook_allowPlayers.integer ) {
+                // treat as wall hit instead
+                VectorCopy(trace->endpos, v);
+                G_AddEvent( nent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
+                ent->enemy = NULL;
+            } else {
 
 			G_AddEvent( nent, EV_MISSILE_HIT, DirToByte( trace->plane.normal ) );
 			nent->s.otherEntityNum = other->s.number;
@@ -372,6 +378,7 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 			v[2] = other->r.currentOrigin[2] + (other->r.mins[2] + other->r.maxs[2]) * 0.5;
 
 			SnapVectorTowards( v, ent->s.pos.trBase );	// save net bandwidth
+            }
 		} else {
 			VectorCopy(trace->endpos, v);
 			G_AddEvent( nent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
@@ -381,9 +388,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		SnapVectorTowards( v, ent->s.pos.trBase );	// save net bandwidth
 
 		nent->freeAfterEvent = qtrue;
-		// change over to a normal entity right at the point of impact
-		nent->s.eType = ET_GENERAL;
-		ent->s.eType = ET_GRAPPLE;
+        // change over to a normal entity right at the point of impact
+        nent->s.eType = ET_GENERAL;
+        ent->s.eType = ET_GRAPPLE;
+        ent->s.weapon = WP_GRAPPLING_HOOK; /* ensure correct grapple type when latched */
 
 		G_SetOrigin( ent, v );
 		G_SetOrigin( nent, v );
@@ -394,7 +402,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
 		VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
 
-		trap_LinkEntity( ent );
+        /* optionally hide the latched hook entity (visual beam is client-side in mods; here we can choose) */
+        if ( !g_hook_visiblePull.integer ) {
+            ent->r.svFlags |= SVF_NOCLIENT;
+        } else {
+            ent->r.svFlags &= ~SVF_NOCLIENT;
+        }
+        trap_LinkEntity( ent );
 		trap_LinkEntity( nent );
 
 		return;
@@ -520,7 +534,24 @@ void G_RunMissile( gentity_t *ent ) {
 		}
 	}
 
-	// trace a line from the previous position to the current position
+    // enforce hook max distance during flight
+    if ( g_hook_maxDist.integer > 0 && ent->classname && !Q_stricmp(ent->classname, "hook") ) {
+        vec3_t delta;
+        float d2;
+        if ( ent->parent ) {
+            VectorSubtract( ent->r.currentOrigin, ent->parent->r.currentOrigin, delta );
+            d2 = delta[0]*delta[0] + delta[1]*delta[1] + delta[2]*delta[2];
+            if ( d2 > (float)g_hook_maxDist.integer * (float)g_hook_maxDist.integer ) {
+                if ( ent->parent->client && ent->parent->client->hook == ent ) {
+                    ent->parent->client->hook = NULL;
+                }
+                G_FreeEntity( ent );
+                return;
+            }
+        }
+    }
+
+    // trace a line from the previous position to the current position
 	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
 
 	if ( tr.startsolid || tr.allsolid ) {
@@ -791,17 +822,19 @@ gentity_t *fire_grapple (gentity_t *self, vec3_t start, vec3_t dir) {
 	hook->classname = "hook";
 	hook->nextthink = level.time + 10000;
 	hook->think = Weapon_HookFree;
-	hook->s.eType = ET_MISSILE;
+    hook->s.eType = ET_MISSILE;
 	hook->r.svFlags = SVF_USE_CURRENT_ORIGIN;
-	hook->s.weapon = WP_GRAPPLING_HOOK;
+    /* use visible missile visuals (plasma) for flight; still MOD_GRAPPLE on impact */
+    hook->s.weapon = WP_PLASMAGUN;
 	hook->r.ownerNum = self->s.number;
 	hook->methodOfDeath = MOD_GRAPPLE;
 	hook->clipmask = MASK_SHOT;
 	hook->parent = self;
 	hook->target_ent = NULL;
 
-	// missile owner
-	hook->s.clientNum = self->s.clientNum;
+    // missile owner
+    hook->s.clientNum = self->s.clientNum;
+    hook->s.generic1 = WP_GRAPPLING_HOOK; /* remember real weapon for impact logic */
 	// unlagged
 	hook->s.otherEntityNum = self->s.number;
 
@@ -815,9 +848,21 @@ gentity_t *fire_grapple (gentity_t *self, vec3_t start, vec3_t dir) {
 	hook->s.pos.trTime = hooktime;
 	VectorCopy( start, hook->s.pos.trBase );
 	SnapVector( hook->s.pos.trBase );			// save net bandwidth
-	VectorScale( dir, 800, hook->s.pos.trDelta );
+    VectorScale( dir, g_hook_speed.integer > 0 ? (float)g_hook_speed.integer : 800.0f, hook->s.pos.trDelta );
 	SnapVector( hook->s.pos.trDelta );			// save net bandwidth
 	VectorCopy (start, hook->r.currentOrigin);
+
+	/* initial clamp: if already beyond max distance, abort */
+	if ( g_hook_maxDist.integer > 0 ) {
+		vec3_t delta;
+		float d2;
+		VectorSubtract( hook->r.currentOrigin, self->r.currentOrigin, delta );
+		d2 = delta[0]*delta[0] + delta[1]*delta[1] + delta[2]*delta[2];
+		if ( d2 > (float)g_hook_maxDist.integer * (float)g_hook_maxDist.integer ) {
+			G_FreeEntity( hook );
+			return NULL;
+		}
+	}
 
 	self->client->hook = hook;
 

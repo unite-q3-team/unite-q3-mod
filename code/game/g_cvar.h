@@ -216,6 +216,14 @@ G_CVAR( pmove_autohop, "pmove_autohop", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, 
 G_CVAR( pmove_accurate, "pmove_accurate", "0", CVAR_SYSTEMINFO | CVAR_ARCHIVE, 0, qtrue, qfalse )
 // G_CVAR( g_vulnerableMissiles, "g_vulnerableMissiles", "0", CVAR_SERVERINFO | CVAR_ARCHIVE| CVAR_NORESTART, 0, qfalse, qfalse )
 
+/* Server-side free grappling hook controls */
+G_CVAR( g_hook, "g_hook", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_hook_speed, "g_hook_speed", "800", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_hook_pullSpeed, "g_hook_pullSpeed", "800", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_hook_maxDist, "g_hook_maxDist", "1200", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_hook_visiblePull, "g_hook_visiblePull", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_hook_allowPlayers, "g_hook_allowPlayers", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
+
 //freeze
 G_CVAR( g_freeze, "g_freeze", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_thawTime, "g_thawTime", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
