@@ -1576,11 +1576,30 @@ void BotChooseWeapon(bot_state_t *bs) {
 			bs->cur_ps.weaponstate == WEAPON_DROPPING) {
 		trap_EA_SelectWeapon(bs->client, bs->weaponnum);
 	}
-	else {
+    else {
+                if (bot_ricochet.integer == 2) {
+                    /* prefer ricochet-capable projectile weapons if available */
+                    if (bs->inventory[INVENTORY_ROCKETLAUNCHER] && bs->inventory[INVENTORY_ROCKETS] > 0) {
+                        newweaponnum = WP_ROCKET_LAUNCHER;
+                    } else if (bs->inventory[INVENTORY_PLASMAGUN] && bs->inventory[INVENTORY_CELLS] > 0) {
+                        newweaponnum = WP_PLASMAGUN;
+                    } else if (bs->inventory[INVENTORY_BFG10K] && bs->inventory[INVENTORY_BFGAMMO] > 0) {
+                        newweaponnum = WP_BFG;
+                    } else if (bs->inventory[INVENTORY_GRENADELAUNCHER] && bs->inventory[INVENTORY_GRENADES] > 0) {
+                        newweaponnum = WP_GRENADE_LAUNCHER;
+                    } else {
+                        /* fall back to normal selection */
+                        if(g_instagib.integer)
+                            newweaponnum = WP_RAILGUN;
+                        else
+                            newweaponnum = trap_BotChooseBestFightWeapon(bs->ws, bs->inventory);
+                    }
+                } else {
                 if(g_instagib.integer)
                     newweaponnum = WP_RAILGUN;
                 else
                     newweaponnum = trap_BotChooseBestFightWeapon(bs->ws, bs->inventory);
+                }
 		if (bs->weaponnum != newweaponnum) bs->weaponchange_time = FloatTime();
 		bs->weaponnum = newweaponnum;
 		//BotAI_Print(PRT_MESSAGE, "bs->weaponnum = %d\n", bs->weaponnum);
