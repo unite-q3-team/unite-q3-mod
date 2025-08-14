@@ -166,6 +166,18 @@ G_CVAR( g_homing_pg_smart,  "g_homing_pg_smart",  "0", 0, 0, qtrue, qfalse )
 G_CVAR( g_homing_bfg_smart, "g_homing_bfg_smart", "0", 0, 0, qtrue, qfalse )
 G_CVAR( g_homing_gl_smart,  "g_homing_gl_smart",  "0", 0, 0, qtrue, qfalse )
 
+/* ricochet counts per-weapon (number of bounces off world geometry) */
+// hitscan ricochet controls removed
+// G_CVAR( g_ricochet_mg,  "g_ricochet_mg",  "0", 0, 0, qtrue, qfalse )
+// G_CVAR( g_ricochet_sg,  "g_ricochet_sg",  "0", 0, 0, qtrue, qfalse )
+// G_CVAR( g_ricochet_lg,  "g_ricochet_lg",  "0", 0, 0, qtrue, qfalse )
+// G_CVAR( g_ricochet_rg,  "g_ricochet_rg",  "0", 0, 0, qtrue, qfalse )
+/* -1 = unlimited (preserve classic grenade bouncing), 0 = no extra ricochets, N > 0 = limited */
+G_CVAR( g_ricochet_gl,  "g_ricochet_gl",  "-1", 0, 0, qtrue, qfalse )
+G_CVAR( g_ricochet_rl,  "g_ricochet_rl",  "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_ricochet_pg,  "g_ricochet_pg",  "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_ricochet_bfg, "g_ricochet_bfg", "0", 0, 0, qtrue, qfalse )
+
 G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
 G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )
 G_CVAR( g_sg_fireRatio,     "g_sg_fireRatio",     "1000", 0, 0, qfalse, qfalse )

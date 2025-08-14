@@ -63,6 +63,8 @@ vmCvar_t bot_nochat;
 vmCvar_t bot_testrchat;
 vmCvar_t bot_challenge;
 vmCvar_t bot_predictobstacles;
+/* bot ricochet behavior: 0=off, 1=allow, 2=only ricochets (projectiles) */
+vmCvar_t bot_ricochet;
 vmCvar_t g_spSkill;
 
 extern vmCvar_t bot_developer;
@@ -3648,7 +3650,14 @@ void BotCheckAttack(bot_state_t *bs) {
 		return;
 
 	//get the weapon info
-	trap_BotGetWeaponInfo(bs->ws, bs->weaponnum, &wi);
+    trap_BotGetWeaponInfo(bs->ws, bs->weaponnum, &wi);
+    /* ricochet behavior control: 2 = only-use ricochet-capable projectile weapons */
+    if ( bot_ricochet.integer == 2 ) {
+        weapon_t w = bs->weaponnum;
+        if (!(w == WP_ROCKET_LAUNCHER || w == WP_GRENADE_LAUNCHER || w == WP_PLASMAGUN || w == WP_BFG)) {
+            return; /* do not fire non-ricochet weapon */
+        }
+    }
 	//get the start point shooting from
 	VectorCopy(bs->origin, start);
 	start[2] += bs->cur_ps.viewheight;
@@ -3660,7 +3669,20 @@ void BotCheckAttack(bot_state_t *bs) {
 	VectorMA(start, 1000, forward, end);
 	//a little back to make sure not inside a very close enemy
 	VectorMA(start, -12, forward, start);
-	BotAI_Trace(&trace, start, mins, maxs, end, bs->entitynum, MASK_SHOT);
+    BotAI_Trace(&trace, start, mins, maxs, end, bs->entitynum, MASK_SHOT);
+    /* if ricochet allowed, see if immediate shot hits world; if so, still allow firing (bounce) */
+    if ( bot_ricochet.integer >= 1 ) {
+        if ((trace.ent < 0 || trace.ent >= MAX_CLIENTS) && (trace.fraction < 1.0f)) {
+            /* shooting into wall: allow if using ricochet-capable projectile */
+            weapon_t w = bs->weaponnum;
+            if (w == WP_ROCKET_LAUNCHER || w == WP_GRENADE_LAUNCHER || w == WP_PLASMAGUN || w == WP_BFG) {
+                // fall through; ok to fire into wall
+            } else {
+                // for non-projectiles, keep old behavior
+                // do nothing special
+            }
+        }
+    }
 	//if the entity is a client
 	if (trace.ent >= 0 && trace.ent < MAX_CLIENTS) {
 		if (trace.ent != attackentity) {
@@ -5493,7 +5515,8 @@ void BotSetupDeathmatchAI(void) {
 	trap_Cvar_Register(&bot_nochat, "bot_nochat", "0", 0);
 	trap_Cvar_Register(&bot_testrchat, "bot_testrchat", "0", 0);
 	trap_Cvar_Register(&bot_challenge, "bot_challenge", "0", 0);
-	trap_Cvar_Register(&bot_predictobstacles, "bot_predictobstacles", "1", 0);
+    trap_Cvar_Register(&bot_predictobstacles, "bot_predictobstacles", "1", 0);
+    trap_Cvar_Register(&bot_ricochet, "bot_ricochet", "0", 0);
 	trap_Cvar_Register(&g_spSkill, "g_spSkill", "2", 0);
 	//
 	if (gametype == GT_CTF) {

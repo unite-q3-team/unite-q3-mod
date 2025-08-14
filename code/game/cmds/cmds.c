@@ -50,6 +50,17 @@ static wc_map_t s_wcMap[] = {
     { "homing.pg.smart",        "g_homing_pg_smart",        &g_homing_pg_smart },
     { "homing.bfg.smart",       "g_homing_bfg_smart",       &g_homing_bfg_smart },
     { "homing.gl.smart",        "g_homing_gl_smart",        &g_homing_gl_smart },
+
+	/* ricochet bounce count per-weapon */
+    // hitscan ricochets removed
+    // { "ricochet.mg",            "g_ricochet_mg",            &g_ricochet_mg },
+    // { "ricochet.sg",            "g_ricochet_sg",            &g_ricochet_sg },
+    // { "ricochet.lg",            "g_ricochet_lg",            &g_ricochet_lg },
+    // { "ricochet.rg",            "g_ricochet_rg",            &g_ricochet_rg },
+	{ "ricochet.gl",            "g_ricochet_gl",            &g_ricochet_gl },
+	{ "ricochet.rl",            "g_ricochet_rl",            &g_ricochet_rl },
+	{ "ricochet.pg",            "g_ricochet_pg",            &g_ricochet_pg },
+	{ "ricochet.bfg",           "g_ricochet_bfg",           &g_ricochet_bfg },
 };
 static const int s_wcMapCount = (int)(sizeof(s_wcMap)/sizeof(s_wcMap[0]));
 
@@ -73,8 +84,8 @@ static void WC_WriteDefaultFile(void) {
     r = trap_FS_FOpenFile("weapons.txt", &f, FS_WRITE);
     if ( r < 0 ) return;
     hdr = "# weapons.txt - weapon configuration (key = value)\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
-    hdr = "# groups: damage.<wp>, projectile.<wp>.speed, fireRatio.<wp>, homing.<wp> (0/1)\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
-    hdr = "# homing.<wp>.radius=<units>, homing.<wp>.smart=0|1|2\n\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
+    hdr = "# groups: damage.<wp>, projectile.<wp>.speed, fireRatio.<wp>, homing.<wp> (0/1), ricochet.<wp> (projectiles only)\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
+    hdr = "# homing.<wp>.radius=<units>, homing.<wp>.smart=0|1|2; ricochet.<wp>=-1|0|N  (-1=inf for GL)\n\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
     for ( i = 0; i < s_wcMapCount; ++i ) {
         vmCvar_t *vc = s_wcMap[i].vc;
         Com_sprintf( line, sizeof(line), "%s = %s\n", s_wcMap[i].key, (vc ? vc->string : "0") );

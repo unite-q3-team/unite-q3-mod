@@ -200,8 +200,8 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 	VectorMA( end, r, right, end );
 	VectorMA( end, u, up, end );
 
-	passent = ent->s.number;
-	for ( i = 0; i < 10; i++ ) {
+    passent = ent->s.number;
+    for ( i = 0; i < 10; i++ ) {
 
 		// unlagged
 		G_DoTimeShiftFor( ent );
@@ -211,8 +211,8 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 		// unlagged
 		G_UndoTimeShiftFor( ent );
 
-		if ( tr.surfaceFlags & SURF_NOIMPACT )
-			return;
+        if ( tr.surfaceFlags & SURF_NOIMPACT )
+            return;
 
 		traceEnt = &g_entities[ tr.entityNum ];
 
@@ -244,7 +244,7 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 		}
 		tent->s.otherEntityNum = ent->s.number;
 
-		if ( traceEnt->takedamage ) {
+        if ( traceEnt->takedamage ) {
 #ifdef MISSIONPACK
 			if ( traceEnt->client && traceEnt->client->invulnerabilityTime > level.time ) {
 				if (G_InvulnerabilityEffect( traceEnt, forward, tr.endpos, impactpoint, bouncedir )) {
@@ -265,9 +265,9 @@ static void Bullet_Fire( gentity_t *ent, float spread, int damage ) {
 #ifdef MISSIONPACK
 			}
 #endif
-		}
-		break;
-	}
+        }
+        break;
+    }
 }
 
 
@@ -310,20 +310,25 @@ static qboolean ShotgunPellet( const vec3_t start, const vec3_t end, gentity_t *
 	vec3_t		impactpoint, bouncedir;
 #endif
 	vec3_t		tr_start, tr_end;
-	qboolean	hitClient = qfalse;
+	qboolean	hitClient;
+	int			ric, maxBounce;
+	vec3_t		bounceStart, newEnd;
 
+	hitClient = qfalse;
 	passent = ent->s.number;
 	VectorCopy( start, tr_start );
 	VectorCopy( end, tr_end );
+    ric = 0; maxBounce = 0; /* disable SG ricochet */
+    VectorCopy( tr_start, bounceStart );
 
 	for ( i = 0; i < 10; i++ ) {
 		trap_Trace( &tr, tr_start, NULL, NULL, tr_end, passent, MASK_SHOT );
 		traceEnt = &g_entities[ tr.entityNum ];
 
 		// send bullet impact
-		if (  tr.surfaceFlags & SURF_NOIMPACT ) {
-			return qfalse;
-		}
+        if (  tr.surfaceFlags & SURF_NOIMPACT ) {
+            break;
+        }
 
 		if ( traceEnt->takedamage ) {
 			damage = g_sg_damage.integer * s_quadFactor;
@@ -346,10 +351,11 @@ static qboolean ShotgunPellet( const vec3_t start, const vec3_t end, gentity_t *
                 hitClient = qtrue;
             }
 			G_Damage( traceEnt, ent, ent, forward, tr.endpos, damage, 0, MOD_SHOTGUN );
-			return hitClient;
+            return hitClient;
 #endif
 		}
-		return qfalse;
+        /* no ricochet for shotgun */
+		break;
 	}
 	return qfalse;
 }
@@ -505,11 +511,11 @@ void weapon_railgun_fire( gentity_t *ent ) {
 	// unlagged
 	G_DoTimeShiftFor( ent );
 
-	// trace only against the solids, so the railgun will go through people
-	unlinked = 0;
-	hits = 0;
-	passent = ent->s.number;
-	do {
+    // trace only against the solids, so the railgun will go through people
+    unlinked = 0;
+    hits = 0;
+    passent = ent->s.number;
+    do {
 		{
 			trap_Trace (&trace, muzzle, NULL, NULL, end, passent, MASK_SHOT );
 		}
@@ -535,7 +541,7 @@ void weapon_railgun_fire( gentity_t *ent ) {
 					// move origin a bit to come closer to the drawn gun muzzle
 					VectorMA( tent->s.origin2, 4, right, tent->s.origin2 );
 					VectorMA( tent->s.origin2, -1, up, tent->s.origin2 );
-					tent->s.eventParm = 255;	// don't make the explosion at the end
+					tent->s.eventParm = 255; // don't make the explosion at the end
 					//
 					VectorCopy( impactpoint, muzzle );
 					// the player can hit him/herself with the bounced rail
@@ -551,20 +557,18 @@ void weapon_railgun_fire( gentity_t *ent ) {
 			}
 #endif
 		}
-		if ( trace.contents & CONTENTS_SOLID ) {
+        // world hit: no ricochet for railgun
+        if ( trace.contents & CONTENTS_SOLID ) {
 			if (g_railJump.integer) {
 				G_RailJump( trace.endpos, ent );
 			}
-		break;
-		}
-		if ( trace.contents & CONTENTS_SOLID ) {
-			break;		// we hit something solid enough to stop the beam
+			break; // hit something solid enough to stop the beam
 		}
 		// unlink this entity, so the next trace will go past it
 		trap_UnlinkEntity( traceEnt );
 		unlinkedEntities[unlinked] = traceEnt;
 		unlinked++;
-	} while ( unlinked < MAX_RAIL_HITS );
+    } while ( unlinked < MAX_RAIL_HITS );
 
 	// unlagged
 	G_UndoTimeShiftFor( ent );
@@ -595,7 +599,7 @@ void weapon_railgun_fire( gentity_t *ent ) {
 
 	// no explosion at end if SURF_NOIMPACT, but still make the trail
 	if ( trace.surfaceFlags & SURF_NOIMPACT ) {
-		tent->s.eventParm = 255;	// don't make the explosion at the end
+		tent->s.eventParm = 255; // don't make the explosion at the end
 	} else {
 		tent->s.eventParm = DirToByte( trace.plane.normal );
 	}
@@ -605,7 +609,7 @@ void weapon_railgun_fire( gentity_t *ent ) {
 	if ( hits == 0 ) {
 		// complete miss
 		ent->client->accurateCount = 0;
-    } else {
+	} else {
 		// check for "impressive" reward sound
 		ent->client->accurateCount += hits;
 		if ( ent->client->accurateCount >= 2 ) {
@@ -616,12 +620,12 @@ void weapon_railgun_fire( gentity_t *ent ) {
 			ent->client->ps.eFlags |= EF_AWARD_IMPRESSIVE;
 			ent->client->rewardTime = level.time + REWARD_SPRITE_TIME;
 		}
-        ent->client->accuracy_hits++;
-        {
-            int w = ent->s.weapon;
-            if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
-            ent->client->perWeaponHits[ w ] += hits > 0 ? hits : 1;
-        }
+		ent->client->accuracy_hits++;
+		{
+			int w = ent->s.weapon;
+			if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
+			ent->client->perWeaponHits[ w ] += hits > 0 ? hits : 1;
+		}
 	}
 
 }
@@ -689,9 +693,8 @@ void Weapon_LightningFire( gentity_t *ent ) {
 
 	damage = g_lg_damage.integer * s_quadFactor;
 
-	passent = ent->s.number;
-
-	for (i = 0; i < 10; i++) {
+    passent = ent->s.number;
+    for (i = 0; i < 10; i++) {
 		VectorMA( muzzle_origin, LIGHTNING_RANGE, forward, end );
 
 		// unlagged
@@ -714,13 +717,13 @@ void Weapon_LightningFire( gentity_t *ent ) {
 			VectorCopy( end, tent->s.origin2 );
 		}
 #endif
-		if ( tr.entityNum == ENTITYNUM_NONE ) {
-			return;
-		}
+            if ( tr.entityNum == ENTITYNUM_NONE ) {
+                return;
+            }
 
 		traceEnt = &g_entities[ tr.entityNum ];
 
-		if ( traceEnt->takedamage ) {
+            if ( traceEnt->takedamage ) {
 #ifdef MISSIONPACK
 			if ( traceEnt->client && traceEnt->client->invulnerabilityTime > level.time ) {
 				if (G_InvulnerabilityEffect( traceEnt, forward, tr.endpos, impactpoint, bouncedir )) {
@@ -730,7 +733,7 @@ void Weapon_LightningFire( gentity_t *ent ) {
 					VectorNormalize(forward);
 					// the player can hit him/herself with the bounced lightning
 					passent = ENTITYNUM_NONE;
-				}
+            }
 				else {
 					VectorCopy( tr.endpos, muzzle );
 					passent = traceEnt->s.number;
@@ -748,7 +751,7 @@ void Weapon_LightningFire( gentity_t *ent ) {
 #endif
 		}
 
-		if ( traceEnt->takedamage && traceEnt->client ) {
+            if ( traceEnt->takedamage && traceEnt->client ) {
 			tent = G_TempEntity( tr.endpos, EV_MISSILE_HIT );
 			tent->s.otherEntityNum = traceEnt->s.number;
 			tent->s.eventParm = DirToByte( tr.plane.normal );
@@ -760,14 +763,15 @@ void Weapon_LightningFire( gentity_t *ent ) {
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = ent->s.weapon;
 		//freeze
-		} else if ( !( tr.surfaceFlags & SURF_NOIMPACT ) ) {
+            } else if ( !( tr.surfaceFlags & SURF_NOIMPACT ) ) {
 			tent = G_TempEntity( tr.endpos, EV_MISSILE_MISS );
 			tent->s.eventParm = DirToByte( tr.plane.normal );
 			tent->s.weapon = ent->s.weapon;
-		}
+            }
 
-		break;
-	}
+        /* no ricochet for lightning */
+        break;
+    }
 }
 
 #ifdef MISSIONPACK

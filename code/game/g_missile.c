@@ -259,13 +259,21 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 #endif
 	other = &g_entities[trace->entityNum];
 
-	// check for bounce
-	if ( !other->takedamage &&
-		( ent->s.eFlags & ( EF_BOUNCE | EF_BOUNCE_HALF ) ) ) {
-		G_BounceMissile( ent, trace );
-		G_AddEvent( ent, EV_GRENADE_BOUNCE, 0 );
-		return;
-	}
+    // check for bounce with limited ricochet count
+    if ( !other->takedamage &&
+        ( ent->s.eFlags & ( EF_BOUNCE | EF_BOUNCE_HALF ) ) ) {
+        if ( ent->count != 0 ) {
+            if ( ent->count > 0 ) {
+                ent->count--;
+            }
+            G_BounceMissile( ent, trace );
+            G_AddEvent( ent, EV_GRENADE_BOUNCE, 0 );
+            return;
+        } else {
+            // disable further bounces and continue to explode below
+            ent->s.eFlags &= ~( EF_BOUNCE | EF_BOUNCE_HALF );
+        }
+    }
 
 #ifdef MISSIONPACK
 	if ( other->takedamage ) {
@@ -584,7 +592,12 @@ gentity_t *fire_plasma (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt->methodOfDeath = MOD_PLASMA;
 	bolt->splashMethodOfDeath = MOD_PLASMA_SPLASH;
 	bolt->clipmask = MASK_SHOT;
-	bolt->target_ent = NULL;
+    bolt->target_ent = NULL;
+    /* set ricochet count and enable bounce if configured */
+    bolt->count = g_ricochet_pg.integer;
+    if ( bolt->count > 0 ) {
+        bolt->s.eFlags |= EF_BOUNCE;
+    }
 
 	// missile owner
 	bolt->s.clientNum = self->s.clientNum;
@@ -623,7 +636,7 @@ gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt->s.eType = ET_MISSILE;
 	bolt->r.svFlags = SVF_USE_CURRENT_ORIGIN;
 	bolt->s.weapon = WP_GRENADE_LAUNCHER;
-	bolt->s.eFlags = EF_BOUNCE_HALF;
+    bolt->s.eFlags = EF_BOUNCE_HALF;
 	bolt->r.ownerNum = self->s.number;
 	bolt->parent = self;
 	bolt->damage = g_gl_damage.integer;
@@ -632,7 +645,9 @@ gentity_t *fire_grenade (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt->methodOfDeath = MOD_GRENADE;
 	bolt->splashMethodOfDeath = MOD_GRENADE_SPLASH;
 	bolt->clipmask = MASK_SHOT;
-	bolt->target_ent = NULL;
+    bolt->target_ent = NULL;
+    /* number of grenade bounces allowed */
+    bolt->count = g_ricochet_gl.integer;
 
 	if ( self->s.powerups & (1 << PW_QUAD) )
 		bolt->s.powerups |= (1 << PW_QUAD);
@@ -681,7 +696,11 @@ gentity_t *fire_bfg (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt->methodOfDeath = MOD_BFG;
 	bolt->splashMethodOfDeath = MOD_BFG_SPLASH;
 	bolt->clipmask = MASK_SHOT;
-	bolt->target_ent = NULL;
+    bolt->target_ent = NULL;
+    bolt->count = g_ricochet_bfg.integer;
+    if ( bolt->count > 0 ) {
+        bolt->s.eFlags |= EF_BOUNCE;
+    }
 
 	if ( self->s.powerups & (1 << PW_QUAD) )
 		bolt->s.powerups |= (1 << PW_QUAD);
@@ -730,7 +749,11 @@ gentity_t *fire_rocket (gentity_t *self, vec3_t start, vec3_t dir) {
 	bolt->methodOfDeath = MOD_ROCKET;
 	bolt->splashMethodOfDeath = MOD_ROCKET_SPLASH;
 	bolt->clipmask = MASK_SHOT;
-	bolt->target_ent = NULL;
+    bolt->target_ent = NULL;
+    bolt->count = g_ricochet_rl.integer;
+    if ( bolt->count > 0 ) {
+        bolt->s.eFlags |= EF_BOUNCE;
+    }
 
 	if ( self->s.powerups & (1 << PW_QUAD) )
 		bolt->s.powerups |= (1 << PW_QUAD);
