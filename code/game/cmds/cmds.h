@@ -17,8 +17,6 @@ void plsauth_f(gentity_t *ent);
 void deauth_f(gentity_t *ent);
 void killplayer_f(gentity_t *ent);
 void Cmd_svfps_f(gentity_t *ent);
-/* in g_cmds.c */
-void Cmd_SysInfo_f(gentity_t *ent);
 void fteam_f(gentity_t *ent);
 void shuffle_f(gentity_t *ent);
 qboolean Shuffle_Perform( const char *mode );
@@ -44,6 +42,11 @@ void iradd_f(gentity_t *ent);
 void irrm_f(gentity_t *ent);
 void irrepl_f(gentity_t *ent);
 void irsave_f(gentity_t *ent);
+
+/* weapons.c */
+void Weapons_Init(void);
+void wtreload_f(gentity_t *ent);
+void wtlist_f(gentity_t *ent);
 void irmove_f(gentity_t *ent);
 void irundo_f(gentity_t *ent);
 void irredo_f(gentity_t *ent);

@@ -1708,6 +1708,8 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "irredo",          irredo_f,           qtrue  },
     { "irrespawn",       irrespawn_f,        qtrue  },
     { "irsave",          irsave_f,           qtrue  },
+    { "wtreload",       wtreload_f,         qtrue  },
+    { "wtlist",         wtlist_f,           qtrue  },
     { "shuffle",         shuffle_f,          qtrue  },
     { "playerlist",      Cmd_Plrlist_f,      qfalse },
     { "players",         Cmd_Plrlist_f,      qfalse },

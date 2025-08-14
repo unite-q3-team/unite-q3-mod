@@ -784,6 +784,8 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
     DC_Init();
 
     G_InitFireRatios();
+    /* load weapons config overrides */
+    Weapons_Init();
 
     /* initialize vote system rules file early so default gets created if missing */
     VS_Init();

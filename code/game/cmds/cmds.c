@@ -1,6 +1,110 @@
 // code/game/cmds/cmds.c
 #include "cmds.h"
 
+/* -------- Weapons file-based config -------- */
+extern void G_InitFireRatios(void);
+
+typedef struct {
+    const char *key;
+    const char *cvarName;
+    vmCvar_t *vc;
+} wc_map_t;
+
+static wc_map_t s_wcMap[] = {
+    { "damage.gauntlet",        "g_gauntlet_damage",        &g_gauntlet_damage },
+    { "damage.mg",              "g_mg_damage",              &g_mg_damage },
+    { "damage.mgTeam",          "g_mg_damageTeam",          &g_mg_damageTeam },
+    { "damage.sg",              "g_sg_damage",              &g_sg_damage },
+    { "damage.gl",              "g_gl_damage",              &g_gl_damage },
+    { "damage.rl",              "g_rl_damage",              &g_rl_damage },
+    { "damage.lg",              "g_lg_damage",              &g_lg_damage },
+    { "damage.rg",              "g_rg_damage",              &g_rg_damage },
+    { "damage.pg",              "g_pg_damage",              &g_pg_damage },
+    { "damage.bfg",             "g_bfg_damage",             &g_bfg_damage },
+
+    { "projectile.rl.speed",    "g_rl_projectileSpeed",     &g_rl_projectileSpeed },
+    { "projectile.pg.speed",    "g_pg_projectileSpeed",     &g_pg_projectileSpeed },
+    { "projectile.bfg.speed",   "g_bfg_projectileSpeed",    &g_bfg_projectileSpeed },
+
+    { "fireRatio.gauntlet",     "g_gauntlet_fireRatio",     &g_gauntlet_fireRatio },
+    { "fireRatio.lg",           "g_lg_fireRatio",           &g_lg_fireRatio },
+    { "fireRatio.sg",           "g_sg_fireRatio",           &g_sg_fireRatio },
+    { "fireRatio.mg",           "g_mg_fireRatio",           &g_mg_fireRatio },
+    { "fireRatio.gl",           "g_gl_fireRatio",           &g_gl_fireRatio },
+    { "fireRatio.rl",           "g_rl_fireRatio",           &g_rl_fireRatio },
+    { "fireRatio.pg",           "g_pg_fireRatio",           &g_pg_fireRatio },
+    { "fireRatio.rg",           "g_rg_fireRatio",           &g_rg_fireRatio },
+    { "fireRatio.bfg",          "g_bfg_fireRatio",          &g_bfg_fireRatio },
+};
+static const int s_wcMapCount = (int)(sizeof(s_wcMap)/sizeof(s_wcMap[0]));
+
+static void WC_TrimRight(char *s) {
+    int n = (int)strlen(s);
+    while ( n > 0 && (s[n-1]==' '||s[n-1]=='\t'||s[n-1]=='\r'||s[n-1]=='\n') ) { s[n-1]='\0'; n--; }
+}
+static void WC_TrimLeft(char *s) {
+    int i=0,n=(int)strlen(s); char *p;
+    while ( i<n && (s[i]==' '||s[i]=='\t'||s[i]=='\r'||s[i]=='\n') ) i++;
+    if ( i>0 ) { p=s+i; memmove(s,p,strlen(p)+1); }
+}
+static void WC_Trim(char *s) { WC_TrimRight(s); WC_TrimLeft(s); }
+
+static wc_map_t *WC_FindEntry(const char *key) {
+    int i; for ( i=0; i<s_wcMapCount; ++i ) { if ( Q_stricmp(s_wcMap[i].key, key)==0 ) return &s_wcMap[i]; } return NULL;
+}
+
+static void WC_WriteDefaultFile(void) {
+    fileHandle_t f; int r; int i; char line[256];
+    r = trap_FS_FOpenFile("weapons.txt", &f, FS_WRITE);
+    if ( r < 0 ) return;
+    trap_FS_Write("# weapons.txt — weapon configuration (key = value)\n", 57, f);
+    trap_FS_Write("# groups: damage.<wp>, projectile.<wp>.speed, fireRatio.<wp>\n\n", 66, f);
+    for ( i = 0; i < s_wcMapCount; ++i ) {
+        vmCvar_t *vc = s_wcMap[i].vc;
+        Com_sprintf( line, sizeof(line), "%s = %s\n", s_wcMap[i].key, (vc ? vc->string : "0") );
+        trap_FS_Write( line, (int)strlen(line), f );
+    }
+    trap_FS_FCloseFile( f );
+}
+
+static void WC_LoadFile(void) {
+    fileHandle_t f; int flen; char *buf; char *p;
+    flen = trap_FS_FOpenFile("weapons.txt", &f, FS_READ);
+    if ( flen <= 0 ) {
+        WC_WriteDefaultFile();
+        flen = trap_FS_FOpenFile("weapons.txt", &f, FS_READ);
+        if ( flen <= 0 ) return;
+    }
+    if ( flen > 32*1024 ) flen = 32*1024;
+    buf = (char*)G_Alloc(flen+1); if (!buf) { trap_FS_FCloseFile(f); return; }
+    trap_FS_Read(buf, flen, f); trap_FS_FCloseFile(f); buf[flen]='\0';
+    p = buf;
+    while ( *p ) {
+        char *nl; int linelen; char line[256]; char *eq; char key[128]; char val[64]; vmCvar_t *vc;
+        nl = strchr(p,'\n'); linelen = nl ? (int)(nl-p) : (int)strlen(p);
+        if ( linelen > (int)sizeof(line)-1 ) linelen = (int)sizeof(line)-1;
+        Q_strncpyz(line,p,linelen+1); p = nl ? nl+1 : p+linelen;
+        WC_Trim(line); if (!line[0]) continue; if (line[0]=='#' || (line[0]=='/'&&line[1]=='/')) continue;
+        eq = strchr(line,'='); if (!eq) continue;
+        Q_strncpyz(key,line,(int)(eq-line)+1); Q_strncpyz(val,eq+1,sizeof(val)); WC_Trim(key); WC_Trim(val);
+        {
+            wc_map_t *m = WC_FindEntry(key);
+            if ( m && m->vc ) { trap_Cvar_Set(m->cvarName, val); trap_Cvar_Update(m->vc); }
+        }
+    }
+}
+
+void Weapons_Init(void) { WC_LoadFile(); G_InitFireRatios(); }
+
+void wtreload_f(gentity_t *ent) { if (!ent||!ent->client||!ent->authed) return; WC_LoadFile(); G_InitFireRatios(); trap_SendServerCommand(ent-g_entities, "print \"^2weapons: reloaded\n\""); }
+
+void wtlist_f(gentity_t *ent) {
+    int i; char line[256]; if (!ent||!ent->client||!ent->authed) return; 
+    trap_SendServerCommand(ent-g_entities, "print \"\n^2Weapons Config (effective)^7\n\"");
+    trap_SendServerCommand(ent-g_entities, "print \"^7-----------------------------\n\"");
+    for ( i=0; i<s_wcMapCount; ++i ) { Com_sprintf(line,sizeof(line), "^5%-22s ^7= ^2%s", s_wcMap[i].key, s_wcMap[i].vc ? s_wcMap[i].vc->string : ""); trap_SendServerCommand(ent-g_entities, va("print \"%s\n\"", line)); }
+}
+
 /* ---------------- Disabled commands config (disabledcmds.txt) ---------------- */
 
 static char s_dc_names[256][32];
