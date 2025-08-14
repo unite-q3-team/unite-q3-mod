@@ -65,6 +65,35 @@ vmCvar_t bot_challenge;
 vmCvar_t bot_predictobstacles;
 /* bot ricochet behavior: 0=off, 1=allow, 2=only ricochets (projectiles) */
 vmCvar_t bot_ricochet;
+/* melee-only gauntlet fighter */
+vmCvar_t bot_gauntletonly;
+/* bot projectile dodge controls */
+vmCvar_t bot_dodge;            /* 0/1 enable */
+vmCvar_t bot_dodge_chance;     /* 0..1 probability */
+vmCvar_t bot_dodge_dot;        /* 0..1 aim alignment threshold */
+vmCvar_t bot_dodge_radius_rl;  /* radius for RL avoid spot */
+vmCvar_t bot_dodge_radius_pg;  /* radius for PG avoid spot */
+vmCvar_t bot_dodge_radius_bfg; /* radius for BFG avoid spot */
+vmCvar_t bot_dodge_radius_gl;  /* radius for GL avoid spot */
+/* advanced combat behavior */
+vmCvar_t bot_prefire; vmCvar_t bot_prefire_chance;
+vmCvar_t bot_aimHeadBias; vmCvar_t bot_aimLeadScale;
+vmCvar_t bot_antilg_wiggle; vmCvar_t bot_wiggle_freq; vmCvar_t bot_wiggle_amp;
+vmCvar_t bot_dodge_jumpChance; vmCvar_t bot_dodge_duckChance;
+/* per-weapon accuracy multipliers */
+vmCvar_t bot_accuracy_scale_mg; vmCvar_t bot_accuracy_scale_sg; vmCvar_t bot_accuracy_scale_rl;
+vmCvar_t bot_accuracy_scale_pg; vmCvar_t bot_accuracy_scale_rg; vmCvar_t bot_accuracy_scale_bfg; vmCvar_t bot_accuracy_scale_lg;
+vmCvar_t bot_aimJitterScale; /* 0..1, scales random aim jitter; 0 = off */
+/* LG duel distance and wiggle burst controls */
+vmCvar_t bot_wiggle_stride_ms; vmCvar_t bot_wiggle_side_ms;
+vmCvar_t bot_wiggle_burst_chance; vmCvar_t bot_wiggle_burst_ms; vmCvar_t bot_wiggle_burst_cooldown;
+vmCvar_t bot_lg_dist_min; vmCvar_t bot_lg_dist_max;
+
+/* per-client micro-state for wiggle bursts */
+static float s_wiggleBurstUntil[MAX_CLIENTS];
+static float s_wiggleBurstCooldownUntil[MAX_CLIENTS];
+static float s_wiggleNextFlipTime[MAX_CLIENTS];
+static int   s_wiggleDir[MAX_CLIENTS]; /* -1 left, +1 right, 0 unset */
 vmCvar_t g_spSkill;
 
 extern vmCvar_t bot_developer;
@@ -1577,6 +1606,11 @@ void BotChooseWeapon(bot_state_t *bs) {
 		trap_EA_SelectWeapon(bs->client, bs->weaponnum);
 	}
     else {
+                if (bot_gauntletonly.integer) {
+                    // всегда перчатка, если есть
+                    if (bs->inventory[INVENTORY_GAUNTLET]) newweaponnum = WP_GAUNTLET;
+                    else newweaponnum = WP_GAUNTLET; // форс даже без проверки
+                } else
                 if (bot_ricochet.integer == 2) {
                     /* prefer ricochet-capable projectile weapons if available */
                     if (bs->inventory[INVENTORY_ROCKETLAUNCHER] && bs->inventory[INVENTORY_ROCKETS] > 0) {
@@ -3353,12 +3387,14 @@ void BotAimAtEnemy(bot_state_t *bs) {
 
 	//get the weapon information
 	trap_BotGetWeaponInfo(bs->ws, bs->weaponnum, &wi);
-	//get the weapon specific aim accuracy and or aim skill
+    //get the weapon specific aim accuracy and or aim skill
 	if (wi.number == WP_MACHINEGUN) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_MACHINEGUN, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_mg.value;
 	}
 	else if (wi.number == WP_SHOTGUN) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_SHOTGUN, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_sg.value;
 	}
 	else if (wi.number == WP_GRENADE_LAUNCHER) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_GRENADELAUNCHER, 0, 1);
@@ -3367,21 +3403,28 @@ void BotAimAtEnemy(bot_state_t *bs) {
 	else if (wi.number == WP_ROCKET_LAUNCHER) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_ROCKETLAUNCHER, 0, 1);
 		aim_skill = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_SKILL_ROCKETLAUNCHER, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_rl.value;
 	}
-	else if (wi.number == WP_LIGHTNING) {
-		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_LIGHTNING, 0, 1);
-	}
+    else if (wi.number == WP_LIGHTNING) {
+        aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_LIGHTNING, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_lg.value;
+    }
 	else if (wi.number == WP_RAILGUN) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_RAILGUN, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_rg.value;
 	}
 	else if (wi.number == WP_PLASMAGUN) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_PLASMAGUN, 0, 1);
 		aim_skill = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_SKILL_PLASMAGUN, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_pg.value;
 	}
 	else if (wi.number == WP_BFG) {
 		aim_accuracy = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_ACCURACY_BFG10K, 0, 1);
 		aim_skill = trap_Characteristic_BFloat(bs->character, CHARACTERISTIC_AIM_SKILL_BFG10K, 0, 1);
+        aim_accuracy *= bot_accuracy_scale_bfg.value;
 	}
+    if (aim_accuracy < 0.0001f) aim_accuracy = 0.0001f;
+    if (aim_accuracy > 1.5f) aim_accuracy = 1.5f;
 	//
 	if (aim_accuracy <= 0) aim_accuracy = 0.0001f;
 	//get the enemy entity information
@@ -3555,8 +3598,14 @@ void BotAimAtEnemy(bot_state_t *bs) {
 	else {
 		VectorCopy(bestorigin, bs->aimtarget);
 	}
-	//get aim direction
-	VectorSubtract(bestorigin, bs->eye, dir);
+    //get aim direction
+    VectorSubtract(bestorigin, bs->eye, dir);
+    /* lead compensation */
+    if ( bot_aimLeadScale.value > 0.0f ) {
+        vec3_t add; VectorScale(enemyvelocity, bot_aimLeadScale.value * 0.05f, add);
+        VectorAdd(bestorigin, add, bestorigin);
+        VectorSubtract(bestorigin, bs->eye, dir);
+    }
 	//
 	if (wi.number == WP_MACHINEGUN ||
 		wi.number == WP_SHOTGUN ||
@@ -3568,17 +3617,23 @@ void BotAimAtEnemy(bot_state_t *bs) {
 		f = 0.6 + dist / 150 * 0.4;
 		aim_accuracy *= f;
 	}
-	//add some random stuff to the aim direction depending on the aim accuracy
-	if (aim_accuracy < 0.8) {
-		VectorNormalize(dir);
-		for (i = 0; i < 3; i++) dir[i] += 0.3 * crandom() * (1 - aim_accuracy);
-	}
-	//set the ideal view angles
+    //add some controlled random jitter depending on aim accuracy
+    {
+        float js = bot_aimJitterScale.value;
+        if (js < 0.0f) js = 0.0f; if (js > 1.0f) js = 1.0f;
+        if (aim_accuracy < 1.0f && js > 0.0f) {
+            VectorNormalize(dir);
+            for (i = 0; i < 2; i++) dir[i] += js * 0.15f * crandom() * (1 - aim_accuracy);
+        }
+    }
+    //set the ideal view angles
             vectoangles(dir, bs->ideal_viewangles);
+            /* center bias (aim to chest) instead of head for consistent LG */
+            bs->ideal_viewangles[PITCH] += bot_aimHeadBias.value * 6.0f;
             bs->ideal_viewangles[0] += crandom() * 0.5f;
             bs->ideal_viewangles[1] += crandom() * 0.5f;
-	//take the weapon spread into account for lower skilled bots
-	bs->ideal_viewangles[PITCH] += 6 * wi.vspread * crandom() * (1 - aim_accuracy);
+    //take the weapon spread into account for lower skilled bots
+    bs->ideal_viewangles[PITCH] += 6 * wi.vspread * crandom() * (1 - aim_accuracy);
 	bs->ideal_viewangles[PITCH] = AngleMod(bs->ideal_viewangles[PITCH]);
 	bs->ideal_viewangles[YAW] += 6 * wi.hspread * crandom() * (1 - aim_accuracy);
 	bs->ideal_viewangles[YAW] = AngleMod(bs->ideal_viewangles[YAW]);
@@ -3656,10 +3711,16 @@ void BotCheckAttack(bot_state_t *bs) {
 			return;
 		}
 	}
-	if (VectorLengthSquared(dir) < Square(100))
+    if (VectorLengthSquared(dir) < Square(100))
 		fov = 120;
 	else
 		fov = 50;
+    /* micro anti-LG wiggle: adjust desired yaw slightly over time */
+    if ( bot_antilg_wiggle.integer ) {
+        float t = FloatTime() * bot_wiggle_freq.value;
+        float off = (float)sin(t) * bot_wiggle_amp.value;
+        bs->viewangles[YAW] = AngleMod(bs->viewangles[YAW] + off * 0.05f);
+    }
 	//
 	vectoangles(dir, angles);
 	if (!InFieldOfVision(bs->viewangles, fov, angles))
@@ -3670,25 +3731,83 @@ void BotCheckAttack(bot_state_t *bs) {
 
 	//get the weapon info
     trap_BotGetWeaponInfo(bs->ws, bs->weaponnum, &wi);
+    /* enforce gauntlet-only */
+    if ( bot_gauntletonly.integer ) {
+        bs->weaponnum = WP_GAUNTLET;
+        trap_EA_SelectWeapon(bs->client, WP_GAUNTLET);
+    }
     /* ricochet behavior control: 2 = only-use ricochet-capable projectile weapons */
     if ( bot_ricochet.integer == 2 ) {
         weapon_t w = bs->weaponnum;
-        if (!(w == WP_ROCKET_LAUNCHER || w == WP_GRENADE_LAUNCHER || w == WP_PLASMAGUN || w == WP_BFG)) {
+        if (!bot_gauntletonly.integer && !(w == WP_ROCKET_LAUNCHER || w == WP_GRENADE_LAUNCHER || w == WP_PLASMAGUN || w == WP_BFG)) {
             return; /* do not fire non-ricochet weapon */
         }
     }
-	//get the start point shooting from
+    //get the start point shooting from
 	VectorCopy(bs->origin, start);
 	start[2] += bs->cur_ps.viewheight;
 	AngleVectors(bs->viewangles, forward, right, NULL);
 	start[0] += forward[0] * wi.offset[0] + right[0] * wi.offset[1];
 	start[1] += forward[1] * wi.offset[0] + right[1] * wi.offset[1];
 	start[2] += forward[2] * wi.offset[0] + right[2] * wi.offset[1] + wi.offset[2];
-	//end point aiming at
-	VectorMA(start, 1000, forward, end);
+    //end point aiming at, with prefire offset
+    if ( bot_prefire.integer && random() < bot_prefire_chance.value ) {
+        VectorMA(start, 1200, forward, end);
+    } else {
+        VectorMA(start, 1000, forward, end);
+    }
 	//a little back to make sure not inside a very close enemy
 	VectorMA(start, -12, forward, start);
     BotAI_Trace(&trace, start, mins, maxs, end, bs->entitynum, MASK_SHOT);
+    /* anti-LG behavior: avoid jumping, prefer crouch micro-dodge and lateral strafe */
+    {
+        qboolean inLG; float dist2;
+        int enemyWeapon = WP_NONE;
+        if (attackentity >= 0 && attackentity < MAX_GENTITIES && g_entities[attackentity].client) {
+            enemyWeapon = g_entities[attackentity].client->ps.weapon;
+        }
+        dist2 = VectorLengthSquared(dir);
+        inLG = (enemyWeapon == WP_LIGHTNING || bs->weaponnum == WP_LIGHTNING) && (dist2 < Square(768));
+        if ( inLG ) {
+            /* держать дистанцию */
+            {
+                float d = (float)sqrt(dist2);
+                if ( d < bot_lg_dist_min.value ) {
+                    // отступить: чуть-чуть назад по направлению взгляда противника
+                    trap_EA_MoveBack(bs->client);
+                } else if ( d > bot_lg_dist_max.value ) {
+                    // поджаться
+                    trap_EA_MoveForward(bs->client);
+                }
+            }
+            if ( random() < bot_dodge_duckChance.value ) {
+                // короткий присед, но без прыжков — сбивает вертикальный паттерн шафта
+                trap_EA_Crouch(bs->client);
+                bs->attackjump_time = FloatTime() + 0.0f; // блокируем любые прыжковые фазы
+            }
+            if ( bot_antilg_wiggle.integer ) {
+                int cl = bs->client;
+                float now = FloatTime();
+                if ( s_wiggleNextFlipTime[cl] < now ) {
+                    s_wiggleDir[cl] = (s_wiggleDir[cl] == 0 ? (random() < 0.5f ? -1 : 1) : -s_wiggleDir[cl]);
+                    s_wiggleNextFlipTime[cl] = now + (bot_wiggle_side_ms.value * 0.001f);
+                    // шанс длинного выпада
+                    if ( s_wiggleBurstCooldownUntil[cl] < now && random() < bot_wiggle_burst_chance.value ) {
+                        s_wiggleBurstUntil[cl] = now + (bot_wiggle_burst_ms.value * 0.001f);
+                        s_wiggleBurstCooldownUntil[cl] = now + (bot_wiggle_burst_cooldown.value * 0.001f);
+                        // задать направление выпада: случайно или противоположно текущему
+                        s_wiggleDir[cl] = (random() < 0.5f ? -1 : 1);
+                    }
+                }
+                // применять движение
+                if ( s_wiggleDir[cl] < 0 ) trap_EA_MoveLeft(bs->client); else trap_EA_MoveRight(bs->client);
+                // при активном бурсте продлеваем боковой выход (не меняем часто сторону)
+                if ( s_wiggleBurstUntil[cl] > now ) {
+                    s_wiggleNextFlipTime[cl] = now + (bot_wiggle_stride_ms.value * 0.001f);
+                }
+            }
+        }
+    }
     /* if ricochet allowed, see if immediate shot hits world; if so, still allow firing (bounce) */
     if ( bot_ricochet.integer >= 1 ) {
         if ((trace.ent < 0 || trace.ent >= MAX_CLIENTS) && (trace.fraction < 1.0f)) {
@@ -4919,7 +5038,7 @@ void BotCheckEvents(bot_state_t *bs, entityState_t *state) {
 		event = state->event & ~EV_EVENT_BITS;
 	}
 	//
-	switch(event) {
+    switch(event) {
 		//client obituary event
 		case EV_OBITUARY:
 		{
@@ -5118,9 +5237,9 @@ void BotCheckEvents(bot_state_t *bs, entityState_t *state) {
 		case EV_GLOBAL_ITEM_PICKUP:
 		case EV_NOAMMO:
 		case EV_CHANGE_WEAPON:
-		case EV_FIRE_WEAPON:
-			//FIXME: either add to sound queue or mark player as someone making noise
-			break;
+        case EV_FIRE_WEAPON:
+            // just noise
+            break;
 		case EV_USE_ITEM0:
 		case EV_USE_ITEM1:
 		case EV_USE_ITEM2:
@@ -5158,11 +5277,37 @@ void BotCheckSnapshot(bot_state_t *bs) {
 	bs->numproxmines = 0;
 	//
 	ent = 0;
-	while( ( ent = BotAI_GetSnapshotEntity( bs->client, ent, &state ) ) != -1 ) {
+    while( ( ent = BotAI_GetSnapshotEntity( bs->client, ent, &state ) ) != -1 ) {
 		//check the entity state for events
 		BotCheckEvents(bs, &state);
-		//check for grenades the bot should avoid
-		BotCheckForGrenades(bs, &state);
+        //check for grenades the bot should avoid
+        BotCheckForGrenades(bs, &state);
+        /* dynamic projectile avoidance */
+        if ( bot_dodge.integer ) {
+            if ( state.eType == ET_MISSILE ) {
+                float add = 0.0f;
+                if ( state.weapon == WP_ROCKET_LAUNCHER ) add = (float)bot_dodge_radius_rl.integer;
+                else if ( state.weapon == WP_PLASMAGUN ) add = (float)bot_dodge_radius_pg.integer;
+                else if ( state.weapon == WP_BFG ) add = (float)bot_dodge_radius_bfg.integer;
+                else if ( state.weapon == WP_GRENADE_LAUNCHER ) add = (float)bot_dodge_radius_gl.integer;
+                if ( add > 1.0f ) {
+                    vec3_t toMissile, mvel; float dot;
+                    VectorSubtract( state.pos.trBase, bs->origin, toMissile );
+                    /* approximate missile velocity */
+                    VectorCopy( state.pos.trDelta, mvel );
+                    VectorNormalize( toMissile );
+                    if ( VectorLengthSquared( mvel ) > 1.0f ) {
+                        VectorNormalize( mvel );
+                        dot = DotProduct( mvel, toMissile );
+                    } else {
+                        dot = 0.0f;
+                    }
+                    if ( dot > bot_dodge_dot.value && random() < bot_dodge_chance.value ) {
+                        trap_BotAddAvoidSpot( bs->ms, state.pos.trBase, add, AVOID_DONTBLOCK );
+                    }
+                }
+            }
+        }
 		//
 #ifdef MISSIONPACK
 		//check for proximity mines which the bot should deactivate
@@ -5535,7 +5680,39 @@ void BotSetupDeathmatchAI(void) {
 	trap_Cvar_Register(&bot_testrchat, "bot_testrchat", "0", 0);
 	trap_Cvar_Register(&bot_challenge, "bot_challenge", "0", 0);
     trap_Cvar_Register(&bot_predictobstacles, "bot_predictobstacles", "1", 0);
+    trap_Cvar_Register(&bot_gauntletonly, "bot_gauntletonly", "0", 0);
     trap_Cvar_Register(&bot_ricochet, "bot_ricochet", "0", 0);
+    trap_Cvar_Register(&bot_dodge, "bot_dodge", "1", 0);
+    trap_Cvar_Register(&bot_dodge_chance, "bot_dodge_chance", "0.7", 0);
+    trap_Cvar_Register(&bot_dodge_dot, "bot_dodge_dot", "0.95", 0);
+    trap_Cvar_Register(&bot_dodge_radius_rl, "bot_dodge_radius_rl", "220", 0);
+    trap_Cvar_Register(&bot_dodge_radius_pg, "bot_dodge_radius_pg", "140", 0);
+    trap_Cvar_Register(&bot_dodge_radius_bfg, "bot_dodge_radius_bfg", "260", 0);
+    trap_Cvar_Register(&bot_dodge_radius_gl, "bot_dodge_radius_gl", "180", 0);
+    trap_Cvar_Register(&bot_prefire, "bot_prefire", "1", 0);
+    trap_Cvar_Register(&bot_prefire_chance, "bot_prefire_chance", "0.25", 0);
+    trap_Cvar_Register(&bot_aimHeadBias, "bot_aimHeadBias", "0.2", 0);
+    trap_Cvar_Register(&bot_aimLeadScale, "bot_aimLeadScale", "1.2", 0);
+    trap_Cvar_Register(&bot_antilg_wiggle, "bot_antilg_wiggle", "1", 0);
+    trap_Cvar_Register(&bot_wiggle_freq, "bot_wiggle_freq", "10", 0);
+    trap_Cvar_Register(&bot_wiggle_amp, "bot_wiggle_amp", "16", 0);
+    trap_Cvar_Register(&bot_dodge_jumpChance, "bot_dodge_jumpChance", "0.3", 0);
+    trap_Cvar_Register(&bot_dodge_duckChance, "bot_dodge_duckChance", "0.2", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_mg, "bot_accuracy_scale_mg", "1.0", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_sg, "bot_accuracy_scale_sg", "1.0", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_rl, "bot_accuracy_scale_rl", "1.1", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_pg, "bot_accuracy_scale_pg", "1.2", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_rg, "bot_accuracy_scale_rg", "1.3", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_bfg, "bot_accuracy_scale_bfg", "1.1", 0);
+    trap_Cvar_Register(&bot_accuracy_scale_lg, "bot_accuracy_scale_lg", "1.2", 0);
+    trap_Cvar_Register(&bot_aimJitterScale, "bot_aimJitterScale", "0.2", 0);
+    trap_Cvar_Register(&bot_wiggle_stride_ms, "bot_wiggle_stride_ms", "140", 0);
+    trap_Cvar_Register(&bot_wiggle_side_ms, "bot_wiggle_side_ms", "60", 0);
+    trap_Cvar_Register(&bot_wiggle_burst_chance, "bot_wiggle_burst_chance", "0.12", 0);
+    trap_Cvar_Register(&bot_wiggle_burst_ms, "bot_wiggle_burst_ms", "550", 0);
+    trap_Cvar_Register(&bot_wiggle_burst_cooldown, "bot_wiggle_burst_cooldown", "1500", 0);
+    trap_Cvar_Register(&bot_lg_dist_min, "bot_lg_dist_min", "640", 0);
+    trap_Cvar_Register(&bot_lg_dist_max, "bot_lg_dist_max", "960", 0);
 	trap_Cvar_Register(&g_spSkill, "g_spSkill", "2", 0);
 	//
 	if (gametype == GT_CTF) {
