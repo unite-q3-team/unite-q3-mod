@@ -1000,12 +1000,13 @@ void ClientThink_real( gentity_t *ent ) {
 	msec = ucmd->serverTime - client->ps.commandTime;
 	// following others may result in bad times, but we still want
 	// to check for follow toggles
-	if ( msec < 1 && client->sess.spectatorState != SPECTATOR_FOLLOW ) {
-		return;
-	}
-	if ( msec > 200 ) {
-		msec = 200;
-	}
+    if ( msec < 1 && client->sess.spectatorState != SPECTATOR_FOLLOW ) {
+        return;
+    }
+    if ( msec > 200 ) {
+        msec = 200;
+    }
+    
 
 	if ( pmove_msec.integer < 8 ) {
 		trap_Cvar_Set( "pmove_msec", "8" );
@@ -1306,8 +1307,7 @@ void ClientThink_real( gentity_t *ent ) {
 		return;
 	}
 
-	// perform once-a-second actions
-	ClientTimerActions( ent, msec );
+    // once-a-second actions handled in ClientEndFrame per server frame
 
     /* Coordinate CenterPrint toggle updates */
     MaybeSendPosCP( ent );
@@ -1553,7 +1553,10 @@ void ClientEndFrame( gentity_t *ent ) {
 
 	G_SetClientSound( ent );
 
-	// set the latest info
+    // tick once-a-second timers using server frame msec for consistency
+    ClientTimerActions( ent, level.msec );
+
+    // set the latest info
 	BG_PlayerStateToEntityState( &client->ps, &ent->s, qtrue );
 
 	SendPendingPredictableEvents( &client->ps );
