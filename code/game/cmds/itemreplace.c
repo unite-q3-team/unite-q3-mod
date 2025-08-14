@@ -600,33 +600,84 @@ void irreload_f(gentity_t *ent) {
 /* Admin: list loaded rules and classmaps */
 void irlist_f(gentity_t *ent) {
     int i;
+    char mapSel[64];
     if ( !ent || !ent->client || !ent->authed ) return;
     if ( !ir_loaded ) IR_Load();
-    trap_SendServerCommand( ent - g_entities, "print \"\n^2ItemReplace: Rules^7\n\"" );
-    trap_SendServerCommand( ent - g_entities, "print \"^7-------------------\n\"" );
+    if ( trap_Argc() >= 2 ) {
+        trap_Argv( 1, mapSel, sizeof(mapSel) );
+    } else {
+        Q_strncpyz( mapSel, g_mapname.string, sizeof(mapSel) );
+    }
+
+    /* Rules */
+    trap_SendServerCommand( ent - g_entities, va("print \"\n^2ItemReplace: Rules (^7%s^2)\n\"", mapSel) );
+    trap_SendServerCommand( ent - g_entities, "print \"^7---------------------------\n\"" );
     for ( i = 0; i < ir_ruleCount; ++i ) {
-        char line[256];
         ir_rule_t *r = &ir_rules[i];
-        Com_sprintf( line, sizeof(line), "^5%-12s ^7%-8s ^7match:%s%s%s  apply:%s%s%s%s%s",
-            r->map, r->id,
-            (r->match.classname[0]?r->match.classname:"*"),
-            (r->match.hasOrigin?" org":""),
-            (r->match.hasTolerance?" tol":""),
-            (r->apply.removeEntity?"remove":""),
-            (r->apply.hasClass?" class":""),
-            (r->apply.hasOrigin?" org":""),
-            (r->apply.hasAngles?" ang":""),
-            (r->apply.hasAngle?" yaw":""),
-            (r->apply.hasSpawnflags?" flags":"")
-        );
+        if ( Q_stricmp( r->map, mapSel ) != 0 ) continue;
+        {
+            char line[256];
+            char matchPart[160];
+            char applyPart[160];
+            matchPart[0] = '\0';
+            applyPart[0] = '\0';
+            Com_sprintf( matchPart, sizeof(matchPart), "%s", (r->match.classname[0]?r->match.classname:"*") );
+            if ( r->match.hasOrigin ) {
+                Q_strcat( matchPart, sizeof(matchPart), va(" org=%.0f %.0f %.0f", r->match.origin[0], r->match.origin[1], r->match.origin[2]) );
+            }
+            if ( r->match.hasTolerance ) {
+                Q_strcat( matchPart, sizeof(matchPart), va(" tol=%d", r->match.tolerance) );
+            }
+            if ( r->apply.removeEntity ) {
+                Q_strncpyz( applyPart, "remove", sizeof(applyPart) );
+            } else {
+                qboolean first = qtrue;
+                if ( r->apply.hasClass ) { Q_strcat( applyPart, sizeof(applyPart), va("%sclass=%s", first?"":" ", r->apply.classname) ); first = qfalse; }
+                if ( r->apply.hasOrigin ) { Q_strcat( applyPart, sizeof(applyPart), va("%sorigin=%.0f %.0f %.0f", first?"":" ", r->apply.origin[0], r->apply.origin[1], r->apply.origin[2]) ); first = qfalse; }
+                if ( r->apply.hasAngles ) { Q_strcat( applyPart, sizeof(applyPart), va("%sangles=%.0f %.0f %.0f", first?"":" ", r->apply.angles[0], r->apply.angles[1], r->apply.angles[2]) ); first = qfalse; }
+                else if ( r->apply.hasAngle ) { Q_strcat( applyPart, sizeof(applyPart), va("%sangle=%.0f", first?"":" ", r->apply.angle) ); first = qfalse; }
+                if ( r->apply.hasSpawnflags ) { Q_strcat( applyPart, sizeof(applyPart), va("%sspawnflags=%d", first?"":" ", r->apply.spawnflags) ); first = qfalse; }
+                if ( first ) { Q_strncpyz( applyPart, "-", sizeof(applyPart) ); }
+            }
+            Com_sprintf( line, sizeof(line), "^5%-8s ^7match:^3 %s ^7apply:^2 %s", r->id, matchPart, applyPart );
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\n\"", line) );
+        }
+    }
+
+    /* Classmaps */
+    trap_SendServerCommand( ent - g_entities, va("print \"\n^2ItemReplace: Classmaps (^7%s^2)\n\"", mapSel) );
+    trap_SendServerCommand( ent - g_entities, "print \"^7------------------------------\n\"" );
+    for ( i = 0; i < ir_cmapCount; ++i ) {
+        ir_classmap_t *cm = &ir_cmaps[i];
+        char line[160];
+        if ( Q_stricmp( cm->map, mapSel ) != 0 ) continue;
+        Com_sprintf( line, sizeof(line), "^7%s ^5-> ^7%s", cm->fromClass, cm->toClass );
         trap_SendServerCommand( ent - g_entities, va("print \"%s\n\"", line) );
     }
-    trap_SendServerCommand( ent - g_entities, "print \"\n^2ItemReplace: Classmaps^7\n\"" );
-    trap_SendServerCommand( ent - g_entities, "print \"^7----------------------\n\"" );
-    for ( i = 0; i < ir_cmapCount; ++i ) {
-        char line[160]; ir_classmap_t *cm = &ir_cmaps[i];
-        Com_sprintf( line, sizeof(line), "^5%-12s ^7%s ^5-> ^7%s", cm->map, cm->fromClass, cm->toClass );
-        trap_SendServerCommand( ent - g_entities, va("print \"%s\n\"", line) );
+
+    /* Adds */
+    trap_SendServerCommand( ent - g_entities, va("print \"\n^2ItemReplace: Adds (^7%s^2)\n\"", mapSel) );
+    trap_SendServerCommand( ent - g_entities, "print \"^7-----------------------\n\"" );
+    {
+        qboolean any = qfalse;
+        for ( i = 0; i < ir_addCount; ++i ) {
+            ir_addrule_t *a = &ir_adds[i];
+            char line[256];
+            if ( Q_stricmp( a->map, mapSel ) != 0 ) continue;
+            Com_sprintf( line, sizeof(line), "^5%-8s ^7class:^3 %s ^7org:^2 %.0f %.0f %.0f%s",
+                a->id,
+                (a->classname[0]?a->classname:"<none>"),
+                a->hasOrigin?a->origin[0]:0.0f,
+                a->hasOrigin?a->origin[1]:0.0f,
+                a->hasOrigin?a->origin[2]:0.0f,
+                (a->hasAngles?va(" ^7ang:^2 %.0f %.0f %.0f", a->angles[0], a->angles[1], a->angles[2]):"")
+            );
+            trap_SendServerCommand( ent - g_entities, va("print \"%s\n\"", line) );
+            any = qtrue;
+        }
+        if ( !any ) {
+            trap_SendServerCommand( ent - g_entities, "print \"(none)\n\"" );
+        }
     }
 }
 

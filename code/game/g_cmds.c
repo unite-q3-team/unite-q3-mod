@@ -1543,6 +1543,49 @@ static void Cmd_Time_f( gentity_t *ent ) {
     );
 }
 
+/* Server performance/memory info */
+static void Cmd_SysInfo_f( gentity_t *ent ) {
+    char buf[MAX_STRING_CHARS];
+    int len = 0;
+    const char *hunkmegs;
+    const char *sv_fps;
+    const char *com_fps;
+    int uptimeMs;
+    int serverTime;
+    int i, inuseEnts = 0, itemEnts = 0, clientEnts = 0;
+    buf[0] = '\0';
+
+    // memory hints
+    hunkmegs = va("%i", trap_Cvar_VariableIntegerValue("com_hunkMegs"));
+    // tickrate
+    sv_fps = va("%i", trap_Cvar_VariableIntegerValue("sv_fps"));
+    com_fps = va("%i", trap_Cvar_VariableIntegerValue("com_maxfps"));
+
+    uptimeMs = level.time - level.startTime;
+    serverTime = level.time;
+
+    for ( i = 0; i < level.num_entities; ++i ) {
+        gentity_t *e = &g_entities[i];
+        if ( e->inuse ) {
+            inuseEnts++;
+            if ( e->item ) itemEnts++;
+            if ( i < MAX_CLIENTS && e->client ) clientEnts++;
+        }
+    }
+
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^2Server SysInfo:^7\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^7----------------\n" );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Tickrate   : ^7sv_fps=%s, com_maxfps=%s\n", sv_fps, com_fps );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Uptime     : ^7%dm %02ds (serverTime=%d)\n", (uptimeMs/60000), (uptimeMs/1000)%60, serverTime );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Entities   : ^7in use %d / %d (clients %d, items %d)\n", inuseEnts, level.num_entities, clientEnts, itemEnts );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Clients    : ^7max %d, connected %d, playing %d\n", level.maxclients, level.numConnectedClients, level.numPlayingClients );
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Hunk (cfg) : ^7com_hunkMegs=%s\n", hunkmegs );
+    // Note: detailed allocator stats aren't available in QVM; expose game_memory console cmd hint
+    len += Com_sprintf( buf + len, sizeof(buf) - len, "^3Memory Hint: ^7use \'game_memory\' in server console for allocation summary\n" );
+
+    trap_SendServerCommand( ent - g_entities, va("print \"%s\n\"", buf) );
+}
+
 // Display labels for weapons (indexes follow weapon_t), with colon and padded to width ~13
 static const char *const s_weaponLabel[] = {
     "",                 // WP_NONE
@@ -1613,6 +1656,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "where",           Cmd_Where_f,        qfalse },
     { "time",            Cmd_Time_f,         qfalse },
     { "servertime",      Cmd_Time_f,         qfalse },
+    { "sysinfo",         Cmd_SysInfo_f,      qtrue  },
     { "callvote",        Cmd_CallVote_f,     qfalse },
     { "vote",            Cmd_Vote_f,         qfalse },
     /* team votes removed from g_cmds; handled elsewhere or not supported */

@@ -17,6 +17,8 @@ void plsauth_f(gentity_t *ent);
 void deauth_f(gentity_t *ent);
 void killplayer_f(gentity_t *ent);
 void Cmd_svfps_f(gentity_t *ent);
+/* in g_cmds.c */
+void Cmd_SysInfo_f(gentity_t *ent);
 void fteam_f(gentity_t *ent);
 void shuffle_f(gentity_t *ent);
 qboolean Shuffle_Perform( const char *mode );
