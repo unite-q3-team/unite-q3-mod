@@ -1710,6 +1710,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "irsave",          irsave_f,           qtrue  },
     { "wtreload",       wtreload_f,         qtrue  },
     { "wtlist",         wtlist_f,           qtrue  },
+    { "wtsave",         wtsave_f,           qtrue  },
     { "shuffle",         shuffle_f,          qtrue  },
     { "playerlist",      Cmd_Plrlist_f,      qfalse },
     { "players",         Cmd_Plrlist_f,      qfalse },

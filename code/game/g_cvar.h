@@ -104,7 +104,7 @@ G_CVAR( g_singlePlayer, "ui_singlePlayerActive", "", 0, 0, qfalse, qfalse )
 G_CVAR( g_enableDust, "g_enableDust", "0", CVAR_SERVERINFO, 0, qtrue, qfalse )
 G_CVAR( g_proxMineTimeout, "g_proxMineTimeout", "20000", 0, 0, qfalse, qfalse )
 #endif
-// G_CVAR( g_enableBreath, "g_enableBreath", "1", 0, 0, qtrue, qfalse ) // Хуета не работает, на клиенте ни в какую не рисуются breath puffs lol
+G_CVAR( g_enableBreath, "g_enableBreath", "1", 0, 0, qtrue, qfalse ) // Хуета не работает, на клиенте ни в какую не рисуются breath puffs lol
 G_CVAR( g_smoothClients, "g_smoothClients", "1", 0, 0, qfalse, qfalse )
 G_CVAR( pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
 G_CVAR( pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
@@ -149,6 +149,22 @@ G_CVAR( g_bfg_damage,         "g_bfg_damage",         "100",  0, 0, qfalse, qfal
 G_CVAR( g_rl_projectileSpeed,      "g_rl_projectileSpeed",      "900",  0, 0, qfalse, qfalse )
 G_CVAR( g_pg_projectileSpeed,      "g_pg_projectileSpeed",      "2000",  0, 0, qfalse, qfalse )
 G_CVAR( g_bfg_projectileSpeed,      "g_bfg_projectileSpeed",      "2000",  0, 0, qfalse, qfalse )
+
+/* Fun homing toggles per projectile (0/1) */
+G_CVAR( g_homing_rl,  "g_homing_rl",  "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_pg,  "g_homing_pg",  "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_bfg, "g_homing_bfg", "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_gl,  "g_homing_gl",  "0", 0, 0, qtrue, qfalse )
+/* homing radius (units) */
+G_CVAR( g_homing_rl_radius,  "g_homing_rl_radius",  "480", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_pg_radius,  "g_homing_pg_radius",  "480", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_bfg_radius, "g_homing_bfg_radius", "480", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_gl_radius,  "g_homing_gl_radius",  "480", 0, 0, qtrue, qfalse )
+/* smart mode: 0 naive, 1 require LoS, 2 simple detour */
+G_CVAR( g_homing_rl_smart,  "g_homing_rl_smart",  "1", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_pg_smart,  "g_homing_pg_smart",  "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_bfg_smart, "g_homing_bfg_smart", "0", 0, 0, qtrue, qfalse )
+G_CVAR( g_homing_gl_smart,  "g_homing_gl_smart",  "0", 0, 0, qtrue, qfalse )
 
 G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
 G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )

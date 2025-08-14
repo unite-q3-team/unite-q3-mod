@@ -35,6 +35,21 @@ static wc_map_t s_wcMap[] = {
     { "fireRatio.pg",           "g_pg_fireRatio",           &g_pg_fireRatio },
     { "fireRatio.rg",           "g_rg_fireRatio",           &g_rg_fireRatio },
     { "fireRatio.bfg",          "g_bfg_fireRatio",          &g_bfg_fireRatio },
+
+    { "homing.rl",              "g_homing_rl",              &g_homing_rl },
+    { "homing.pg",              "g_homing_pg",              &g_homing_pg },
+    { "homing.bfg",             "g_homing_bfg",             &g_homing_bfg },
+    { "homing.gl",              "g_homing_gl",              &g_homing_gl },
+
+    { "homing.rl.radius",       "g_homing_rl_radius",       &g_homing_rl_radius },
+    { "homing.pg.radius",       "g_homing_pg_radius",       &g_homing_pg_radius },
+    { "homing.bfg.radius",      "g_homing_bfg_radius",      &g_homing_bfg_radius },
+    { "homing.gl.radius",       "g_homing_gl_radius",       &g_homing_gl_radius },
+
+    { "homing.rl.smart",        "g_homing_rl_smart",        &g_homing_rl_smart },
+    { "homing.pg.smart",        "g_homing_pg_smart",        &g_homing_pg_smart },
+    { "homing.bfg.smart",       "g_homing_bfg_smart",       &g_homing_bfg_smart },
+    { "homing.gl.smart",        "g_homing_gl_smart",        &g_homing_gl_smart },
 };
 static const int s_wcMapCount = (int)(sizeof(s_wcMap)/sizeof(s_wcMap[0]));
 
@@ -54,11 +69,12 @@ static wc_map_t *WC_FindEntry(const char *key) {
 }
 
 static void WC_WriteDefaultFile(void) {
-    fileHandle_t f; int r; int i; char line[256];
+    fileHandle_t f; int r; int i; char line[256]; const char *hdr;
     r = trap_FS_FOpenFile("weapons.txt", &f, FS_WRITE);
     if ( r < 0 ) return;
-    trap_FS_Write("# weapons.txt — weapon configuration (key = value)\n", 57, f);
-    trap_FS_Write("# groups: damage.<wp>, projectile.<wp>.speed, fireRatio.<wp>\n\n", 66, f);
+    hdr = "# weapons.txt - weapon configuration (key = value)\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
+    hdr = "# groups: damage.<wp>, projectile.<wp>.speed, fireRatio.<wp>, homing.<wp> (0/1)\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
+    hdr = "# homing.<wp>.radius=<units>, homing.<wp>.smart=0|1|2\n\n"; trap_FS_Write(hdr, (int)strlen(hdr), f);
     for ( i = 0; i < s_wcMapCount; ++i ) {
         vmCvar_t *vc = s_wcMap[i].vc;
         Com_sprintf( line, sizeof(line), "%s = %s\n", s_wcMap[i].key, (vc ? vc->string : "0") );
@@ -103,6 +119,12 @@ void wtlist_f(gentity_t *ent) {
     trap_SendServerCommand(ent-g_entities, "print \"\n^2Weapons Config (effective)^7\n\"");
     trap_SendServerCommand(ent-g_entities, "print \"^7-----------------------------\n\"");
     for ( i=0; i<s_wcMapCount; ++i ) { Com_sprintf(line,sizeof(line), "^5%-22s ^7= ^2%s", s_wcMap[i].key, s_wcMap[i].vc ? s_wcMap[i].vc->string : ""); trap_SendServerCommand(ent-g_entities, va("print \"%s\n\"", line)); }
+}
+
+void wtsave_f(gentity_t *ent) {
+    if (!ent||!ent->client||!ent->authed) return;
+    WC_WriteDefaultFile();
+    trap_SendServerCommand(ent-g_entities, "print \"^2weapons: saved\n\"");
 }
 
 /* ---------------- Disabled commands config (disabledcmds.txt) ---------------- */

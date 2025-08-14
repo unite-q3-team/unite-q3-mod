@@ -436,6 +436,11 @@ void G_RunMissile( gentity_t *ent ) {
 	vec3_t		origin;
 	trace_t		tr;
 	int			passent;
+	/* homing support */
+	gentity_t	*best = NULL;
+	float		bestD2 = 0.0f;
+	vec3_t		to, steerDir;
+	float		speed;
 
 	// get current position
 	BG_EvaluateTrajectory( &ent->s.pos, level.time, origin );
@@ -454,6 +459,59 @@ void G_RunMissile( gentity_t *ent ) {
 		// ignore interactions with the missile owner
 		passent = ent->r.ownerNum;
 	}
+	/* optional homing steer before tracing */
+    if (
+        (ent->s.weapon == WP_ROCKET_LAUNCHER && g_homing_rl.integer) ||
+        (ent->s.weapon == WP_PLASMAGUN      && g_homing_pg.integer) ||
+        (ent->s.weapon == WP_BFG            && g_homing_bfg.integer) ||
+        (ent->s.weapon == WP_GRENADE_LAUNCHER && g_homing_gl.integer)
+    ) {
+		int i;
+        float radius = 4096.0f;
+        int smart = 0;
+        if ( ent->s.weapon == WP_ROCKET_LAUNCHER ) { radius = (float)g_homing_rl_radius.integer; smart = g_homing_rl_smart.integer; }
+        else if ( ent->s.weapon == WP_PLASMAGUN )   { radius = (float)g_homing_pg_radius.integer; smart = g_homing_pg_smart.integer; }
+        else if ( ent->s.weapon == WP_BFG )         { radius = (float)g_homing_bfg_radius.integer; smart = g_homing_bfg_smart.integer; }
+        else if ( ent->s.weapon == WP_GRENADE_LAUNCHER ) { radius = (float)g_homing_gl_radius.integer; smart = g_homing_gl_smart.integer; }
+        if ( radius < 128.0f ) radius = 128.0f;
+        {
+            float maxDist2 = radius * radius;
+		for ( i = 0; i < level.maxclients; ++i ) {
+			gentity_t *cl = &g_entities[i];
+			float d2;
+			if ( !cl->inuse || !cl->client ) continue;
+			if ( cl->health <= 0 ) continue;
+			if ( i == ent->r.ownerNum ) continue;
+			VectorSubtract( cl->r.currentOrigin, ent->r.currentOrigin, to );
+			d2 = to[0]*to[0] + to[1]*to[1] + to[2]*to[2];
+			if ( d2 > maxDist2 ) continue;
+            if ( best == NULL || d2 < bestD2 ) {
+                if ( smart >= 1 ) {
+                    trace_t losTr;
+                    trap_Trace( &losTr, ent->r.currentOrigin, NULL, NULL, cl->r.currentOrigin, ent->r.ownerNum, MASK_SHOT );
+                    if ( losTr.fraction != 1.0f && losTr.entityNum != cl->s.number ) {
+                        continue; /* no line of sight */
+                    }
+                }
+                best = cl; bestD2 = d2;
+            }
+		}
+        }
+		if ( best ) {
+			VectorSubtract( best->r.currentOrigin, ent->r.currentOrigin, steerDir );
+			VectorNormalize( steerDir );
+			speed = VectorLength( ent->s.pos.trDelta );
+			if ( speed < 1.0f ) speed = 1.0f;
+            if ( VectorLength( ent->s.pos.trDelta ) > 0.0f ) VectorNormalize( ent->s.pos.trDelta );
+            /* blend with smoother factor */
+            ent->s.pos.trDelta[0] = ent->s.pos.trDelta[0]*0.95f + steerDir[0]*0.05f;
+            ent->s.pos.trDelta[1] = ent->s.pos.trDelta[1]*0.95f + steerDir[1]*0.05f;
+            ent->s.pos.trDelta[2] = ent->s.pos.trDelta[2]*0.95f + steerDir[2]*0.05f;
+			VectorNormalize( ent->s.pos.trDelta );
+			VectorScale( ent->s.pos.trDelta, speed, ent->s.pos.trDelta );
+		}
+	}
+
 	// trace a line from the previous position to the current position
 	trap_Trace( &tr, ent->r.currentOrigin, ent->r.mins, ent->r.maxs, origin, passent, ent->clipmask );
 

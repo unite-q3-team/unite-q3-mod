@@ -47,6 +47,7 @@ void irsave_f(gentity_t *ent);
 void Weapons_Init(void);
 void wtreload_f(gentity_t *ent);
 void wtlist_f(gentity_t *ent);
+void wtsave_f(gentity_t *ent);
 void irmove_f(gentity_t *ent);
 void irundo_f(gentity_t *ent);
 void irredo_f(gentity_t *ent);
