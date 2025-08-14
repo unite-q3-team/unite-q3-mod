@@ -9,7 +9,7 @@ QA_SRC = \
  cmds/cmds \
  cmds/player \
  cmds/pos \
- cmds/shit \
+  cmds/misc \
  cmds/auth \
  cmds/serverutils \
  cmds/votesystem \

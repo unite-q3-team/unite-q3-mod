@@ -322,6 +322,7 @@ static qboolean G_ParseIPv4ToUint(const char *ipString, unsigned int *outIpv4)
 }
 
 void Cmd_NewTest_f(gentity_t *ent) {
+    /* deprecated */
     int filelen;
     char path[MAX_QPATH];
     fileHandle_t fh;

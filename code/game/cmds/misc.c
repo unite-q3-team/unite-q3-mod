@@ -1,4 +1,4 @@
-// code/game/cmds/shit.c
+// code/game/cmds/misc.c
 #include "cmds.h"
 
 void hi_f(gentity_t *ent) {
@@ -8,7 +8,6 @@ void hi_f(gentity_t *ent) {
 void playsound_f(gentity_t *ent){
     char snd[MAX_TOKEN_CHARS];
     int i;
-    // gclient_t *cl;
     gentity_t *victim;
     gentity_t *te;
 
@@ -28,3 +27,5 @@ void playsound_f(gentity_t *ent){
         te->s.eventParm = G_SoundIndex(snd);
     }
 }
+
+

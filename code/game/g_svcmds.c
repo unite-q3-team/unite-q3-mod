@@ -524,10 +524,7 @@ qboolean	ConsoleCommand( void ) {
         return qtrue;
     }
 
-	if (Q_stricmp (cmd, "test") == 0) {
-		Cmd_NewTestdsadsa_f();
-		return qtrue;
-	}
+    /* removed console test command */
 
 	if (Q_stricmp (cmd, "playerlist") == 0, Q_stricmp (cmd, "players") == 0) {
 		Cmd_svPlrlist_f();

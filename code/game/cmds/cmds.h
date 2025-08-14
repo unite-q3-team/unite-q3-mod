@@ -4,6 +4,7 @@
 void Cmd_NewTest_f(gentity_t *ent);
 void Cmd_Plrlist_f(gentity_t *ent);
 void Cmd_From_f(gentity_t *ent);
+void hi_f(gentity_t *ent);
 void getpos_f(gentity_t *ent);
 void setpos_f(gentity_t *ent);
 void poscp_f(gentity_t *ent);

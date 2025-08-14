@@ -1616,10 +1616,9 @@ static void Cmd_Stats_f( gentity_t *ent );
 static void Cmd_StatsAll_f( gentity_t *ent );
 static void Cmd_Topshots_f( gentity_t *ent );
 static void Cmd_Awards_f( gentity_t *ent );
-static void Cmd_Test_f( gentity_t *ent );
 void playsound_f( gentity_t *ent );
 void map_restart_f( gentity_t *ent );
-void osptest( gentity_t *ent );
+void Osp_Wstats( gentity_t *ent );
 static void Cmd_Ready_f( gentity_t *ent );
 static void Cmd_Unready_f( gentity_t *ent );
 
@@ -1684,7 +1683,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "killplayer",      killplayer_f,       qtrue  },
     { "svfps",           Cmd_svfps_f,        qfalse },
     { "restart",         map_restart_f,      qtrue  },
-    { "getstatsinfo",    osptest,            qfalse },
+    { "getstatsinfo",    Osp_Wstats,         qfalse },
     { "stats",           Cmd_Stats_f,        qfalse },
     { "statsall",        Cmd_StatsAll_f,     qfalse },
     { "topshots",        Cmd_Topshots_f,     qfalse },
@@ -1693,7 +1692,6 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "maplist",         Cmd_MapList_f,      qfalse },
     { "rotation",        Cmd_Rotation_f,     qfalse },
     { "cv",              Cmd_CV_f,           qfalse },
-    { "ftest",           Cmd_Test_f,         qfalse },
     { "atest",           Cmd_NewTest_f,      qfalse },
     { "listitems",       listitems_f,        qtrue  },
     { "items",           items_f,            qtrue  },

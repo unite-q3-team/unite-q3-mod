@@ -28,7 +28,7 @@
 #define OSP_STATS_UNKNOWN2   23 /* first weapon: (pickups<<16)|attacks */
 
 /* Build and send an OSP-compatible statsinfo line for the current (or targeted) client */
-void osptest(gentity_t *ent) {
+void Osp_Wstats(gentity_t *ent) {
     gclient_t *cl;
     gclient_t *targetCl;
     char msg[1024];
