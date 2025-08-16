@@ -1352,13 +1352,15 @@ void ClientBegin( int clientNum ) {
 			CheckTeamLeader( client->sess.sessionTeam );
 	}
 
-    /* send join messages */
-    if ( client->pers.connected == CON_CONNECTED ) {
+    /* send join messages only once when first entering game, not on team switch */
+    if ( !client->pers.inGame && client->pers.connected == CON_CONNECTED ) {
         if ( g_joinMessage.string[0] ) {
             /* expand \n escapes */
             char msgbuf[MAX_STRING_CHARS];
             const char *s = g_joinMessage.string; int i = 0, j = 0;
-            while ( s[i] && j < (int)sizeof(msgbuf) - 1 ) { if ( s[i] == '\\' && s[i+1] == 'n' ) { msgbuf[j++]='\n'; i+=2; } else { msgbuf[j++]=s[i++]; } }
+            while ( s[i] && j < (int)sizeof(msgbuf) - 2 ) { if ( s[i] == '\\' && s[i+1] == 'n' ) { msgbuf[j++]='\n'; i+=2; } else { msgbuf[j++]=s[i++]; } }
+            /* ensure trailing newline for chat formatting */
+            if ( j == 0 || msgbuf[j-1] != '\n' ) { msgbuf[j++] = '\n'; }
             msgbuf[j] = '\0';
             trap_SendServerCommand( clientNum, va("print \"%s\"", msgbuf) );
         }

@@ -229,6 +229,13 @@ static void AN_BroadcastPrint(const char *msg) {
         }
     }
     tmp[j] = '\0';
+    /* ensure trailing newline for chat */
+    {
+        int ln = (int)strlen(tmp);
+        if ( ln == 0 || tmp[ln-1] != '\n' ) {
+            if ( ln < (int)sizeof(tmp) - 1 ) { tmp[ln] = '\n'; tmp[ln+1] = '\0'; }
+        }
+    }
     G_BroadcastServerCommand( -1, va( "print \"%s\"", tmp ) );
 }
 
