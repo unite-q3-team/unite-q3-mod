@@ -11,6 +11,10 @@
 	"mapname2" // second map in rotation
 	{ 
 		$cvar2 = value2; // set cvar2 only for "mapname2"
+		@minPlayers = N; // optional: require at least N total players for this map
+		@maxPlayers = M; // optional: require at most M total players for this map
+		@minTeam = T;    // optional: in team modes, require at least T per team (red and blue)
+		@maxTeam = K;    // optional: in team modes, require at most K per team (red and blue)
 		{...}
 	}
 	"mapname3" // third map in rotation
@@ -18,15 +22,30 @@
 
 	Note: its better to quote map names like "6++" which contains "+","-","&" etc. symbols
 
+	Player-count-aware selection:
+	- At the end of a match, the rotation will attempt to load the next map that satisfies
+	  the declared constraints. If the next map does not satisfy them, it will try subsequent
+	  maps in order, wrapping around once. If none satisfy, the server will stay on the current
+	  map (map_restart if applicable) and keep the rotation index unchanged.
+
+	Notes:
+	- Constraints are only recognized inside the braces directly following a map name.
+	- In non-team modes, @minTeam/@maxTeam are ignored.
+	- If no constraints are present for a map, it is always eligible.
+
 	Example of contents:
 */
 
 $fraglimit = 40;
 $timelimit = 6;
-//pro-q3dm6
-q3dm17 { $timelimit = 7; $fraglimit = 50; }
-//q3dm2
-//q3dm5
-//q3tourney4
-//q3dm7
-//q3dm11
+// Duel-friendly maps (2 players)
+q3tourney4 { @maxPlayers = 2; }
+q3dm6     { @minPlayers = 2; @maxPlayers = 4; }
+
+// Public FFA maps (up to 8 players)
+q3dm7     { @minPlayers = 3; @maxPlayers = 8; $timelimit = 7; }
+q3dm11    { @minPlayers = 3; @maxPlayers = 8; }
+
+// Team modes (require 4v4 or larger)
+q3wcp9    { @minPlayers = 8; @minTeam = 4; }
+q3wcp1    { @minPlayers = 8; @minTeam = 4; }

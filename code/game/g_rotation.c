@@ -84,114 +84,199 @@ qboolean ParseMapRotation( void )
 	
 	Com_InitSeparators(); // needed for COM_ParseSep()
 
-	reqIndex = trap_Cvar_VariableIntegerValue( SV_ROTATION );
-	if ( reqIndex == 0 )
-		reqIndex = 1;
-
-__rescan:
-
+	/* Count total maps in rotation */
 	COM_BeginParseSession( g_rotation.string );
-
-	s = buf; // initialize token parsing
-	map[0] = '\0';
-
-	while ( 1 ) 
-	{
+	s = buf;
+	curIndex = 0;
+	while ( 1 ) {
 		tk = COM_ParseSep( &s, qtrue );
-		if ( tk[0] == '\0' ) 
-			break;
-
-		if ( tk[0] == '$' && tk[1] != '\0' ) // cvar name
-		{
-			 // save cvar name
-			strcpy( cvar, tk+1 );
-			tk = COM_ParseSep( &s, qfalse );
-			// expect '='
-			if ( tk[0] == '=' && tk[1] == '\0' ) 
-			{
-				tk = COM_ParseSep( &s, qtrue );
-				if ( !scopeLevel || curIndex == reqIndex ) 
-				{
-					trap_Cvar_Set( cvar, tk );
-				}
-				SkipTillSeparators( &s ); 
-				continue;
-			}
-			else 
-			{
-				COM_ParseWarning( S_COLOR_YELLOW "missing '=' after '%s'", cvar );
-				SkipRestOfLine( &s );
-				continue;
-			}
-
-		}
-		else if ( tk[0] == '{' && tk[1] == '\0' ) 
-		{
-			if ( scopeLevel == 0 && curIndex ) 
-			{
-				scopeLevel++;
-				continue;
-			}
-			else 
-			{
-				COM_ParseWarning( S_COLOR_YELLOW "unexpected '{'" );
-				continue;
-			}
-		}
-		else if ( tk[0] == '}' && tk[1] == '\0' ) 
-		{
-			if ( scopeLevel == 1 ) 
-			{
-				scopeLevel--;
-				continue;
-			}
-			else 
-			{
-				COM_ParseWarning( S_COLOR_YELLOW "unexpected '}'" );
-			}
-		}
-		else if ( G_MapExist( tk ) )
-		{
+		if ( tk[0] == '\0' ) break;
+		if ( G_MapExist( tk ) ) {
 			curIndex++;
-			if ( curIndex == reqIndex ) 
-			{
-				Q_strncpyz( map, tk, sizeof( map ) );
-			}
-		}
-		else 
-		{
-			COM_ParseWarning( S_COLOR_YELLOW "map '%s' doesn't exists", tk );
-			SkipRestOfLine( &s );
-			continue;
 		}
 	}
-
-	if ( curIndex == 0 ) // no maps in rotation file
-	{
+	if ( curIndex == 0 ) {
 		Com_Printf( S_COLOR_YELLOW "%s: no maps in rotation file.\n", g_rotation.string );
 		trap_Cvar_Set( SV_ROTATION, "1" );
 		return qfalse;
 	}
 
-	if ( !map[0] ) // map at required index not found?
 	{
-		if ( reqIndex > 1 ) // try to rescan with lower index
-		{
-			Com_Printf( S_COLOR_CYAN "%s: map at index %i not found, rescan\n", g_rotation.integer, reqIndex );
-			reqIndex = 1;
-			goto __rescan;
+		int totalMaps = curIndex;
+		int startIndex, tryIndex, attempts;
+		char chosenMap[256];
+		int chosenIndex = 0;
+
+		startIndex = trap_Cvar_VariableIntegerValue( SV_ROTATION );
+		if ( startIndex <= 0 ) startIndex = 1;
+		if ( startIndex > totalMaps ) startIndex = 1;
+
+		tryIndex = startIndex;
+		for ( attempts = 0; attempts < totalMaps; attempts++ ) {
+			int count = 0;
+			qboolean found = qfalse;
+			char *p;
+
+			/* locate map name at tryIndex */
+			COM_BeginParseSession( g_rotation.string );
+			p = buf;
+			while ( 1 ) {
+				tk = COM_ParseSep( &p, qtrue );
+				if ( tk[0] == '\0' ) break;
+				if ( G_MapExist( tk ) ) {
+					count++;
+					if ( count == tryIndex ) {
+						Q_strncpyz( chosenMap, tk, sizeof( chosenMap ) );
+						chosenIndex = tryIndex;
+						found = qtrue;
+						break;
+					}
+				}
+			}
+			if ( !found ) {
+				tryIndex = 1;
+				continue;
+			}
+
+			/* parse constraints for chosenMap */
+			{
+				int minPlayers = 0;
+				int maxPlayers = 9999;
+				int minTeam = 0;
+				int maxTeam = 9999;
+				int depth = 0;
+				qboolean afterMap = qfalse;
+				qboolean inBlock = qfalse;
+				char *q;
+
+				COM_BeginParseSession( g_rotation.string );
+				q = buf;
+				while ( 1 ) {
+					tk = COM_ParseSep( &q, qtrue );
+					if ( tk[0] == '\0' ) break;
+
+					if ( !inBlock && G_MapExist( tk ) && !Q_stricmp( tk, chosenMap ) ) {
+						afterMap = qtrue;
+						continue;
+					}
+
+					if ( tk[0] == '{' && tk[1] == '\0' ) {
+						depth++;
+						if ( depth == 1 && afterMap ) inBlock = qtrue;
+						continue;
+					}
+					if ( tk[0] == '}' && tk[1] == '\0' ) {
+						if ( depth > 0 ) depth--;
+						if ( inBlock && depth == 0 ) { inBlock = qfalse; afterMap = qfalse; }
+						continue;
+					}
+
+					if ( inBlock && tk[0] == '@' && tk[1] != '\0' ) {
+						char key[64];
+						int val;
+						Q_strncpyz( key, tk + 1, sizeof( key ) );
+						tk = COM_ParseSep( &q, qfalse );
+						if ( tk[0] == '=' && tk[1] == '\0' ) {
+							tk = COM_ParseSep( &q, qtrue );
+							val = atoi( tk );
+							if ( !Q_stricmp( key, "minPlayers" ) ) minPlayers = val;
+							else if ( !Q_stricmp( key, "maxPlayers" ) ) maxPlayers = val;
+							else if ( !Q_stricmp( key, "minTeam" ) ) minTeam = val;
+							else if ( !Q_stricmp( key, "maxTeam" ) ) maxTeam = val;
+							SkipTillSeparators( &q );
+							continue;
+						} else {
+							COM_ParseWarning( S_COLOR_YELLOW "missing '=' after '@%s'", key );
+							SkipRestOfLine( &q );
+							continue;
+						}
+					}
+				}
+
+				/* evaluate constraints */
+				{
+					int total = level.rotationTotalPlayers;
+					int red = level.rotationRedPlayers;
+					int blue = level.rotationBluePlayers;
+					qboolean ok = qtrue;
+
+					if ( total < minPlayers ) ok = qfalse;
+					if ( total > maxPlayers ) ok = qfalse;
+					if ( g_gametype.integer >= GT_TEAM ) {
+						if ( red < minTeam || blue < minTeam ) ok = qfalse;
+						if ( red > maxTeam || blue > maxTeam ) ok = qfalse;
+					}
+
+					if ( ok ) {
+						/* advance rotation index */
+						{
+							int next = chosenIndex + 1;
+							if ( next > totalMaps ) next = 1;
+							trap_Cvar_Set( SV_ROTATION, va( "%i", next ) );
+						}
+
+						/* apply cvars and load chosen map */
+						{
+							int depth2 = 0;
+							qboolean afterMap2 = qfalse;
+							qboolean inBlock2 = qfalse;
+							char *r;
+
+							COM_BeginParseSession( g_rotation.string );
+							r = buf;
+							while ( 1 ) {
+								tk = COM_ParseSep( &r, qtrue );
+								if ( tk[0] == '\0' ) break;
+
+								if ( G_MapExist( tk ) ) {
+									afterMap2 = ( Q_stricmp( tk, chosenMap ) == 0 );
+									continue;
+								}
+								if ( tk[0] == '{' && tk[1] == '\0' ) {
+									depth2++;
+									if ( depth2 == 1 && afterMap2 ) inBlock2 = qtrue;
+									continue;
+								}
+								if ( tk[0] == '}' && tk[1] == '\0' ) {
+									if ( depth2 > 0 ) depth2--;
+									if ( inBlock2 && depth2 == 0 ) inBlock2 = qfalse;
+									continue;
+								}
+								if ( tk[0] == '$' && tk[1] != '\0' ) {
+									Q_strncpyz( cvar, tk + 1, sizeof( cvar ) );
+									tk = COM_ParseSep( &r, qfalse );
+									if ( tk[0] == '=' && tk[1] == '\0' ) {
+										tk = COM_ParseSep( &r, qtrue );
+										if ( depth2 == 0 || inBlock2 ) {
+											trap_Cvar_Set( cvar, tk );
+										}
+										SkipTillSeparators( &r );
+										continue;
+									} else {
+										COM_ParseWarning( S_COLOR_YELLOW "missing '=' after '%s'", cvar );
+										SkipRestOfLine( &r );
+										continue;
+									}
+								}
+							}
+
+							G_LoadMap( chosenMap );
+							return qtrue;
+						}
+					}
+				}
+			}
+
+			/* next candidate */
+			tryIndex++;
+			if ( tryIndex > totalMaps ) tryIndex = 1;
 		}
-		trap_Cvar_Set( SV_ROTATION, "1" );
-		return qfalse;
+
+		/* No suitable map found: stay on current map */
+		Com_Printf( S_COLOR_YELLOW "Rotation: no suitable map for %i players (R:%i B:%i). Staying on current map.\n",
+			level.rotationTotalPlayers, level.rotationRedPlayers, level.rotationBluePlayers );
+		/* keep rotation index as-is */
+		G_LoadMap( NULL );
+		return qtrue;
 	}
-
-	reqIndex++;
-	if ( reqIndex > curIndex )
-		reqIndex = 1;
-
-	trap_Cvar_Set( SV_ROTATION, va( "%i", reqIndex ) );
-	//trap_Cvar_Set( "g_restarted", "1" );
-	G_LoadMap( map );
-
-	return qtrue;
 }

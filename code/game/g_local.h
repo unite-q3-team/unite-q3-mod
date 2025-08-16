@@ -498,6 +498,11 @@ typedef struct {
 	// map rotation
 	qboolean	denyMapRestart;
 
+	// rotation-aware player counts captured at end of match
+	int		rotationTotalPlayers;
+	int		rotationRedPlayers;
+	int		rotationBluePlayers;
+
 	// unlagged
 	int			frameStartTime;
 

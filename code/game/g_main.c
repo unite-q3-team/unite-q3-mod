@@ -1499,6 +1499,22 @@ void ExitLevel( void ) {
 	// we need to do this here before changing to CON_CONNECTING
 	G_WriteSessionData();
 
+	// capture player counts for rotation decisions before we reset states
+	level.rotationTotalPlayers = 0;
+	level.rotationRedPlayers = 0;
+	level.rotationBluePlayers = 0;
+	for ( i = 0 ; i < level.maxclients ; i++ ) {
+		cl = level.clients + i;
+		if ( cl->pers.connected != CON_CONNECTED ) {
+			continue;
+		}
+		if ( cl->sess.sessionTeam != TEAM_SPECTATOR ) {
+			level.rotationTotalPlayers++;
+			if ( cl->sess.sessionTeam == TEAM_RED ) level.rotationRedPlayers++;
+			else if ( cl->sess.sessionTeam == TEAM_BLUE ) level.rotationBluePlayers++;
+		}
+	}
+
 	// change all client states to connecting, so the early players into the
 	// next level will know the others aren't done reconnecting
 	for ( i = 0 ; i < level.maxclients ; i++ ) {
