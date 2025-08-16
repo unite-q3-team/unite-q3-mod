@@ -202,7 +202,8 @@ G_CVAR( g_spawn_items, "g_spawn_items", "63", CVAR_SERVERINFO | CVAR_LATCH, 0, q
 G_CVAR( g_spawn_quad, "g_spawn_quad", "1", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_spawn_weapons, "g_spawn_weapons", "1023", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 
-// G_CVAR( g_spawnProtect, "g_spawnProtect", "0", CVAR_ARCHIVE | CVAR_NORESTART, 0, qtrue, qfalse )
+G_CVAR( g_spawnProtect, "g_spawnProtect", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
+G_CVAR( g_spawnProtectUseBS, "g_spawnProtectUseBS", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
 G_CVAR( g_spawnProtectTime, "g_spawnProtectTime", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )

@@ -1650,9 +1650,15 @@ void ClientSpawn(gentity_t *ent) {
 	client->inactivityTime = level.time + g_inactivity.integer * 1000;
 	client->latched_buttons = 0;
 
-	/* Give Battlesuit protection on fresh spawn for g_spawnProtectTime ms */
-	if ( g_spawnProtectTime.integer > 0 ) {
-		client->ps.powerups[ PW_BATTLESUIT ] = level.time + g_spawnProtectTime.integer;
+	/* Spawn protection: optionally disable entirely and/or choose whether to use BS effect */
+	if ( g_spawnProtect.integer && g_spawnProtectTime.integer > 0 ) {
+		if ( g_spawnProtectUseBS.integer ) {
+			client->ps.powerups[ PW_BATTLESUIT ] = level.time + g_spawnProtectTime.integer;
+		} else {
+			/* no BS effect: emulate immunity by delaying damage window */
+			client->respawnTime = level.time + g_spawnProtectTime.integer;
+			client->ps.powerups[ PW_BATTLESUIT ] = 0;
+		}
 	} else {
 		client->ps.powerups[ PW_BATTLESUIT ] = 0;
 	}
