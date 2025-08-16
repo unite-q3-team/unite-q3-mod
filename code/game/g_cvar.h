@@ -211,6 +211,10 @@ G_CVAR( g_voteRevertPending, "g_voteRevertPending", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_voteRevertCvar, "g_voteRevertCvar", "", 0, 0, qfalse, qfalse )
 G_CVAR( g_voteRevertValue, "g_voteRevertValue", "", 0, 0, qfalse, qfalse )
 
+/* client precache helpers to avoid hitches when granting weapons on spawn */
+G_CVAR( g_precacheStartWeapons, "g_precacheStartWeapons", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_precacheAllWeapons,   "g_precacheAllWeapons",   "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 //ratmod
 G_CVAR( g_altFlags, "g_altFlags", "0", CVAR_SERVERINFO, 0, qfalse, qfalse )

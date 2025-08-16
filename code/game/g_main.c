@@ -864,6 +864,15 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	ClearRegisteredItems();
 
+	/* optionally force precache of all start/grantable weapons to avoid client hitches */
+	if ( g_precacheStartWeapons.integer || g_precacheAllWeapons.integer ) {
+		int w;
+		for ( w = 1; w < WP_NUM_WEAPONS; ++w ) {
+			gitem_t *it = BG_FindItemForWeapon( w );
+			if ( it ) RegisterItem( it );
+		}
+	}
+
     // parse the key/value pairs and spawn gentities
     G_SpawnEntitiesFromString();
 

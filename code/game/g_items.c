@@ -906,8 +906,16 @@ void ClearRegisteredItems( void ) {
 	memset( itemRegistered, 0, sizeof( itemRegistered ) );
 
 	// players always start with the base weapon
-	RegisterItem( BG_FindItemForWeapon( WP_MACHINEGUN ) );
-	RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
+	if ( g_precacheAllWeapons.integer ) {
+		int w;
+		for ( w = 1; w < WP_NUM_WEAPONS; ++w ) {
+			gitem_t *it = BG_FindItemForWeapon( w );
+			if ( it ) RegisterItem( it );
+		}
+	} else {
+		RegisterItem( BG_FindItemForWeapon( WP_MACHINEGUN ) );
+		RegisterItem( BG_FindItemForWeapon( WP_GAUNTLET ) );
+	}
 #ifdef MISSIONPACK
 	if( g_gametype.integer == GT_HARVESTER ) {
 		RegisterItem( BG_FindItem( "Red Cube" ) );
