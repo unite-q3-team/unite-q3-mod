@@ -1352,6 +1352,25 @@ void ClientBegin( int clientNum ) {
 			CheckTeamLeader( client->sess.sessionTeam );
 	}
 
+    /* send join messages */
+    if ( client->pers.connected == CON_CONNECTED ) {
+        if ( g_joinMessage.string[0] ) {
+            /* expand \n escapes */
+            char msgbuf[MAX_STRING_CHARS];
+            const char *s = g_joinMessage.string; int i = 0, j = 0;
+            while ( s[i] && j < (int)sizeof(msgbuf) - 1 ) { if ( s[i] == '\\' && s[i+1] == 'n' ) { msgbuf[j++]='\n'; i+=2; } else { msgbuf[j++]=s[i++]; } }
+            msgbuf[j] = '\0';
+            trap_SendServerCommand( clientNum, va("print \"%s\"", msgbuf) );
+        }
+        if ( g_joinCenter.string[0] ) {
+            char cpbuf[MAX_STRING_CHARS];
+            const char *s2 = g_joinCenter.string; int i2 = 0, j2 = 0;
+            while ( s2[i2] && j2 < (int)sizeof(cpbuf) - 1 ) { if ( s2[i2] == '\\' && s2[i2+1] == 'n' ) { cpbuf[j2++]='\n'; i2+=2; } else { cpbuf[j2++]=s2[i2++]; } }
+            cpbuf[j2] = '\0';
+            trap_SendServerCommand( clientNum, va("cp \"%s\"", cpbuf) );
+        }
+    }
+
 	if ( client->sess.sessionTeam != TEAM_SPECTATOR ) {
 		// send event
 		tent = G_TempEntity( client->ps.origin, EV_PLAYER_TELEPORT_IN );

@@ -789,6 +789,8 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
     /* initialize vote system rules file early so default gets created if missing */
     VS_Init();
+    /* initialize announcer */
+    AN_Init();
 
     /* build cached map list once at startup */
     G_EnsureMapListCache();
@@ -2599,6 +2601,9 @@ static void G_RunFrame( int levelTime ) {
 	// check team votes
 	CheckTeamVote( TEAM_RED );
 	CheckTeamVote( TEAM_BLUE );
+
+	/* run announcer */
+	AN_RunFrame();
 
 	// for tracking changes
 	CheckCvars();

@@ -510,6 +510,11 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	/* announcer server commands */
+	if ( Q_stricmp( cmd, "ann_reload" ) == 0 ) { Svcmd_AnnouncerReload_f(); return qtrue; }
+	if ( Q_stricmp( cmd, "ann_list" ) == 0 ) { Svcmd_AnnouncerList_f(); return qtrue; }
+	if ( Q_stricmp( cmd, "ann_enable" ) == 0 ) { Svcmd_AnnouncerEnable_f(); return qtrue; }
+
 	/* apply deferred vote revert after map_restart when command buffer runs */
 	if ( Q_stricmp (cmd, "map_restart") == 0 ) {
 		if ( trap_Cvar_VariableIntegerValue( "g_voteRevertPending" ) ) {

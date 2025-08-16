@@ -279,5 +279,17 @@ G_CVAR( g_botShoveBodies,  "g_botShoveBodies",  "1", CVAR_ARCHIVE, 0, qfalse, qf
 /* 0 = off, 1 = high priority (current), 2 = override everything (suicidal rescue) */
 G_CVAR( g_botRescuePriority, "g_botRescuePriority", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* announcer */
+G_CVAR( g_announcer, "g_announcer", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* seconds between announcements */
+G_CVAR( g_announcer_interval, "g_announcer_interval", "180", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* 0 = sequential order, 1 = random */
+G_CVAR( g_announcer_order, "g_announcer_order", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* file name for announcements (optional) */
+G_CVAR( g_announcer_file, "g_announcer_file", "announcements.txt", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* join texts */
+G_CVAR( g_joinMessage, "g_joinMessage", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_joinCenter, "g_joinCenter", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 
 #undef G_CVAR

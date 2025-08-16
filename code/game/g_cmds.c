@@ -1630,6 +1630,10 @@ static void Cmd_ScoresText_f( gentity_t *ent );
 static void Cmd_MapList_f( gentity_t *ent );
 static void Cmd_Rotation_f( gentity_t *ent );
 void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
+/* announcer commands */
+void AN_Cmd_AnnReload( gentity_t *ent );
+void AN_Cmd_AnnList( gentity_t *ent );
+void AN_Cmd_AnnEnable( gentity_t *ent );
 
 typedef void (*gameCmdHandler_t)( gentity_t *ent );
 typedef struct {
@@ -1692,6 +1696,9 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "maplist",         Cmd_MapList_f,      qfalse },
     { "rotation",        Cmd_Rotation_f,     qfalse },
     { "cv",              Cmd_CV_f,           qfalse },
+    { "annreload",       AN_Cmd_AnnReload,   qtrue  },
+    { "annlist",         AN_Cmd_AnnList,     qtrue  },
+    { "annenable",       AN_Cmd_AnnEnable,   qtrue  },
     { "atest",           Cmd_NewTest_f,      qfalse },
     { "listitems",       listitems_f,        qtrue  },
     { "items",           items_f,            qtrue  },

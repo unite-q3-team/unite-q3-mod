@@ -14,6 +14,7 @@ QA_SRC = \
  cmds/serverutils \
  cmds/votesystem \
  cmds/itemreplace \
+ cmds/announcer \
  cmds/osp/ospcmds \
  svcmds/svcmds \
  svcmds/player \
