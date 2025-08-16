@@ -144,6 +144,9 @@ qboolean ParseMapRotation( void )
 				int maxPlayers = 9999;
 				int minTeam = 0;
 				int maxTeam = 9999;
+				int reqGametype = -1;
+				int reqInstagib = -1;
+				int reqFreeze = -1;
 				int depth = 0;
 				qboolean afterMap = qfalse;
 				qboolean inBlock = qfalse;
@@ -183,6 +186,9 @@ qboolean ParseMapRotation( void )
 							else if ( !Q_stricmp( key, "maxPlayers" ) ) maxPlayers = val;
 							else if ( !Q_stricmp( key, "minTeam" ) ) minTeam = val;
 							else if ( !Q_stricmp( key, "maxTeam" ) ) maxTeam = val;
+							else if ( !Q_stricmp( key, "gametype" ) ) reqGametype = val;
+							else if ( !Q_stricmp( key, "instagib" ) ) reqInstagib = val ? 1 : 0;
+							else if ( !Q_stricmp( key, "freeze" ) ) reqFreeze = val ? 1 : 0;
 							SkipTillSeparators( &q );
 							continue;
 						} else {
@@ -206,6 +212,9 @@ qboolean ParseMapRotation( void )
 						if ( red < minTeam || blue < minTeam ) ok = qfalse;
 						if ( red > maxTeam || blue > maxTeam ) ok = qfalse;
 					}
+					if ( reqGametype != -1 && g_gametype.integer != reqGametype ) ok = qfalse;
+					if ( reqInstagib != -1 && ((g_instagib.integer ? 1 : 0) != reqInstagib) ) ok = qfalse;
+					if ( reqFreeze != -1 && ((g_freeze.integer ? 1 : 0) != reqFreeze) ) ok = qfalse;
 
 					if ( ok ) {
 						/* advance rotation index */
@@ -272,11 +281,41 @@ qboolean ParseMapRotation( void )
 			if ( tryIndex > totalMaps ) tryIndex = 1;
 		}
 
-		/* No suitable map found: stay on current map */
-		Com_Printf( S_COLOR_YELLOW "Rotation: no suitable map for %i players (R:%i B:%i). Staying on current map.\n",
-			level.rotationTotalPlayers, level.rotationRedPlayers, level.rotationBluePlayers );
-		/* keep rotation index as-is */
-		G_LoadMap( NULL );
-		return qtrue;
+		/* No suitable map found: pick a random eligible map ignoring constraints */
+		{
+			int randIndex;
+			int count = 0;
+			char *p;
+			char fallbackMap[256] = {0};
+			/* collect totalMaps already known; pick random 1..totalMaps */
+			randIndex = (rand() % totalMaps) + 1;
+			/* locate that map */
+			COM_BeginParseSession( g_rotation.string );
+			p = buf;
+			while ( 1 ) {
+				tk = COM_ParseSep( &p, qtrue );
+				if ( tk[0] == '\0' ) break;
+				if ( G_MapExist( tk ) ) {
+					count++;
+					if ( count == randIndex ) {
+						Q_strncpyz( fallbackMap, tk, sizeof( fallbackMap ) );
+						break;
+					}
+				}
+			}
+			if ( fallbackMap[0] ) {
+				/* advance rotation index relative to chosen random to keep variety */
+				int next = randIndex + 1;
+				if ( next > totalMaps ) next = 1;
+				trap_Cvar_Set( SV_ROTATION, va( "%i", next ) );
+				Com_Printf( S_COLOR_YELLOW "Rotation: no suitable map; picking random '%s' (players:%i R:%i B:%i).\n",
+					fallbackMap, level.rotationTotalPlayers, level.rotationRedPlayers, level.rotationBluePlayers );
+				G_LoadMap( fallbackMap );
+				return qtrue;
+			}
+			/* fallback: restart current */
+			G_LoadMap( NULL );
+			return qtrue;
+		}
 	}
 }
