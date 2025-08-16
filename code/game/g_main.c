@@ -873,6 +873,17 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 		}
 	}
 
+	/* optionally force precache of all items (armor/health/ammo/powerups/holdables) */
+	if ( g_precacheAllItems.integer ) {
+		int i;
+		for ( i = 0; i < bg_numItems; ++i ) {
+			gitem_t *it = &bg_itemlist[i];
+			if ( it && it->classname && it->giType != IT_BAD ) {
+				RegisterItem( it );
+			}
+		}
+	}
+
     // parse the key/value pairs and spawn gentities
     G_SpawnEntitiesFromString();
 

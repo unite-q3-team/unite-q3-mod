@@ -153,3 +153,10 @@ Notes
 - Spectators cannot call votes.
 - Only one vote can be active at a time.
 - Team votes (`\callteamvote`) remain separate and unchanged.
+
+
+Precache / Предзагрузка ресурсов
+--------------------------------
+- g_precacheStartWeapons (default 1): регистрирует все оружия на старте карты, чтобы клиент предзагрузил их и не подвисал при первом переключении.
+- g_precacheAllWeapons (default 0): принудительно регистрирует все оружия (перекрывает поведение по умолчанию), увеличивает стартовую загрузку.
+- g_precacheAllItems (default 0): принудительно регистрирует все предметы (оружие/патроны/броню/хил/пауэрап/холдаблы). Удобно для режимов, где по ходу матча игроку выдают предметы, которых нет на карте.
