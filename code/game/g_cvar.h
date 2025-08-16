@@ -206,6 +206,11 @@ G_CVAR( g_spawnProtect, "g_spawnProtect", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
 G_CVAR( g_spawnProtectUseBS, "g_spawnProtectUseBS", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
 G_CVAR( g_spawnProtectTime, "g_spawnProtectTime", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* vote revert persistence across map_restart */
+G_CVAR( g_voteRevertPending, "g_voteRevertPending", "0", 0, 0, qfalse, qfalse )
+G_CVAR( g_voteRevertCvar, "g_voteRevertCvar", "", 0, 0, qfalse, qfalse )
+G_CVAR( g_voteRevertValue, "g_voteRevertValue", "", 0, 0, qfalse, qfalse )
+
 G_CVAR( g_damageThroughWalls, "g_damageThroughWalls", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
 //ratmod
 G_CVAR( g_altFlags, "g_altFlags", "0", CVAR_SERVERINFO, 0, qfalse, qfalse )

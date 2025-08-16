@@ -86,3 +86,70 @@ g_doWarmup <seconds>
 ========================
 
     obsolete, forced to 1
+
+Votesystem
+-----------
+
+The server provides a configurable vote system driven by `votesystem.txt`.
+If `votesystem.txt` is missing, a default is auto-generated with common rules.
+
+Basics
+- Call a vote: `\callvote <command> [arg]`
+- List available votes with current values: `\cv` (alias for help list)
+- Some votes accept friendly names and map indices (for `map`).
+
+Examples
+- `\callvote instagib 1` → enable instagib for the current match (see Revert-on-next-map)
+- `\callvote freeze 0`   → disable FreezeTag for the current match
+- `\callvote g_gametype tdm` → switch to TDM (will restart the map)
+- `\callvote map 7`      → change to map by index from the server map list
+- `\callvote shuffle random` or `\callvote shuffle score`
+- `\callvote nextmap`    → proceed to the next map in rotation
+- `\callvote map_restart` → restart current map
+
+Rules file: votesystem.txt
+- Location: mod fs game root (same place as `rotation.txt`).
+- Text format: key-value lines. `name.attr = value`.
+- Each vote command is a "rule" with attributes.
+
+Core attributes
+- `<rule>.enabled` (0|1): enable/disable the vote.
+- `<rule>.name`: display name in help lists.
+- `<rule>.action`: server command template executed if the vote passes. Use `{arg}` placeholder for the vote argument.
+- `<rule>.usage`: help text shown if argument is missing/invalid.
+- `<rule>.requireArg` (0|1): whether an argument is required.
+- `<rule>.numericOnly` (0|1): if argument must be numeric.
+- `<rule>.visible` (0|1): show in `\cv` list.
+- `<rule>.cvar`: optional; the cvar that represents the current value (used for listing and validation).
+- `<rule>.case.<key>`: per-argument actions (choices). When provided, the action is selected by exact match of `<key>`.
+- `<rule>.default`: default action template if no case matches.
+
+One-match (revert-on-next-map) votes
+- Attribute: `<rule>.revert = 1`.
+- Behavior: when the vote passes, the server stores the previous value of `<rule>.cvar` and applies the new one.
+  On the next map change the cvar is reverted to the stored value automatically.
+- Default rules enable `revert = 1` for `instagib` (maps to `g_instagib`) and `freeze` (maps to `g_freeze`).
+
+No-op vote protection
+- If a vote targets a cvar and proposes the same value it already has (e.g. `instagib 1` while `g_instagib` is already 1),
+  the vote is rejected early with a message.
+- Exceptions (always allowed): `nextmap`, `shuffle`, `map_restart`.
+
+Map helpers
+- `\cv map` prints the available map list with indices.
+- `\callvote map <index>` accepts numeric index from that list.
+- Map names can be used directly: `\callvote map q3dm6`.
+
+Default rules shipped (excerpt)
+- `map` (enabled) — change map; accepts name or index.
+- `map_restart` (enabled) — restart current map.
+- `g_gametype` (enabled) — supports `ffa|duel|tdm|ctf` or numeric.
+- `instagib` (enabled, revert=1) — `g_instagib {arg}; map_restart`.
+- `freeze` (enabled, revert=1) — `g_freeze {arg}; map_restart`.
+- Hidden examples (disabled by default): `timelimit`, `fraglimit`, `capturelimit`, `noquad`.
+
+Notes
+- The server respects `g_allowVote`, `g_voteTime`, `g_voteExecuteDelayMs`.
+- Spectators cannot call votes.
+- Only one vote can be active at a time.
+- Team votes (`\callteamvote`) remain separate and unchanged.

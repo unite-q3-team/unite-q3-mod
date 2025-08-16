@@ -510,6 +510,24 @@ qboolean	ConsoleCommand( void ) {
 		return qtrue;
 	}
 
+	/* apply deferred vote revert after map_restart when command buffer runs */
+	if ( Q_stricmp (cmd, "map_restart") == 0 ) {
+		if ( trap_Cvar_VariableIntegerValue( "g_voteRevertPending" ) ) {
+			char cvarName[64];
+			char prevVal[64];
+			trap_Cvar_VariableStringBuffer( "g_voteRevertCvar", cvarName, sizeof(cvarName) );
+			trap_Cvar_VariableStringBuffer( "g_voteRevertValue", prevVal, sizeof(prevVal) );
+			if ( cvarName[0] && prevVal[0] ) {
+				trap_Cvar_Set( cvarName, prevVal );
+			}
+			trap_Cvar_Set( "g_voteRevertPending", "0" );
+			trap_Cvar_Set( "g_voteRevertCvar", "" );
+			trap_Cvar_Set( "g_voteRevertValue", "" );
+		}
+		/* allow the real map_restart to proceed */
+		return qfalse;
+	}
+
     if (Q_stricmp (cmd, "shuffle") == 0) {
         char mode[16];
         mode[0] = '\0';

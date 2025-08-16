@@ -503,6 +503,15 @@ typedef struct {
 	int		rotationRedPlayers;
 	int		rotationBluePlayers;
 
+	// temporary vote overrides (revert-on-next-map)
+	int		vsTempOverrideCount;
+	char	vsTempOverrideName[8][64];
+	char	vsTempOverridePrev[8][64];
+	// pending vote metadata for revert behavior
+	int		voteTmpRevertOnMapChange;
+	char	voteTmpRevertCvar[64];
+	char	voteTmpPrevValue[64];
+
 	// unlagged
 	int			frameStartTime;
 

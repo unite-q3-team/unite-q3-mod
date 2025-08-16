@@ -516,6 +516,20 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		return;
 	}
 
+	/* Instagib: prevent picking up any weapons except Railgun (and optionally Gauntlet if bit 2 set),
+	   and disallow ammo pickups entirely. */
+	if ( g_instagib.integer ) {
+		if ( ent->item->giType == IT_WEAPON ) {
+			int tag = ent->item->giTag;
+			qboolean allowGauntlet = ( (g_instagib.integer & 2) != 0 );
+			if ( tag != WP_RAILGUN && !(allowGauntlet && tag == WP_GAUNTLET) ) {
+				return;
+			}
+		} else if ( ent->item->giType == IT_AMMO ) {
+			return;
+		}
+	}
+
 	if (dbg_events.integer == 1)
 		G_LogPrintf( "Item: %i %s\n", other->s.number, ent->item->classname );
 
@@ -527,6 +541,9 @@ void Touch_Item (gentity_t *ent, gentity_t *other, trace_t *trace) {
 		respawn = Pickup_Weapon(ent, other);
 		break;
 	case IT_AMMO:
+		if ( g_instagib.integer ) {
+			return; /* no ammo pickups in instagib */
+		}
 		respawn = Pickup_Ammo(ent, other);
 		break;
 	case IT_ARMOR:

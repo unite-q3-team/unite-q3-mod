@@ -23,6 +23,7 @@ typedef struct {
     char choiceKeys[VS_MAX_CHOICES][32];              /* case key (value) */
     char choiceActions[VS_MAX_CHOICES][256];          /* per-case action template */
     char defaultAction[256];                          /* optional default action when no case matches */
+    int revert;              /* 1 if this vote should be auto-reverted on next map */
 } vs_rule_t;
 
 static vs_rule_t vs_rules[VS_MAX_RULES];
@@ -44,6 +45,7 @@ static void VS_ResetRules(void) {
         vs_rules[i].visible = 1;
         vs_rules[i].choiceCount = 0;
         vs_rules[i].defaultAction[0] = '\0';
+        vs_rules[i].revert = 0;
     }
 }
 
@@ -125,6 +127,7 @@ static vs_rule_t *VS_GetOrCreateRule(const char *name) {
     vs_rules[vs_ruleCount].visible = 1;
     vs_rules[vs_ruleCount].choiceCount = 0;
     vs_rules[vs_ruleCount].defaultAction[0] = '\0';
+    vs_rules[vs_ruleCount].revert = 0;
     vs_ruleCount++;
     return &vs_rules[vs_ruleCount - 1];
 }
@@ -212,6 +215,7 @@ static const char *vs_defaultRulesText =
     "instagib.requireArg = 1\n"
     "instagib.numericOnly = 1\n"
     "instagib.usage = Usage: instagib <0|1>\n"
+    "instagib.revert = 1\n"
     "\n"
     "freeze.name = Freeze tag\n"
     "freeze.enabled = 1\n"
@@ -219,6 +223,7 @@ static const char *vs_defaultRulesText =
     "freeze.requireArg = 1\n"
     "freeze.numericOnly = 1\n"
     "freeze.usage = Usage: freeze <0|1>\n"
+    "freeze.revert = 1\n"
     "\n"
     "noquad.name = Disable Quad\n"
     "noquad.enabled = 1\n"
@@ -392,6 +397,8 @@ static void VS_LoadRules(void) {
             rule->visible = VS_StringToBool(val, 1);
         } else if ( !Q_stricmp(attr, "default") ) {
             Q_strncpyz(rule->defaultAction, val, sizeof(rule->defaultAction));
+        } else if ( !Q_stricmp(attr, "revert") ) {
+            rule->revert = VS_StringToBool(val, 0);
         } else {
             /* case.<key> mapping */
             const char *casePrefix = "case.";
@@ -661,6 +668,26 @@ static qboolean ValidVoteCommand( int clientNum, char *command ) {
         int j;
         int isNum;
         char expanded[512];
+        /* reject no-op votes: if this rule targets a cvar and arg equals current value */
+        if ( rule->valueCvar[0] ) {
+            char current[64];
+            char want[64];
+            Q_strncpyz( want, command, sizeof(want) );
+            VS_TrimLeft( want );
+            {
+                int k = 0;
+                while ( want[k] && want[k] != ' ' ) k++;
+                want[k] = '\0';
+            }
+            trap_Cvar_VariableStringBuffer( rule->valueCvar, current, sizeof(current) );
+            if ( want[0] && Q_stricmp( want, current ) == 0 ) {
+                /* allow certain commands anyway; allow map_restart always via action template */
+                if ( Q_stricmp( rule->name, "nextmap" ) && Q_stricmp( rule->name, "shuffle" ) ) {
+                    trap_SendServerCommand( clientNum, "print \"This value is already set.\n\"" );
+                    return qfalse;
+                }
+            }
+        }
         /* command currently points to the first non-space char after name */
         Q_strncpyz( argbuf, command, sizeof(argbuf) );
         /* trim leading spaces/tabs */
@@ -740,6 +767,19 @@ static qboolean ValidVoteCommand( int clientNum, char *command ) {
         }
         VS_ReplaceTemplate( rule->action, argbuf, expanded, sizeof(expanded) );
         BG_sprintf( base, "%s", expanded );
+        /* store revert metadata if configured (do not clear here for non-revert votes) */
+        if ( rule->revert && rule->valueCvar[0] ) {
+            char prev[64];
+            trap_Cvar_VariableStringBuffer( rule->valueCvar, prev, sizeof(prev) );
+            Q_strncpyz( level.voteTmpRevertCvar, rule->valueCvar, sizeof(level.voteTmpRevertCvar) );
+            Q_strncpyz( level.voteTmpPrevValue, prev, sizeof(level.voteTmpPrevValue) );
+            level.voteTmpRevertOnMapChange = 1;
+            /* persist through map_restart via cvars (since level.* is reset) */
+            trap_Cvar_Set( "g_voteRevertPending", "1" );
+            trap_Cvar_Set( "g_voteRevertCvar", level.voteTmpRevertCvar );
+            trap_Cvar_Set( "g_voteRevertValue", level.voteTmpPrevValue );
+            /* Also mirror to com.cfg at engine-level via echo command; some engines persist variables differently */
+        }
         return qtrue;
     }
 

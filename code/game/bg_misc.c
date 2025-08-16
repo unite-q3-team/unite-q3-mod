@@ -1035,11 +1035,9 @@ qboolean BG_CanItemBeGrabbed( int gametype, const entityState_t *ent, const play
 
 	switch( item->giType ) {
 	case IT_WEAPON:
-	//freeze
 		if ( ent->modelindex2 == 255 && ps->stats[ STAT_WEAPONS ] & ( 1 << item->giTag ) ) {
 			return qfalse;
 		}
-	//freeze
 		return qtrue;	// weapons are always picked up
 
 	case IT_AMMO:

@@ -1523,6 +1523,35 @@ void ExitLevel( void ) {
 		}
 	}
 
+	/* revert temporary vote-overridden cvars on map change */
+	{
+		qboolean applied = qfalse;
+		if ( level.voteTmpRevertOnMapChange ) {
+			if ( level.voteTmpRevertCvar[0] && level.voteTmpPrevValue[0] ) {
+				trap_Cvar_Set( level.voteTmpRevertCvar, level.voteTmpPrevValue );
+				applied = qtrue;
+			}
+			level.voteTmpRevertOnMapChange = 0;
+			level.voteTmpRevertCvar[0] = '\0';
+			level.voteTmpPrevValue[0] = '\0';
+		}
+		/* also check persisted flags (survive map_restart) */
+		if ( trap_Cvar_VariableIntegerValue( "g_voteRevertPending" ) ) {
+			char cvarName[64];
+			char prevVal[64];
+			trap_Cvar_VariableStringBuffer( "g_voteRevertCvar", cvarName, sizeof(cvarName) );
+			trap_Cvar_VariableStringBuffer( "g_voteRevertValue", prevVal, sizeof(prevVal) );
+			if ( cvarName[0] && prevVal[0] ) {
+				trap_Cvar_Set( cvarName, prevVal );
+				applied = qtrue;
+			}
+			trap_Cvar_Set( "g_voteRevertPending", "0" );
+			trap_Cvar_Set( "g_voteRevertCvar", "" );
+			trap_Cvar_Set( "g_voteRevertValue", "" );
+		}
+		(void)applied;
+	}
+
 	if ( !ParseMapRotation() ) {
 		char val[ MAX_CVAR_VALUE_STRING ];
 
