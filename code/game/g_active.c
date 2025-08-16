@@ -433,10 +433,10 @@ SpectatorThink
 =================
 */
 void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
-	pmove_t	pm;
-	gclient_t	*client;
+    pmove_t pm;
+    gclient_t *client;
 
-	client = ent->client;
+    client = ent->client;
 
     if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
         /* If in team mode and free-look is disabled, force trying to follow a teammate */
@@ -461,59 +461,60 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
                 return;
             }
         }
-		client->ps.pm_type = PM_SPECTATOR;
-		client->ps.speed = g_speed.value * 1.25f; // faster than normal
+        /* free spectator: allow noclip when g_specNoclip is enabled */
+        client->ps.pm_type = ( g_specNoclip.integer ? PM_NOCLIP : PM_SPECTATOR );
+        client->ps.speed = g_speed.value * 1.25f; // faster than normal
 
-		// set up for pmove
-		memset( &pm, 0, sizeof( pm ) );
-		pm.ps = &client->ps;
-		pm.cmd = *ucmd;
-		if ( client->noclip )
-			pm.tracemask = 0;
-		else
-			pm.tracemask = MASK_PLAYERSOLID & ~CONTENTS_BODY;	// spectators can fly through bodies
-	//freeze
-		if ( g_freeze.integer ) {
-			pm.tracemask &= ~CONTENTS_PLAYERCLIP;
-		}
-	//freeze
-		pm.trace = trap_Trace;
-		pm.pointcontents = trap_PointContents;
+        // set up for pmove
+        memset( &pm, 0, sizeof( pm ) );
+        pm.ps = &client->ps;
+        pm.cmd = *ucmd;
+        if ( client->noclip || g_specNoclip.integer )
+            pm.tracemask = 0;
+        else
+            pm.tracemask = MASK_PLAYERSOLID & ~CONTENTS_BODY; // spectators can fly through bodies
+    //freeze
+        if ( g_freeze.integer ) {
+            pm.tracemask &= ~CONTENTS_PLAYERCLIP;
+        }
+    //freeze
+        pm.trace = trap_Trace;
+        pm.pointcontents = trap_PointContents;
 
         // perform a pmove (unless disabled by teamNoFreeSpectate)
         if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) ) {
             Pmove( &pm );
         }
-		// save results of pmove
-		VectorCopy( client->ps.origin, ent->s.origin );
+        // save results of pmove
+        VectorCopy( client->ps.origin, ent->s.origin );
 
-		G_TouchTriggers( ent );
-		trap_UnlinkEntity( ent );
-	}
+        G_TouchTriggers( ent );
+        trap_UnlinkEntity( ent );
+    }
 
-	client->oldbuttons = client->buttons;
-	client->buttons = ucmd->buttons;
+    client->oldbuttons = client->buttons;
+    client->buttons = ucmd->buttons;
 
-	/* Jump while following: drop to free spectate depending on team/cvar */
-	if ( client->sess.spectatorState == SPECTATOR_FOLLOW ) {
-		if ( ucmd->upmove >= 10 ) {
-			if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
-				/* true spectator: always allow free */
-				StopFollowing( ent, qtrue );
-			} else {
-				/* not on spectator team: obey team free-spectate lock */
-				if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) ) {
-					StopFollowingNew( ent );
-				}
-			}
-		}
-	}
+    /* Jump while following: drop to free spectate depending on team/cvar */
+    if ( client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+        if ( ucmd->upmove >= 10 ) {
+            if ( client->sess.sessionTeam == TEAM_SPECTATOR ) {
+                /* true spectator: always allow free */
+                StopFollowing( ent, qtrue );
+            } else {
+                /* not on spectator team: obey team free-spectate lock */
+                if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer ) ) {
+                    StopFollowingNew( ent );
+                }
+            }
+        }
+    }
 
-	// attack button cycles through spectators
-	if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
-		/* In team modes, obey enemy spectate restriction while cycling */
-		Cmd_FollowCycle_f( ent, 1 );
-	}
+    // attack button cycles through spectators
+    if ( ( client->buttons & BUTTON_ATTACK ) && ! ( client->oldbuttons & BUTTON_ATTACK ) ) {
+        /* In team modes, obey enemy spectate restriction while cycling */
+        Cmd_FollowCycle_f( ent, 1 );
+    }
 }
 
 
@@ -1092,6 +1093,13 @@ void ClientThink_real( gentity_t *ent ) {
 		client->ps.pm_type = PM_DEAD;
 	} else {
 		client->ps.pm_type = PM_NORMAL;
+	}
+
+	/* allow spectators to fly through walls via cvar (server-controlled) */
+	if ( (g_freeze.integer ? ftmod_isSpectator(client) : (client->sess.sessionTeam == TEAM_SPECTATOR)) && client->sess.spectatorState != SPECTATOR_FOLLOW ) {
+		if ( g_specNoclip.integer ) {
+			client->ps.pm_type = PM_NOCLIP;
+		}
 	}
 
 	client->ps.gravity = g_gravity.value;

@@ -61,6 +61,7 @@ void AN_ForceReload(void);
 void AN_Cmd_AnnReload( gentity_t *ent );
 void AN_Cmd_AnnList( gentity_t *ent );
 void AN_Cmd_AnnEnable( gentity_t *ent );
+void AN_Cmd_AnnForce( gentity_t *ent );
 
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);

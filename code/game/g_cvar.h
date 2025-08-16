@@ -110,6 +110,8 @@ G_CVAR( pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
 G_CVAR( pmove_msec, "pmove_msec", "8", CVAR_SYSTEMINFO, 0, qfalse, qfalse )
 G_CVAR( sv_pmove_fixed, "sv_pmove_fixed", "0",0 , 0, qfalse, qfalse )
 G_CVAR( sv_pmove_msec, "sv_pmove_msec", "8", 0, 0, qfalse, qfalse )
+/* spectators free-fly noclip through world geometry (0=off,1=on) */
+G_CVAR( g_specNoclip, "g_specNoclip", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 

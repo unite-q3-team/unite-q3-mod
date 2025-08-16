@@ -8,6 +8,7 @@ void Cmd_svPlrlist_f(void);
 void Svcmd_AnnouncerReload_f( void );
 void Svcmd_AnnouncerList_f( void );
 void Svcmd_AnnouncerEnable_f( void );
+void Svcmd_AnnouncerForce_f( void );
 
 static int GetUserinfoInt(const char *userinfo, const char *key, int defaultValue) {
     const char *val = Info_ValueForKey(userinfo, key);

@@ -1634,6 +1634,7 @@ void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
 void AN_Cmd_AnnReload( gentity_t *ent );
 void AN_Cmd_AnnList( gentity_t *ent );
 void AN_Cmd_AnnEnable( gentity_t *ent );
+void AN_Cmd_AnnForce( gentity_t *ent );
 
 typedef void (*gameCmdHandler_t)( gentity_t *ent );
 typedef struct {
@@ -1699,6 +1700,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "annreload",       AN_Cmd_AnnReload,   qtrue  },
     { "annlist",         AN_Cmd_AnnList,     qtrue  },
     { "annenable",       AN_Cmd_AnnEnable,   qtrue  },
+    { "annforce",        AN_Cmd_AnnForce,    qtrue  },
     { "atest",           Cmd_NewTest_f,      qfalse },
     { "listitems",       listitems_f,        qtrue  },
     { "items",           items_f,            qtrue  },

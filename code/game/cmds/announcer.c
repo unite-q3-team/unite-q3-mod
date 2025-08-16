@@ -239,6 +239,75 @@ static void AN_BroadcastPrint(const char *msg) {
     G_BroadcastServerCommand( -1, va( "print \"%s\"", tmp ) );
 }
 
+static int AN_FindByName(const char *name) {
+    int i;
+    for ( i = 0; i < s_anCount; ++i ) {
+        if ( !Q_stricmp( s_anLines[i].name, name ) ) return i;
+    }
+    return -1;
+}
+
+static qboolean AN_ForceBroadcastIndex(int idx) {
+    if ( idx < 0 || idx >= s_anCount ) return qfalse;
+    if ( s_anLines[idx].text[0] == '\0' ) return qfalse;
+    AN_BroadcastPrint( s_anLines[idx].text );
+    return qtrue;
+}
+
+/* Force next announcement or specific one by index/name (auth-only client command) */
+void AN_Cmd_AnnForce( gentity_t *ent ) {
+    char arg[MAX_TOKEN_CHARS];
+    int argc;
+    int idx = -1;
+    if ( !ent || !ent->authed ) { trap_SendServerCommand( ent - g_entities, "print \"^1! ^3Auth required.\n\"" ); return; }
+    argc = trap_Argc();
+    if ( argc >= 2 ) {
+        int isNum = 1; int i;
+        trap_Argv( 1, arg, sizeof(arg) );
+        for ( i = 0; arg[i]; ++i ) { if ( arg[i] < '0' || arg[i] > '9' ) { isNum = 0; break; } }
+        if ( isNum && arg[0] ) {
+            idx = atoi( arg ) - 1;
+        } else {
+            idx = AN_FindByName( arg );
+        }
+        if ( !AN_ForceBroadcastIndex( idx ) ) {
+            trap_SendServerCommand( ent - g_entities, "print \"^1! ^3No such announcement.\n\"" );
+            return;
+        }
+    } else {
+        /* no arg: pick next according to current order, respecting enabled */
+        idx = AN_PickNextIndex();
+        if ( idx < 0 ) {
+            trap_SendServerCommand( ent - g_entities, "print \"^3No enabled announcements.\n\"" );
+            return;
+        }
+        (void)AN_ForceBroadcastIndex( idx );
+    }
+    /* reschedule timer to interval from now */
+    s_nextAnnounceTime = level.time + (g_announcer_interval.integer > 0 ? g_announcer_interval.integer * 1000 : 120000);
+}
+
+/* Console: ann_force [name|index] */
+void Svcmd_AnnouncerForce_f( void ) {
+    char arg[MAX_TOKEN_CHARS];
+    int argc = trap_Argc();
+    if ( argc >= 2 ) {
+        int isNum = 1; int i; int idx;
+        trap_Argv( 1, arg, sizeof(arg) );
+        for ( i = 0; arg[i]; ++i ) { if ( arg[i] < '0' || arg[i] > '9' ) { isNum = 0; break; } }
+        if ( isNum && arg[0] ) idx = atoi( arg ) - 1; else idx = AN_FindByName( arg );
+        if ( !AN_ForceBroadcastIndex( idx ) ) {
+            G_Printf("announcer: no such announcement.\n");
+            return;
+        }
+    } else {
+        int idx2 = AN_PickNextIndex();
+        if ( idx2 < 0 ) { G_Printf("announcer: no enabled announcements.\n"); return; }
+        (void)AN_ForceBroadcastIndex( idx2 );
+    }
+    s_nextAnnounceTime = level.time + (g_announcer_interval.integer > 0 ? g_announcer_interval.integer * 1000 : 120000);
+}
+
 /* --- public API --- */
 void AN_Init(void) {
     s_anLoaded = 0;
