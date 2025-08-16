@@ -106,6 +106,10 @@ qboolean ParseMapRotation( void )
 		int startIndex, tryIndex, attempts;
 		char chosenMap[256];
 		int chosenIndex = 0;
+		/* collect all eligible maps to choose randomly among them */
+		char eligible[64][256];
+		int eligibleIdx[64];
+		int eligibleCount = 0;
 
 		startIndex = trap_Cvar_VariableIntegerValue( SV_ROTATION );
 		if ( startIndex <= 0 ) startIndex = 1;
@@ -217,60 +221,10 @@ qboolean ParseMapRotation( void )
 					if ( reqFreeze != -1 && ((g_freeze.integer ? 1 : 0) != reqFreeze) ) ok = qfalse;
 
 					if ( ok ) {
-						/* advance rotation index */
-						{
-							int next = chosenIndex + 1;
-							if ( next > totalMaps ) next = 1;
-							trap_Cvar_Set( SV_ROTATION, va( "%i", next ) );
-						}
-
-						/* apply cvars and load chosen map */
-						{
-							int depth2 = 0;
-							qboolean afterMap2 = qfalse;
-							qboolean inBlock2 = qfalse;
-							char *r;
-
-							COM_BeginParseSession( g_rotation.string );
-							r = buf;
-							while ( 1 ) {
-								tk = COM_ParseSep( &r, qtrue );
-								if ( tk[0] == '\0' ) break;
-
-								if ( G_MapExist( tk ) ) {
-									afterMap2 = ( Q_stricmp( tk, chosenMap ) == 0 );
-									continue;
-								}
-								if ( tk[0] == '{' && tk[1] == '\0' ) {
-									depth2++;
-									if ( depth2 == 1 && afterMap2 ) inBlock2 = qtrue;
-									continue;
-								}
-								if ( tk[0] == '}' && tk[1] == '\0' ) {
-									if ( depth2 > 0 ) depth2--;
-									if ( inBlock2 && depth2 == 0 ) inBlock2 = qfalse;
-									continue;
-								}
-								if ( tk[0] == '$' && tk[1] != '\0' ) {
-									Q_strncpyz( cvar, tk + 1, sizeof( cvar ) );
-									tk = COM_ParseSep( &r, qfalse );
-									if ( tk[0] == '=' && tk[1] == '\0' ) {
-										tk = COM_ParseSep( &r, qtrue );
-										if ( depth2 == 0 || inBlock2 ) {
-											trap_Cvar_Set( cvar, tk );
-										}
-										SkipTillSeparators( &r );
-										continue;
-									} else {
-										COM_ParseWarning( S_COLOR_YELLOW "missing '=' after '%s'", cvar );
-										SkipRestOfLine( &r );
-										continue;
-									}
-								}
-							}
-
-							G_LoadMap( chosenMap );
-							return qtrue;
+						if ( eligibleCount < (int)(sizeof(eligibleIdx)/sizeof(eligibleIdx[0])) ) {
+							Q_strncpyz( eligible[ eligibleCount ], chosenMap, sizeof( eligible[0] ) );
+							eligibleIdx[ eligibleCount ] = chosenIndex;
+							eligibleCount++;
 						}
 					}
 				}
@@ -279,6 +233,42 @@ qboolean ParseMapRotation( void )
 			/* next candidate */
 			tryIndex++;
 			if ( tryIndex > totalMaps ) tryIndex = 1;
+		}
+
+		/* If we have eligible maps by constraints, pick a random one among them */
+		if ( eligibleCount > 0 ) {
+			int pick = rand() % eligibleCount;
+			int next = eligibleIdx[pick] + 1;
+			if ( next > totalMaps ) next = 1;
+			trap_Cvar_Set( SV_ROTATION, va( "%i", next ) );
+			/* apply cvars for the picked map and load */
+			{
+				int depth2 = 0;
+				qboolean afterMap2 = qfalse;
+				qboolean inBlock2 = qfalse;
+				char *r;
+				COM_BeginParseSession( g_rotation.string );
+				r = buf;
+				while ( 1 ) {
+					tk = COM_ParseSep( &r, qtrue );
+					if ( tk[0] == '\0' ) break;
+					if ( G_MapExist( tk ) ) { afterMap2 = ( Q_stricmp( tk, eligible[pick] ) == 0 ); continue; }
+					if ( tk[0] == '{' && tk[1] == '\0' ) { depth2++; if ( depth2 == 1 && afterMap2 ) inBlock2 = qtrue; continue; }
+					if ( tk[0] == '}' && tk[1] == '\0' ) { if ( depth2 > 0 ) depth2--; if ( inBlock2 && depth2 == 0 ) inBlock2 = qfalse; continue; }
+					if ( tk[0] == '$' && tk[1] != '\0' ) {
+						Q_strncpyz( cvar, tk + 1, sizeof( cvar ) );
+						tk = COM_ParseSep( &r, qfalse );
+						if ( tk[0] == '=' && tk[1] == '\0' ) {
+							tk = COM_ParseSep( &r, qtrue );
+							if ( depth2 == 0 || inBlock2 ) { trap_Cvar_Set( cvar, tk ); }
+							SkipTillSeparators( &r );
+							continue;
+						} else { COM_ParseWarning( S_COLOR_YELLOW "missing '=' after '%s'", cvar ); SkipRestOfLine( &r ); continue; }
+					}
+				}
+				G_LoadMap( eligible[pick] );
+				return qtrue;
+			}
 		}
 
 		/* No suitable map found: pick a random eligible map ignoring constraints */
