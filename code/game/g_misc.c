@@ -93,6 +93,34 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 			return;
 		}
 	}
+	/* Early handling for mode 4: try to push occupant(s) away; if still blocked, abort without effects */
+	if ( mode == 3 ) {
+		VectorAdd( origin, player->r.mins, mins );
+		VectorAdd( origin, player->r.maxs, maxs );
+		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		occupied = qfalse;
+		for ( i = 0; i < num; ++i ) {
+			hit = &g_entities[ touch[i] ];
+			if ( hit == player ) continue;
+			if ( hit->client ) {
+				VectorSubtract( hit->r.currentOrigin, origin, dir );
+				if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
+				VectorMA( hit->client->ps.velocity, 400.0f, dir, hit->client->ps.velocity );
+				occupied = qtrue;
+			} else if ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) {
+				VectorSubtract( hit->r.currentOrigin, origin, dir );
+				if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
+				VectorMA( hit->s.pos.trDelta, 200.0f, dir, hit->s.pos.trDelta );
+				hit->s.pos.trType = TR_GRAVITY;
+				hit->s.pos.trTime = level.time;
+				occupied = qtrue;
+			}
+		}
+		if ( occupied ) {
+			/* after impulse they won't move immediately; treat as WAIT (5) for this frame */
+			return;
+		}
+	}
 
 	// use temp events at source and destination to prevent the effect
 	// from getting dropped by a second player event
@@ -124,28 +152,12 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 			skipKillbox = qtrue;
 		} else if ( mode == 4 ) {
 			vec3_t angs;
+			/* teleport to random spawnpoint */
 			SelectSpawnPoint( player, origin, finalOrigin, angs );
-			if ( angles ) {
-				VectorCopy( angs, angles );
-			}
+			if ( angles ) { VectorCopy( angs, angles ); }
 			skipKillbox = qtrue;
 		} else if ( mode == 3 ) {
-			for ( i = 0; i < num; ++i ) {
-				hit = &g_entities[ touch[i] ];
-				if ( hit == player ) continue;
-				if ( hit->client ) {
-					VectorSubtract( hit->r.currentOrigin, origin, dir );
-					if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
-					VectorMA( hit->client->ps.velocity, 400.0f, dir, hit->client->ps.velocity );
-				} else if ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) {
-					VectorSubtract( hit->r.currentOrigin, origin, dir );
-					if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
-					VectorMA( hit->s.pos.trDelta, 200.0f, dir, hit->s.pos.trDelta );
-					hit->s.pos.trType = TR_GRAVITY;
-					hit->s.pos.trTime = level.time;
-				}
-			}
-			skipKillbox = qtrue;
+			/* no-op here; handled early above */
 		} else if ( mode == 2 ) {
 			radii[0]=16.0f; radii[1]=32.0f; radii[2]=48.0f; radii[3]=64.0f;
 			for ( ri = 0; ri < 4; ++ri ) {
