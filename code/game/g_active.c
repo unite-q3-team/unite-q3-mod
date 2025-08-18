@@ -1207,6 +1207,14 @@ void ClientThink_real( gentity_t *ent ) {
 	}
 	else {
 		pm.tracemask = MASK_PLAYERSOLID;
+		/* In team gametypes, optionally remove teammate collision */
+		if ( g_gametype.integer >= GT_TEAM && g_teamNoPlayerCollision.integer ) {
+			pm.tracemask &= ~CONTENTS_BODY;
+		}
+		/* In non-team gametypes, optional global no-collision */
+		if ( g_gametype.integer < GT_TEAM && g_ffaNoPlayerCollision.integer ) {
+			pm.tracemask &= ~CONTENTS_BODY;
+		}
 	}
 	//freeze
 	if ( g_dmflags.integer & 2048 ) { // ПРИЧИНА ПРОВАЛА, FIXME (флага не существует)

@@ -246,6 +246,8 @@ G_CVAR( g_hook_resetOnTeleport, "g_hook_resetOnTeleport", "1", CVAR_ARCHIVE, 0, 
 
 //freeze
 G_CVAR( g_freeze, "g_freeze", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH, 0, qtrue, qfalse )
+/* separate knockback scale for frozen bodies (default matches g_knockback) */
+G_CVAR( g_freezeKnockback, "g_freezeKnockback", "1000", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTime, "g_thawTime", "2", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAutoRevive, "g_thawTimeAutoRevive", "90", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_thawTimeAuto_lava, "g_thawTimeAuto_lava", "10", CVAR_ARCHIVE, 0, qfalse, qfalse )
@@ -259,6 +261,12 @@ G_CVAR( g_freeze_beginFrozenDelay, "g_freeze_beginFrozenDelay", "3", CVAR_ARCHIV
 G_CVAR( g_freezePreserveTrajectory, "g_freezePreserveTrajectory", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* Additional upward boost applied to freezebody on knockback when using lighter mass */
 G_CVAR( g_freezeKnockbackLift, "g_freezeKnockbackLift", "24", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Use realistic knockback for freezebodies: ignore lift and rely purely on attack direction (0/1) */
+G_CVAR( g_freezeRealisticKnockback, "g_freezeRealisticKnockback", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Disable knockback for frozen bodies entirely (0/1) */
+G_CVAR( g_freezeDisableKnockback, "g_freezeDisableKnockback", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Disable collision for frozen bodies so players can pass through (0/1) */
+G_CVAR( g_freezeNoCollision, "g_freezeNoCollision", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // Spectating behavior in team modes
 // 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates
@@ -267,6 +275,10 @@ G_CVAR( g_teamAllowEnemySpectate, "g_teamAllowEnemySpectate", "1", CVAR_ARCHIVE,
 G_CVAR( g_autoFollowTeammate, "g_autoFollowTeammate", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // 1 = disallow free-fly spectator movement for dead players in team modes; only follow allowed
 G_CVAR( g_teamNoFreeSpectate, "g_teamNoFreeSpectate", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* 1 = teammates don't collide (players can pass through teammates) in team gametypes */
+G_CVAR( g_teamNoPlayerCollision, "g_teamNoPlayerCollision", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* 1 = no player-vs-player collision in FFA/tourney (non-team) gametypes */
+G_CVAR( g_ffaNoPlayerCollision, "g_ffaNoPlayerCollision", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // G_CVAR( g_freezeRespawnInplace, "g_freezeRespawnInplace", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 // G_CVAR( g_freezeHealth, "g_freezeHealth", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )

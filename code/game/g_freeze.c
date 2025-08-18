@@ -456,15 +456,21 @@ qboolean ftmod_damageBody(gentity_t *targ, gentity_t *attacker, vec3_t dir,
     }
 
     if (attacker->client && targ->freezeState) {
+        if ( g_freezeDisableKnockback.integer ) {
+            return qtrue; /* ignore knockback entirely */
+        }
         if (knockback)
         {
             /* Optional fix: preserve current trajectory base to avoid snap-back */
             if ( g_freezePreserveTrajectory.integer ) {
                 VectorCopy( targ->r.currentOrigin, targ->s.pos.trBase );
             }
-            VectorScale(dir, g_knockback.value * (float)knockback / mass, kvel);
-            if (mass == 200)
+            /* Base knockback from attack direction (use separate cvar for frozen bodies) */
+            VectorScale(dir, g_freezeKnockback.value * (float)knockback / mass, kvel);
+            /* Legacy lift for light mass unless realistic mode is enabled */
+            if ( !g_freezeRealisticKnockback.integer && mass == 200 ) {
                 kvel[2] += g_freezeKnockbackLift.value;
+            }
             VectorAdd(targ->s.pos.trDelta, kvel, targ->s.pos.trDelta);
 
             targ->s.pos.trType = TR_GRAVITY;
@@ -531,8 +537,13 @@ void ftmod_copyToBody(gentity_t *ent) {
     VectorCopy(ent->r.absmin, body->r.absmin);
     VectorCopy(ent->r.absmax, body->r.absmax);
 
-    body->clipmask = MASK_PLAYERSOLID;
-    body->r.contents = CONTENTS_BODY;
+    if ( g_freezeNoCollision.integer ) {
+        body->clipmask = 0;
+        body->r.contents = 0;
+    } else {
+        body->clipmask = MASK_PLAYERSOLID;
+        body->r.contents = CONTENTS_BODY;
+    }
 
     body->think = ftmod_bodyThink;
     body->nextthink = level.time + FRAMETIME;
@@ -958,8 +969,13 @@ void ftmod_spawnFrozenBodyAtPosition(gentity_t *ent, vec3_t position) {
     VectorCopy(ent->r.absmin, body->r.absmin);
     VectorCopy(ent->r.absmax, body->r.absmax);
 
-    body->clipmask = MASK_PLAYERSOLID;
-    body->r.contents = CONTENTS_BODY;
+    if ( g_freezeNoCollision.integer ) {
+        body->clipmask = 0;
+        body->r.contents = 0;
+    } else {
+        body->clipmask = MASK_PLAYERSOLID;
+        body->r.contents = CONTENTS_BODY;
+    }
 
     body->think = ftmod_manualBodyThink;
     body->nextthink = level.time + FRAMETIME;
