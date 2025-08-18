@@ -527,6 +527,9 @@ typedef struct {
 	// mark if match was aborted due to insufficient players; suppress stats save
 	int			abortedDueToNoPlayers;
 
+	// mark if vote was called during intermission; accelerate exit after vote ends
+	qboolean	voteCalledDuringIntermission;
+
 } level_locals_t;
 
 

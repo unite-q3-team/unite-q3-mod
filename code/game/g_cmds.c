@@ -3101,11 +3101,22 @@ void ClientCommand( int clientNum ) {
 		if ( Q_stricmp( cmd, "awards" ) == 0 ) { Cmd_Awards_f( ent ); return; }
 		if ( Q_stricmp( cmd, "topshots" ) == 0 ) { Cmd_Topshots_f( ent ); return; }
 		if ( Q_stricmp( cmd, "team" ) == 0 ) { Cmd_Team_f( ent ); return; }
-		if ( Q_stricmp( cmd, "callvote" ) == 0 ) { Cmd_CallVote_f( ent ); return; }
+		if ( Q_stricmp( cmd, "callvote" ) == 0 ) { 
+			Cmd_CallVote_f( ent ); 
+			// if vote was actually created, mark it as called during intermission
+			if ( level.voteTime && level.intermissiontime ) {
+				level.voteCalledDuringIntermission = qtrue;
+			}
+			return; 
+		}
 		if ( Q_stricmp( cmd, "vote" ) == 0 ) { Cmd_Vote_f( ent ); return; }
 		if ( Q_stricmp( cmd, "cv" ) == 0 ) { 
 			// Allow cv command during intermission for map changes
 			Cmd_CV_f( ent );
+			// if vote was actually created, mark it as called during intermission
+			if ( level.voteTime && level.intermissiontime ) {
+				level.voteCalledDuringIntermission = qtrue;
+			}
 			return; 
 		}
 		Cmd_Say_f (ent, qfalse, qtrue);

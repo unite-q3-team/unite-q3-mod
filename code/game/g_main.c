@@ -837,6 +837,7 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	level.abortedDueToNoPlayers = 0;
 	level.statsWritten = 0;
 	level.statsShown = 0;
+	level.voteCalledDuringIntermission = qfalse;
 
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
@@ -2640,6 +2641,14 @@ static void CheckVote( void ) {
 
 	level.voteTime = 0;
 	trap_SetConfigstring( CS_VOTE_TIME, "" );
+	
+	// if vote was called during intermission, accelerate exit
+	if ( level.voteCalledDuringIntermission && level.intermissiontime ) {
+		level.voteCalledDuringIntermission = qfalse;
+		// force exit after 2 seconds instead of waiting for players to ready
+		level.exitTime = level.time + 2000;
+		level.readyToExit = qtrue;
+	}
 }
 
 
