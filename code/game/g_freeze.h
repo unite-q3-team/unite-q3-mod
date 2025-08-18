@@ -13,4 +13,5 @@ void ftmod_teamWins(int team);
 void ftmod_checkDelay(void);
 void ftmod_countAlive( int *red, int *blue );
 void ftmod_spawnFrozenPlayer(gentity_t *ent, gclient_t *client);
+void ftmod_spawnFrozenBodyAtPosition(gentity_t *ent, vec3_t position);
 

@@ -2021,7 +2021,7 @@ void CheckIntermissionExit( void ) {
 	if ( g_gametype.integer == GT_SINGLE_PLAYER )
 		return;
 
-	// see which players are ready
+	// see which players are ready (for display only)
 	ready = 0;
 	notReady = 0;
 	readyMask = 0;
@@ -2045,12 +2045,6 @@ void CheckIntermissionExit( void ) {
 		}
 	}
 
-	// vote in progress
-	if ( level.voteTime || level.voteExecuteTime ) {
-		ready  = 0;
-		notReady = 1;
-	}
-
 	// copy the readyMask to each player's stats so
 	// it can be displayed on the scoreboard
 	for ( i = 0 ; i < level.maxclients ; i++) {
@@ -2061,32 +2055,17 @@ void CheckIntermissionExit( void ) {
 		cl->ps.stats[STAT_CLIENTS_READY] = readyMask;
 	}
 
-	// never exit in less than five seconds
-	if ( level.time < level.intermissiontime + 5000 ) {
-		return;
+	// exit after the configured time from intermission start
+	{
+		int timeout = g_intermissionTime.integer;
+		if ( timeout < 1 ) timeout = 1; // minimum 1 second
+		if ( level.time < level.intermissiontime + (timeout * 1000) ) {
+			return;
+		}
 	}
 
-	// if nobody wants to go, clear timer
-	if ( !ready && notReady ) {
-		level.readyToExit = qfalse;
-		return;
-	}
-
-	// if everyone wants to go, go now
-	if ( !notReady ) {
-		ExitLevel();
-		return;
-	}
-
-	// the first person to ready starts the ten second timeout
-	if ( !level.readyToExit ) {
-		level.readyToExit = qtrue;
-		level.exitTime = level.time + 10000;
-	}
-
-	// if we have waited ten seconds since at least one player
-	// wanted to exit, go ahead
-	if ( level.time < level.exitTime ) {
+	// defer exit while a vote is pending or executing
+	if ( level.voteTime || level.voteExecuteTime ) {
 		return;
 	}
 
@@ -2646,6 +2625,7 @@ static void CheckVote( void ) {
 	if ( level.voteCalledDuringIntermission && level.intermissiontime ) {
 		level.voteCalledDuringIntermission = qfalse;
 		// force exit after 2 seconds instead of waiting for players to ready
+		// (this is faster than the normal intermission timeout)
 		level.exitTime = level.time + 2000;
 		level.readyToExit = qtrue;
 	}

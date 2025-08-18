@@ -451,6 +451,60 @@ void killplayer_f(gentity_t *ent){
     player_die(victim, victim, victim, 100000, (MOD_SUICIDE));
 }
 
+/* Admin: force change a player's name: setname <clientNum> <new name...> */
+void setname_f(gentity_t *ent) {
+    char idbuf[MAX_TOKEN_CHARS];
+    char newname[MAX_INFO_STRING];
+    char userinfo[MAX_INFO_STRING];
+    gentity_t *victim;
+    int clientNum;
+
+    if (!ent || !ent->client || !ent->authed) return;
+
+    if ( trap_Argc() < 3 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: setname <id> <new name>\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, idbuf, sizeof(idbuf) );
+    clientNum = atoi( idbuf );
+    if ( clientNum < 0 || clientNum >= level.maxclients ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client id.\n\"" );
+        return;
+    }
+
+    victim = &g_entities[ clientNum ];
+    if ( !victim || !victim->client || level.clients[clientNum].pers.connected != CON_CONNECTED ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client!\n\"" );
+        return;
+    }
+
+    /* Gather the rest of args as the new name, from argv[2..] */
+    {
+        char part[MAX_TOKEN_CHARS];
+        int i, n = trap_Argc();
+        newname[0] = '\0';
+        for ( i = 2; i < n; ++i ) {
+            trap_Argv( i, part, sizeof(part) );
+            Q_strcat( newname, sizeof(newname), part );
+            if ( i + 1 < n ) Q_strcat( newname, sizeof(newname), " " );
+        }
+    }
+
+    /* Sanitize name similar to bot add */
+    {
+        char cleaned[MAX_INFO_STRING];
+        BG_CleanName( newname, cleaned, sizeof(cleaned), "unnamed" );
+        Q_strncpyz( newname, cleaned, sizeof(newname) );
+    }
+
+    trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+    Info_SetValueForKey( userinfo, "name", newname );
+    trap_SetUserinfo( clientNum, userinfo );
+    ClientUserinfoChanged( clientNum );
+    trap_SendServerCommand( ent - g_entities, va("print \"^2setname: renamed client ^7%d -> ^N%s\n\"", clientNum, newname) );
+}
+
 void fteam_f(gentity_t *ent){
 	gentity_t	*victim;
 	char		str[MAX_TOKEN_CHARS];

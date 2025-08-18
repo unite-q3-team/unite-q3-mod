@@ -536,9 +536,9 @@ void ftmod_copyToBody(gentity_t *ent) {
     body->die = ftmod_bodyDie;
     body->takedamage = qtrue;
 
-    body->target_ent = ent;
-    ent->target_ent = body;
-    body->s.otherEntityNum = ent->s.number;
+    /* Mark as a standalone (manual) body not tied to a live player */
+    body->target_ent = body;
+    body->s.otherEntityNum = ENTITYNUM_NONE;
     body->noise_index = G_SoundIndex("sound/player/tankjr/jump1.wav");
     body->freezeState = qtrue;
     body->spawnflags = ent->client->sess.sessionTeam;
@@ -885,5 +885,113 @@ void ftmod_spawnFrozenPlayer(gentity_t *ent, gclient_t *client) {
     } else {
         ClientSpawn(ent);
     }
+}
+
+/* Forward declarations for manual freezebody handlers (C89 file-scope) */
+static void ftmod_manualBodyThink(gentity_t *self);
+static void ftmod_manualBodyDie(gentity_t *self, gentity_t *inflictor,
+                                gentity_t *attacker, int damage, int mod);
+
+/*
+==================
+ftmod_spawnFrozenBodyAtPosition
+
+Spawn a frozen body at the specified position
+==================
+*/
+void ftmod_spawnFrozenBodyAtPosition(gentity_t *ent, vec3_t position) {
+    gentity_t *body;
+
+    // Create the frozen body
+    body = G_Spawn();
+    body->classname = "freezebody";
+    body->s = ent->s;
+    body->s.powerups = 1 << PW_BATTLESUIT;
+    body->s.number = body - g_entities;
+    body->s.weapon = WP_NONE;
+    body->s.eFlags = 0;
+    body->s.loopSound = 0;
+    body->timestamp = level.time;
+    body->physicsObject = qtrue;
+
+    G_SetOrigin(body, position);
+    body->s.pos.trType = TR_GRAVITY;
+    body->s.pos.trTime = level.time;
+    VectorClear(body->s.pos.trDelta);
+    body->s.event = 0;
+
+    switch (body->s.legsAnim & ~ANIM_TOGGLEBIT) {
+    case LEGS_WALKCR:
+    case LEGS_WALK:
+    case LEGS_RUN:
+    case LEGS_BACK:
+    case LEGS_SWIM:
+    case LEGS_IDLE:
+    case LEGS_IDLECR:
+    case LEGS_TURN:
+    case LEGS_BACKCR:
+    case LEGS_BACKWALK:
+        switch (rand() % 4)
+        {
+        case 0:
+            body->s.legsAnim = LEGS_JUMP;
+            break;
+        case 1:
+            body->s.legsAnim = LEGS_LAND;
+            break;
+        case 2:
+            body->s.legsAnim = LEGS_JUMPB;
+            break;
+        case 3:
+            body->s.legsAnim = LEGS_LANDB;
+            break;
+        }
+    }
+
+    body->r.svFlags = ent->r.svFlags;
+    VectorCopy(ent->r.mins, body->r.mins);
+    VectorCopy(ent->r.maxs, body->r.maxs);
+    VectorCopy(ent->r.absmin, body->r.absmin);
+    VectorCopy(ent->r.absmax, body->r.absmax);
+
+    body->clipmask = MASK_PLAYERSOLID;
+    body->r.contents = CONTENTS_BODY;
+
+    body->think = ftmod_manualBodyThink;
+    body->nextthink = level.time + FRAMETIME;
+
+    body->die = ftmod_manualBodyDie;
+    body->takedamage = qtrue;
+
+    body->target_ent = ent;
+    ent->target_ent = body;
+    body->s.otherEntityNum = ent->s.number;
+    body->noise_index = G_SoundIndex("sound/player/tankjr/jump1.wav");
+    body->freezeState = qtrue;
+    body->spawnflags = ent->client->sess.sessionTeam;
+    body->waterlevel = ent->waterlevel;
+    body->count = 0;
+
+    trap_LinkEntity(body);
+}
+
+/* Keep spawned body around; no auto-free, minimal maintenance */
+static void ftmod_manualBodyThink(gentity_t *self) {
+    self->nextthink = level.time + FRAMETIME;
+}
+
+/* On kill, optionally gib visual and remove safely without touching players */
+static void ftmod_manualBodyDie(gentity_t *self, gentity_t *inflictor,
+                                gentity_t *attacker, int damage, int mod) {
+    gentity_t *tent;
+    if (self->health <= GIB_HEALTH) {
+        tent = G_TempEntity(self->r.currentOrigin, EV_GIB_PLAYER);
+        if (self->freezeState) {
+            tent->s.eventParm = 255;
+        }
+    }
+    /* Avoid ftmod_bodyFree affecting players */
+    self->freezeState = qfalse;
+    ftmod_bodyFree(self);
 }
 

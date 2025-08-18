@@ -2,6 +2,7 @@
 //
 // #include "g_local.h"
 #include "cmds/cmds.h"
+#include "g_freeze.h"
 
 #ifdef MISSIONPACK
 #include "../../ui/menudef.h"			// for the voice chats
@@ -1717,6 +1718,9 @@ void Cmd_ScoresText_f( gentity_t *ent );
 static void Cmd_MapList_f( gentity_t *ent );
 static void Cmd_Rotation_f( gentity_t *ent );
 void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
+static void Cmd_SpawnFrozenBody_f( gentity_t *ent );
+static void Cmd_ReadyAll_f( gentity_t *ent );
+static void Cmd_UnreadyAll_f( gentity_t *ent );
 /* announcer commands */
 void AN_Cmd_AnnReload( gentity_t *ent );
 void AN_Cmd_AnnList( gentity_t *ent );
@@ -1773,6 +1777,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "checkauth",       checkauth_f,        qfalse },
     { "sndplay",         playsound_f,        qtrue  },
     { "killplayer",      killplayer_f,       qtrue  },
+    { "setname",         setname_f,          qtrue  },
     { "svfps",           Cmd_svfps_f,        qfalse },
     { "restart",         map_restart_f,      qtrue  },
     { "getstatsinfo",    Osp_Wstats,         qfalse },
@@ -1784,6 +1789,9 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "maplist",         Cmd_MapList_f,      qfalse },
     { "rotation",        Cmd_Rotation_f,     qfalse },
     { "cv",              Cmd_CV_f,           qfalse },
+    { "spawnfrozenbody", Cmd_SpawnFrozenBody_f, qtrue },
+    { "readyall",       Cmd_ReadyAll_f,     qtrue  },
+    { "unreadyall",     Cmd_UnreadyAll_f,   qtrue  },
     { "annreload",       AN_Cmd_AnnReload,   qtrue  },
     { "annlist",         AN_Cmd_AnnList,     qtrue  },
     { "annenable",       AN_Cmd_AnnEnable,   qtrue  },
@@ -3277,5 +3285,135 @@ static void Cmd_Unready_f( gentity_t *ent ) {
     G_BroadcastServerCommand( -1, va( "print \"%s ^3is ^1not ready\n\"", ent->client->pers.netname ) );
 	G_BroadcastServerCommand( -1, va( "cp \"%s ^3is ^1not ready\n\"", ent->client->pers.netname ) );
     /* Update scoreboard ready mask bit */
+    ftmod_checkDelay();
+}
+
+/*
+==================
+Cmd_SpawnFrozenBody_f
+
+Spawn a frozen body at the position the player is looking at
+==================
+*/
+static void Cmd_SpawnFrozenBody_f( gentity_t *ent ) {
+    vec3_t start, end, forward, right, up;
+    vec3_t origin;
+    trace_t tr;
+    int argc;
+    char arg[MAX_TOKEN_CHARS];
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        // trap_SendServerCommand( ent - g_entities, "print \"^1You must be authenticated to use this command.\n\"" );
+        return;
+    }
+
+    // Check if freeze tag is enabled
+    if ( !g_freeze.integer ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Freeze tag is not enabled.\n\"" );
+        return;
+    }
+
+    // Require player to be on a team (spectators cannot spawn bodies)
+    if ( ent->client->sess.sessionTeam == TEAM_SPECTATOR ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Join a team to use this command.\n\"" );
+        return;
+    }
+
+    // If argument "here" is provided, spawn at player's current position
+    argc = trap_Argc();
+    if ( argc >= 2 ) {
+        trap_Argv( 1, arg, sizeof( arg ) );
+        if ( Q_stricmp( arg, "here" ) == 0 ) {
+            VectorCopy( ent->client->ps.origin, origin );
+            origin[2] += 16; /* lift a bit to avoid ground clipping */
+            ftmod_spawnFrozenBodyAtPosition( ent, origin );
+            trap_SendServerCommand( ent - g_entities, "print \"^2Frozen body spawned successfully.\\n\"" );
+            return;
+        }
+    }
+
+    // Get player's view position and direction
+    VectorCopy( ent->client->ps.origin, start );
+    start[2] += ent->client->ps.viewheight;
+    
+    AngleVectors( ent->client->ps.viewangles, forward, right, up );
+    VectorMA( start, 8192, forward, end );
+
+    // Trace to find where player is looking
+    trap_Trace( &tr, start, NULL, NULL, end, ent->s.number, MASK_SOLID );
+    
+    if ( tr.fraction == 1.0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1No surface found to spawn frozen body.\n\"" );
+        return;
+    }
+
+    // Calculate spawn position (slightly above the surface)
+    VectorCopy( tr.endpos, origin );
+    origin[2] += 16; // Lift up a bit to avoid clipping into ground
+
+    // Create the frozen body using the freeze module function
+    ftmod_spawnFrozenBodyAtPosition( ent, origin );
+
+    trap_SendServerCommand( ent - g_entities, "print \"^2Frozen body spawned successfully.\n\"" );
+}
+
+/*
+==================
+Cmd_ReadyAll_f
+
+Admin: force all eligible players to ready
+==================
+*/
+static void Cmd_ReadyAll_f( gentity_t *ent ) {
+    int i;
+    if ( !ent || !ent->client || !ent->authed ) {
+        return;
+    }
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gentity_t *e = &g_entities[i];
+        gclient_t *cl = &level.clients[i];
+        if ( cl->pers.connected != CON_CONNECTED ) continue;
+        if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+        if ( e->r.svFlags & SVF_BOT ) continue;
+        e->readyBegin = qtrue;
+    }
+    /* Update scoreboard ready mask and possibly start countdown */
+    ftmod_checkDelay();
+    G_CheckAllReadyAndStart();
+}
+
+/*
+==================
+Cmd_UnreadyAll_f
+
+Admin: force all players to unready and cancel countdown if active
+==================
+*/
+static void Cmd_UnreadyAll_f( gentity_t *ent ) {
+    int i;
+    if ( !ent || !ent->client || !ent->authed ) {
+        return;
+    }
+    for ( i = 0; i < level.maxclients; ++i ) {
+        gentity_t *e = &g_entities[i];
+        gclient_t *cl = &level.clients[i];
+        if ( cl->pers.connected != CON_CONNECTED ) continue;
+        if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+        if ( e->r.svFlags & SVF_BOT ) continue;
+        e->readyBegin = qfalse;
+    }
+    /* Cancel countdown if it is running */
+    if ( level.warmupTime > 0 && level.time < level.warmupTime ) {
+        level.readyCountdownStarted = qfalse;
+        level.warmupTime = -1;
+        trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+        G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled by admin\"" );
+    }
+    /* Update scoreboard ready mask */
     ftmod_checkDelay();
 }

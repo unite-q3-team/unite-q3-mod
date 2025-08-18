@@ -17,6 +17,7 @@ void checkauth_f(gentity_t *ent);
 void plsauth_f(gentity_t *ent);
 void deauth_f(gentity_t *ent);
 void killplayer_f(gentity_t *ent);
+void setname_f(gentity_t *ent);
 void Cmd_svfps_f(gentity_t *ent);
 void fteam_f(gentity_t *ent);
 void shuffle_f(gentity_t *ent);

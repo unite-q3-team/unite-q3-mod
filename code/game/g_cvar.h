@@ -76,6 +76,9 @@ G_CVAR( g_voteLimit, "g_voteLimit", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* maximum number of team votes a player can call in a map */
 G_CVAR( g_teamVoteLimit, "g_teamVoteLimit", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* intermission timeout in seconds (minimum 5 seconds) */
+G_CVAR( g_intermissionTime, "g_intermissionTime", "10", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 /* enable loading custom spawns from spawns.txt for current map */
 G_CVAR( g_customSpawns, "g_customSpawns", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
