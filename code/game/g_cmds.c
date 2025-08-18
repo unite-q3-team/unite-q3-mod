@@ -1701,8 +1701,8 @@ static void Cmd_SetViewpos_f( gentity_t *ent );
 static void G_PrintStatsForClientTo( gentity_t *ent, gclient_t *cl );
 static void Cmd_Stats_f( gentity_t *ent );
 static void Cmd_StatsAll_f( gentity_t *ent );
-static void Cmd_Topshots_f( gentity_t *ent );
-static void Cmd_Awards_f( gentity_t *ent );
+void Cmd_Topshots_f( gentity_t *ent );
+void Cmd_Awards_f( gentity_t *ent );
 void playsound_f( gentity_t *ent );
 void map_restart_f( gentity_t *ent );
 void Osp_Wstats( gentity_t *ent );
@@ -1713,7 +1713,7 @@ static void Cmd_Unready_f( gentity_t *ent );
 static void Cmd_FollowNext_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, 1 ); }
 static void Cmd_FollowPrev_f( gentity_t *ent ) { Cmd_FollowCycle_f( ent, -1 ); }
 static void Cmd_Help_f( gentity_t *ent );
-static void Cmd_ScoresText_f( gentity_t *ent );
+void Cmd_ScoresText_f( gentity_t *ent );
 static void Cmd_MapList_f( gentity_t *ent );
 static void Cmd_Rotation_f( gentity_t *ent );
 void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
@@ -2296,7 +2296,7 @@ static void Cmd_StatsAll_f( gentity_t *ent ) {
 Cmd_Topshots_f
 =================
 */
-static void Cmd_Topshots_f( gentity_t *ent ) {
+void Cmd_Topshots_f( gentity_t *ent ) {
     int i;
     int w;
     /* best per-weapon holders (for GA..BFG only) */
@@ -2540,7 +2540,7 @@ static void Cmd_Help_f( gentity_t *ent ) {
 Cmd_ScoresText_f
 =================
 */
-static void Cmd_ScoresText_f( gentity_t *ent ) {
+void Cmd_ScoresText_f( gentity_t *ent ) {
     char buf[MAX_STRING_CHARS];
     char line[256];
     int len = 0;
@@ -2775,7 +2775,7 @@ static void Cmd_Rotation_f( gentity_t *ent ) {
 Cmd_Awards_f
 =================
 */
-static void Cmd_Awards_f( gentity_t *ent ) {
+void Cmd_Awards_f( gentity_t *ent ) {
     int i;
     int mostKillsClient = -1, mostKills = -1;
     int bestEffClient = -1, bestEffPct10 = -1; /* efficiency in tenths percent */
@@ -3156,6 +3156,26 @@ static void G_CheckAllReadyAndStart(void) {
         level.readyCountdownStarted = qtrue;
         trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
     }
+
+    /* If countdown is already running, revalidate player counts each call */
+    if ( level.warmupTime > 0 && level.time < level.warmupTime ) {
+        int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+        int totalPlayers = 0;
+        int i2;
+        for ( i2 = 0; i2 < level.maxclients; ++i2 ) {
+            gentity_t *e2 = &g_entities[i2];
+            gclient_t *cl2 = &level.clients[i2];
+            if ( cl2->pers.connected != CON_CONNECTED ) continue;
+            if ( cl2->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+            totalPlayers++;
+        }
+        if ( (requireTwo && totalHumans < 2) || totalPlayers < 2 ) {
+            level.readyCountdownStarted = qfalse;
+            level.warmupTime = -1;
+            trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+            G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled: need 2 human players\"" );
+        }
+    }
 }
 
 static void Cmd_Ready_f( gentity_t *ent ) {
@@ -3209,10 +3229,23 @@ static void Cmd_Unready_f( gentity_t *ent ) {
         trap_SendServerCommand( ent - g_entities, "print \"^3You are not ready.\n\"" );
         return;
     }
-    /* Do not allow cancelling countdown once started by all-ready trigger */
-    if ( level.readyCountdownStarted && level.warmupTime > 0 && level.time < level.warmupTime ) {
-        trap_SendServerCommand( ent - g_entities, "print \"^3Countdown in progress; cannot unready.\n\"" );
-        return;
+    if ( level.warmupTime > 0 && level.time < level.warmupTime ) {
+        /* If countdown active: permit cancellation when it would violate human/player requirement */
+        int totalHumans = 0, totalPlayers = 0, i;
+        for ( i = 0; i < level.maxclients; ++i ) {
+            gentity_t *e = &g_entities[i];
+            gclient_t *cl = &level.clients[i];
+            if ( cl->pers.connected != CON_CONNECTED ) continue;
+            if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+            totalPlayers++;
+            if ( !(e->r.svFlags & SVF_BOT) ) totalHumans++;
+        }
+        if ( (trap_Cvar_VariableIntegerValue("g_requireTwoHumans") && totalHumans < 2) || totalPlayers < 2 ) {
+            /* allow unready to cancel */
+        } else {
+            trap_SendServerCommand( ent - g_entities, "print \"^3Countdown in progress; cannot unready.\n\"" );
+            return;
+        }
     }
 
     ent->readyBegin = qfalse;

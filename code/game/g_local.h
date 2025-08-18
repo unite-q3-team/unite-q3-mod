@@ -520,6 +520,9 @@ typedef struct {
 
 	// stats: set when match stats have been written to disk to avoid duplicates
 	int			statsWritten;
+	
+	// stats: set when match statistics have been shown to players to avoid duplicates
+	int			statsShown;
 
 	// mark if match was aborted due to insufficient players; suppress stats save
 	int			abortedDueToNoPlayers;
@@ -1072,4 +1075,11 @@ extern int dll_com_trapGetValue;
 #endif
 
 extern	int svf_self_portal2;
+
+void G_WriteMatchStatsJSON(void);
+
+// Statistics functions
+void Cmd_ScoresText_f( gentity_t *ent );
+void Cmd_Awards_f( gentity_t *ent );
+void Cmd_Topshots_f( gentity_t *ent );
 

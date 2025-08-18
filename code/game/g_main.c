@@ -835,6 +835,8 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 	/* clear abort flag for this match */
 	level.abortedDueToNoPlayers = 0;
+	level.statsWritten = 0;
+	level.statsShown = 0;
 
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
@@ -1954,7 +1956,48 @@ void LogExit( const char *string ) {
 	}
 #endif
 
+	// /* Show detailed statistics to all players */
+	// {
+	// 	int i;
+	// 	for ( i = 0; i < level.maxclients; i++ ) {
+	// 		if ( level.clients[i].pers.connected == CON_CONNECTED ) {
+	// 			/* Send scores, awards, and topshots to each connected player */
+	// 			trap_SendServerCommand( i, "scores" );
+	// 			trap_SendServerCommand( i, "awards" );
+	// 			trap_SendServerCommand( i, "topshots" );
+	// 		}
+	// 	}
+	// }
 
+	trap_SendServerCommand( -1, "scores" );
+	trap_SendServerCommand( -1, "awards" );
+	trap_SendServerCommand( -1, "topshots" );
+
+	/* Show detailed statistics to all players */
+	{
+		int i;
+		for ( i = 0; i < level.maxclients; i++ ) {
+			if ( level.clients[i].pers.connected == CON_CONNECTED ) {
+				/* Call statistics functions for each connected player */
+				Cmd_ScoresText_f( &g_entities[i] );
+				Cmd_Awards_f( &g_entities[i] );
+				Cmd_Topshots_f( &g_entities[i] );
+			}
+		}
+	}
+
+	/* Show detailed statistics to all players once at match end */
+	{
+		int ci;
+		for ( ci = 0; ci < level.maxclients; ci++ ) {
+			if ( level.clients[ci].pers.connected == CON_CONNECTED ) {
+				Cmd_ScoresText_f( &g_entities[ci] );
+				Cmd_Awards_f( &g_entities[ci] );
+				Cmd_Topshots_f( &g_entities[ci] );
+			}
+		}
+		level.statsShown = 1;
+	}
 }
 
 
@@ -2360,6 +2403,26 @@ static void G_WarmupEnd( void )
 		} else if ( ent->s.eType == ET_MISSILE ) {
 			// remove all launched missiles
 			G_FreeEntity( ent );
+		}
+	}
+
+	/* Final guard: if countdown expired but players/humans are insufficient, cancel back to warmup */
+	if ( g_gametype.integer != GT_SINGLE_PLAYER ) {
+		int totalPlayers = 0;
+		int totalHumans = 0;
+		int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+		for ( i = 0; i < level.maxclients; ++i ) {
+			if ( level.clients[i].pers.connected != CON_CONNECTED ) continue;
+			if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+			totalPlayers++;
+			if ( !(g_entities[i].r.svFlags & SVF_BOT) ) totalHumans++;
+		}
+		if ( (requireTwo && totalHumans < 2) || totalPlayers < 2 ) {
+			level.warmupTime = -1;
+			level.readyCountdownStarted = qfalse;
+			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+			G_LogPrintf( "Warmup:\n" );
+			return;
 		}
 	}
 }
@@ -2901,4 +2964,9 @@ static void G_RunFrame( int levelTime ) {
 
 	// unlagged
 	level.frameStartTime = trap_Milliseconds();
+
+	/* Show detailed statistics to all players */
+	/* Removed: do not spam every frame */
+
+	/* Removed duplicate stats-once block: handled inside LogExit */
 }

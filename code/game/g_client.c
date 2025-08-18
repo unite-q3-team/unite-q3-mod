@@ -1813,28 +1813,30 @@ void ClientDisconnect( int clientNum ) {
 	G_RevertVote( ent->client );
 
 	/* Check if we need to cancel ready countdown due to human player disconnect */
-	if ( level.readyCountdownStarted && level.warmupTime > 0 && level.time < level.warmupTime ) {
+	if ( level.warmupTime > 0 && level.time < level.warmupTime ) {
 		if ( !(ent->r.svFlags & SVF_BOT) ) {
 			int totalHumans;
+			int totalPlayers;
 			int i;
 			totalHumans = 0;
+			totalPlayers = 0;
 			for ( i = 0; i < level.maxclients; i++ ) {
 				gentity_t *e = &g_entities[i];
 				gclient_t *cl = &level.clients[i];
 				if ( cl->pers.connected != CON_CONNECTED ) {
 					continue;
 				}
-				if ( e->r.svFlags & SVF_BOT ) {
-					continue;
-				}
 				if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
 					continue;
 				}
-				totalHumans++;
+				totalPlayers++;
+				if ( !(e->r.svFlags & SVF_BOT) ) {
+					totalHumans++;
+				}
 			}
 			{
 				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
-				if ( requireTwo && totalHumans < 2 ) {
+				if ( (requireTwo && totalHumans < 2) || totalPlayers < 2 ) {
 					level.readyCountdownStarted = qfalse;
 					level.warmupTime = -1;
 					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
