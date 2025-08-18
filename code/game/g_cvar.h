@@ -255,6 +255,8 @@ G_CVAR( g_thawRadius, "g_thawRadius", "100", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_freeze_forceRevive, "g_freeze_forceRevive", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_freeze_beginFrozen, "g_freeze_beginFrozen", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_freeze_beginFrozenDelay, "g_freeze_beginFrozenDelay", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Preserve freezebody trajectory on subsequent damage (fix pop-back). 1 = fix on, 0 = legacy behavior */
+G_CVAR( g_freezePreserveTrajectory, "g_freezePreserveTrajectory", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // Spectating behavior in team modes
 // 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates

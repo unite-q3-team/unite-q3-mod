@@ -3330,7 +3330,7 @@ static void Cmd_SpawnFrozenBody_f( gentity_t *ent ) {
         trap_Argv( 1, arg, sizeof( arg ) );
         if ( Q_stricmp( arg, "here" ) == 0 ) {
             VectorCopy( ent->client->ps.origin, origin );
-            origin[2] += 16; /* lift a bit to avoid ground clipping */
+            origin[2] += 19; /* lift a bit to avoid ground clipping */
             ftmod_spawnFrozenBodyAtPosition( ent, origin );
             trap_SendServerCommand( ent - g_entities, "print \"^2Frozen body spawned successfully.\\n\"" );
             return;

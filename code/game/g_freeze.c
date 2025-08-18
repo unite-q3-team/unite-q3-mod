@@ -458,6 +458,10 @@ qboolean ftmod_damageBody(gentity_t *targ, gentity_t *attacker, vec3_t dir,
     if (attacker->client && targ->freezeState) {
         if (knockback)
         {
+            /* Optional fix: preserve current trajectory base to avoid snap-back */
+            if ( g_freezePreserveTrajectory.integer ) {
+                VectorCopy( targ->r.currentOrigin, targ->s.pos.trBase );
+            }
             VectorScale(dir, g_knockback.value * (float)knockback / mass, kvel);
             if (mass == 200)
                 kvel[2] += 24;
