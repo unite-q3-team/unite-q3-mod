@@ -112,6 +112,14 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	// save results of pmove
 	BG_PlayerStateToEntityState( &player->client->ps, &player->s, qtrue );
 
+	/* drop offhand hook on teleport if enabled */
+	if ( g_hook.integer && trap_Cvar_VariableIntegerValue( "g_hook_resetOnTeleport" ) ) {
+		if ( player->client->hook ) {
+			Weapon_HookFree( player->client->hook );
+			player->client->fireHeld = qfalse;
+		}
+	}
+
 	// use the precise origin for linking
 	VectorCopy( player->client->ps.origin, player->r.currentOrigin );
 

@@ -1541,6 +1541,11 @@ void ClientSpawn(gentity_t *ent) {
 	client->sess = savedSess;
 	client->ps.ping = savedPing;
 	// client->areabits = savedAreaBits;
+	/* Ensure grappling state is reset on fresh spawn */
+	client->hook = NULL;
+	client->fireHeld = qfalse;
+	client->ps.pm_flags &= ~PMF_GRAPPLE_PULL;
+	client->ps.grapplePoint[0] = client->ps.grapplePoint[1] = client->ps.grapplePoint[2] = 0.0f;
 	if ( !resetExtStats ) {
 		// restore extended stats across respawn
 		client->accuracy_hits = accuracy_hits;

@@ -238,6 +238,8 @@ G_CVAR( g_hook_pullSpeed, "g_hook_pullSpeed", "800", CVAR_ARCHIVE, 0, qtrue, qfa
 G_CVAR( g_hook_maxDist, "g_hook_maxDist", "1200", CVAR_ARCHIVE, 0, qtrue, qfalse )
 G_CVAR( g_hook_visiblePull, "g_hook_visiblePull", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
 G_CVAR( g_hook_allowPlayers, "g_hook_allowPlayers", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
+/* reset offhand hook on teleport (0/1) */
+G_CVAR( g_hook_resetOnTeleport, "g_hook_resetOnTeleport", "1", CVAR_ARCHIVE, 0, qtrue, qfalse )
 
 //freeze
 G_CVAR( g_freeze, "g_freeze", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH, 0, qtrue, qfalse )
