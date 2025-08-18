@@ -257,6 +257,8 @@ G_CVAR( g_freeze_beginFrozen, "g_freeze_beginFrozen", "1", CVAR_ARCHIVE, 0, qfal
 G_CVAR( g_freeze_beginFrozenDelay, "g_freeze_beginFrozenDelay", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* Preserve freezebody trajectory on subsequent damage (fix pop-back). 1 = fix on, 0 = legacy behavior */
 G_CVAR( g_freezePreserveTrajectory, "g_freezePreserveTrajectory", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Additional upward boost applied to freezebody on knockback when using lighter mass */
+G_CVAR( g_freezeKnockbackLift, "g_freezeKnockbackLift", "24", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // Spectating behavior in team modes
 // 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates

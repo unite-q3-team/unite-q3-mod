@@ -464,7 +464,7 @@ qboolean ftmod_damageBody(gentity_t *targ, gentity_t *attacker, vec3_t dir,
             }
             VectorScale(dir, g_knockback.value * (float)knockback / mass, kvel);
             if (mass == 200)
-                kvel[2] += 24;
+                kvel[2] += g_freezeKnockbackLift.value;
             VectorAdd(targ->s.pos.trDelta, kvel, targ->s.pos.trDelta);
 
             targ->s.pos.trType = TR_GRAVITY;

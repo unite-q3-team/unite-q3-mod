@@ -3330,7 +3330,7 @@ static void Cmd_SpawnFrozenBody_f( gentity_t *ent ) {
         trap_Argv( 1, arg, sizeof( arg ) );
         if ( Q_stricmp( arg, "here" ) == 0 ) {
             VectorCopy( ent->client->ps.origin, origin );
-            origin[2] += 19; /* lift a bit to avoid ground clipping */
+            origin[2] += 45; /* lift a bit to avoid ground clipping */
             ftmod_spawnFrozenBodyAtPosition( ent, origin );
             trap_SendServerCommand( ent - g_entities, "print \"^2Frozen body spawned successfully.\\n\"" );
             return;
@@ -3354,7 +3354,7 @@ static void Cmd_SpawnFrozenBody_f( gentity_t *ent ) {
 
     // Calculate spawn position (slightly above the surface)
     VectorCopy( tr.endpos, origin );
-    origin[2] += 16; // Lift up a bit to avoid clipping into ground
+    origin[2] += 45; // Lift up a bit to avoid clipping into ground
 
     // Create the frozen body using the freeze module function
     ftmod_spawnFrozenBodyAtPosition( ent, origin );
