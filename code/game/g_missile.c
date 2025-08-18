@@ -360,25 +360,29 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		vec3_t v;
 
 		nent = G_Spawn();
-        if ( other->takedamage && other->client ) {
-            if ( !g_hook_allowPlayers.integer ) {
-                // treat as wall hit instead
-                VectorCopy(trace->endpos, v);
-                G_AddEvent( nent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
-                ent->enemy = NULL;
-            } else {
+		if ( other->takedamage && other->client ) {
+			int allowPlayers = g_hook_allowPlayers.integer;
+			if ( allowPlayers == 0 ) {
+				/* cancel hook entirely if it hits a player */
+				if ( ent->parent && ent->parent->client && ent->parent->client->hook == ent ) {
+					ent->parent->client->hook = NULL;
+				}
+				G_FreeEntity( ent );
+				G_FreeEntity( nent );
+				return;
+			} else {
 
-			G_AddEvent( nent, EV_MISSILE_HIT, DirToByte( trace->plane.normal ) );
-			nent->s.otherEntityNum = other->s.number;
+				G_AddEvent( nent, EV_MISSILE_HIT, DirToByte( trace->plane.normal ) );
+				nent->s.otherEntityNum = other->s.number;
 
-			ent->enemy = other;
+				ent->enemy = other;
 
-			v[0] = other->r.currentOrigin[0] + (other->r.mins[0] + other->r.maxs[0]) * 0.5;
-			v[1] = other->r.currentOrigin[1] + (other->r.mins[1] + other->r.maxs[1]) * 0.5;
-			v[2] = other->r.currentOrigin[2] + (other->r.mins[2] + other->r.maxs[2]) * 0.5;
+				v[0] = other->r.currentOrigin[0] + (other->r.mins[0] + other->r.maxs[0]) * 0.5;
+				v[1] = other->r.currentOrigin[1] + (other->r.mins[1] + other->r.maxs[1]) * 0.5;
+				v[2] = other->r.currentOrigin[2] + (other->r.mins[2] + other->r.maxs[2]) * 0.5;
 
-			SnapVectorTowards( v, ent->s.pos.trBase );	// save net bandwidth
-            }
+				SnapVectorTowards( v, ent->s.pos.trBase );	// save net bandwidth
+			}
 		} else {
 			VectorCopy(trace->endpos, v);
 			G_AddEvent( nent, EV_MISSILE_MISS, DirToByte( trace->plane.normal ) );
@@ -388,10 +392,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		SnapVectorTowards( v, ent->s.pos.trBase );	// save net bandwidth
 
 		nent->freeAfterEvent = qtrue;
-        // change over to a normal entity right at the point of impact
-        nent->s.eType = ET_GENERAL;
-        ent->s.eType = ET_GRAPPLE;
-        ent->s.weapon = WP_GRAPPLING_HOOK; /* ensure correct grapple type when latched */
+		// change over to a normal entity right at the point of impact
+		nent->s.eType = ET_GENERAL;
+		ent->s.eType = ET_GRAPPLE;
+		ent->s.weapon = WP_GRAPPLING_HOOK; /* ensure correct grapple type when latched */
 
 		G_SetOrigin( ent, v );
 		G_SetOrigin( nent, v );
@@ -399,16 +403,17 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		ent->think = Weapon_HookThink;
 		ent->nextthink = level.time + FRAMETIME;
 
+		/* mark pull intent; actual pull target is decided in think based on cvar */
 		ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
 		VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
 
-        /* optionally hide the latched hook entity (visual beam is client-side in mods; here we can choose) */
-        if ( !g_hook_visiblePull.integer ) {
-            ent->r.svFlags |= SVF_NOCLIENT;
-        } else {
-            ent->r.svFlags &= ~SVF_NOCLIENT;
-        }
-        trap_LinkEntity( ent );
+		/* optionally hide the latched hook entity (visual beam is client-side in mods; here we can choose) */
+		if ( !g_hook_visiblePull.integer ) {
+			ent->r.svFlags |= SVF_NOCLIENT;
+		} else {
+			ent->r.svFlags &= ~SVF_NOCLIENT;
+		}
+		trap_LinkEntity( ent );
 		trap_LinkEntity( nent );
 
 		return;

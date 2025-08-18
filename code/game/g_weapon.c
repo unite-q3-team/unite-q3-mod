@@ -658,19 +658,28 @@ void Weapon_HookFree (gentity_t *ent)
 
 void Weapon_HookThink (gentity_t *ent)
 {
+	/* reschedule think every frame */
+	ent->nextthink = level.time + FRAMETIME;
+
 	if (ent->enemy) {
 		vec3_t v, oldorigin;
+		int allowPlayers = g_hook_allowPlayers.integer;
 
 		VectorCopy(ent->r.currentOrigin, oldorigin);
-		v[0] = ent->enemy->r.currentOrigin[0] + (ent->enemy->r.mins[0] + ent->enemy->r.maxs[0]) * 0.5;
-		v[1] = ent->enemy->r.currentOrigin[1] + (ent->enemy->r.mins[1] + ent->enemy->r.maxs[1]) * 0.5;
-		v[2] = ent->enemy->r.currentOrigin[2] + (ent->enemy->r.mins[2] + ent->enemy->r.maxs[2]) * 0.5;
-		SnapVectorTowards( v, oldorigin );	// save net bandwidth
-
+		/* compute target point: for mode 1 and 2, aim to enemy center so hook follows */
+		v[0] = ent->enemy->r.currentOrigin[0] + (ent->enemy->r.mins[0] + ent->enemy->r.maxs[0]) * 0.5f;
+		v[1] = ent->enemy->r.currentOrigin[1] + (ent->enemy->r.mins[1] + ent->enemy->r.maxs[1]) * 0.5f;
+		v[2] = ent->enemy->r.currentOrigin[2] + (ent->enemy->r.mins[2] + ent->enemy->r.maxs[2]) * 0.5f;
+		SnapVectorTowards( v, oldorigin );
 		G_SetOrigin( ent, v );
 	}
 
-    VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
+    /* update grapple point for owner only when not in mode 2 (owner pull disabled) */
+    if ( !(ent->enemy && ent->enemy->client && g_hook_allowPlayers.integer == 2) ) {
+        VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
+        ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL; /* indicates pull intent for client PM */
+    }
+
     /* toggle visibility while pulling */
     if ( g_hook_visiblePull.integer ) {
         ent->r.svFlags &= ~SVF_NOCLIENT;
@@ -683,14 +692,28 @@ void Weapon_HookThink (gentity_t *ent)
         float pull = (float)g_hook_pullSpeed.integer;
         if ( pull > 0.0f ) {
             vec3_t dir;
-            VectorSubtract( ent->r.currentOrigin, ent->parent->r.currentOrigin, dir );
-            dir[2] += 0; /* no vertical bias */
-            if ( VectorNormalize( dir ) ) {
-                ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
-                ent->parent->client->ps.velocity[0] = dir[0] * pull;
-                ent->parent->client->ps.velocity[1] = dir[1] * pull;
-                /* preserve vertical velocity, slight lift */
-                ent->parent->client->ps.velocity[2] += 0;
+            int allowPlayers = g_hook_allowPlayers.integer;
+            if ( ent->enemy && ent->enemy->client && allowPlayers == 2 ) {
+                /* mode 2: pull the latched player towards the owner */
+                VectorSubtract( ent->parent->r.currentOrigin, ent->enemy->r.currentOrigin, dir );
+                dir[2] += 0;
+                if ( VectorNormalize( dir ) ) {
+                    /* ensure owner is NOT marked as pulling */
+                    ent->parent->client->ps.pm_flags &= ~PMF_GRAPPLE_PULL;
+                    ent->enemy->client->ps.velocity[0] = dir[0] * pull;
+                    ent->enemy->client->ps.velocity[1] = dir[1] * pull;
+                    ent->enemy->client->ps.velocity[2] += 0;
+                }
+            } else {
+                /* default/mode 1: pull owner towards hook point (following enemy if present) */
+                VectorSubtract( ent->r.currentOrigin, ent->parent->r.currentOrigin, dir );
+                dir[2] += 0;
+                if ( VectorNormalize( dir ) ) {
+                    ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
+                    ent->parent->client->ps.velocity[0] = dir[0] * pull;
+                    ent->parent->client->ps.velocity[1] = dir[1] * pull;
+                    ent->parent->client->ps.velocity[2] += 0;
+                }
             }
         }
         /* stop pulling if max distance exceeded */
