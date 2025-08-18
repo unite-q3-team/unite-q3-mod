@@ -75,6 +75,24 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		{1.0f, 0.0f}, {0.70710678f, 0.70710678f}, {0.0f, 1.0f}, {-0.70710678f, 0.70710678f},
 		{-1.0f, 0.0f}, {-0.70710678f, -0.70710678f}, {0.0f, -1.0f}, {0.70710678f, -0.70710678f}
 	};
+	qboolean occupied;
+
+	/* Early check: in WAIT mode (5), if destination is occupied, do nothing (no effects) */
+	mode = g_telefragMode.integer;
+	if ( mode == 5 ) {
+		VectorAdd( origin, player->r.mins, mins );
+		VectorAdd( origin, player->r.maxs, maxs );
+		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		occupied = qfalse;
+		for ( i = 0; i < num; ++i ) {
+			hit = &g_entities[ touch[i] ];
+			if ( hit == player ) continue;
+			if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; }
+		}
+		if ( occupied ) {
+			return;
+		}
+	}
 
 	// use temp events at source and destination to prevent the effect
 	// from getting dropped by a second player event
@@ -100,9 +118,9 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		VectorAdd( origin, player->r.maxs, maxs );
 		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
 		if ( mode == 5 ) {
-			if ( num > 0 ) {
-				return; /* wait until clear */
-			}
+			occupied = qfalse;
+			for ( i = 0; i < num; ++i ) { hit = &g_entities[ touch[i] ]; if ( hit == player ) continue; if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; } }
+			if ( occupied ) { return; }
 			skipKillbox = qtrue;
 		} else if ( mode == 4 ) {
 			vec3_t angs;
@@ -145,7 +163,10 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		} else if ( mode == 1 ) {
 			skipKillbox = qtrue;
 		} else if ( mode == 6 ) {
-			killBoth = qtrue; skipKillbox = qfalse;
+			occupied = qfalse;
+			for ( i = 0; i < num; ++i ) { hit = &g_entities[ touch[i] ]; if ( hit == player ) continue; if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; } }
+			if ( occupied ) { killBoth = qtrue; }
+			skipKillbox = qfalse;
 		}
 	}
 
