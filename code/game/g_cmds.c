@@ -3086,17 +3086,31 @@ void ClientCommand( int clientNum ) {
 		return;
 	}
 
-	// ignore all other commands when at intermission
-	if (level.intermissiontime) {
-		Cmd_Say_f (ent, qfalse, qtrue);
-		return;
-	}
+
 
     /* Check disabled commands list before dispatch */
     if ( DC_IsDisabled( cmd ) ) {
         trap_SendServerCommand( clientNum, va( "print \"^1! ^3Command '^1%s^3' is disabled on this server.\n\"", cmd ) );
         return;
     }
+
+	// ignore all other commands when at intermission
+	if (level.intermissiontime) {
+		if ( Q_stricmp( cmd, "stats" ) == 0 ) { Cmd_Stats_f( ent ); return; }
+		if ( Q_stricmp( cmd, "statsall" ) == 0 ) { Cmd_StatsAll_f( ent ); return; }
+		if ( Q_stricmp( cmd, "awards" ) == 0 ) { Cmd_Awards_f( ent ); return; }
+		if ( Q_stricmp( cmd, "topshots" ) == 0 ) { Cmd_Topshots_f( ent ); return; }
+		if ( Q_stricmp( cmd, "team" ) == 0 ) { Cmd_Team_f( ent ); return; }
+		if ( Q_stricmp( cmd, "callvote" ) == 0 ) { Cmd_CallVote_f( ent ); return; }
+		if ( Q_stricmp( cmd, "vote" ) == 0 ) { Cmd_Vote_f( ent ); return; }
+		if ( Q_stricmp( cmd, "cv" ) == 0 ) { 
+			// Allow cv command during intermission for map changes
+			Cmd_CV_f( ent );
+			return; 
+		}
+		Cmd_Say_f (ent, qfalse, qtrue);
+		return;
+	}
 
     if ( DispatchGameCommand( cmd, ent ) ) {
         return;

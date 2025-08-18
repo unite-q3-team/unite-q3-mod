@@ -2140,11 +2140,19 @@ static void CheckExitRules( void ) {
 #ifdef MISSIONPACK
 		int time = (g_singlePlayer.integer) ? SP_INTERMISSION_DELAY_TIME : INTERMISSION_DELAY_TIME;
 		if ( level.time - level.intermissionQueued >= time ) {
+			/* defer intermission while a vote is pending or executing */
+			if ( level.voteTime || level.voteExecuteTime ) {
+				return;
+			}
 			level.intermissionQueued = 0;
 			BeginIntermission();
 		}
 #else
 		if ( level.time - level.intermissionQueued >= INTERMISSION_DELAY_TIME ) {
+			/* defer intermission while a vote is pending or executing */
+			if ( level.voteTime || level.voteExecuteTime ) {
+				return;
+			}
 			level.intermissionQueued = 0;
 			BeginIntermission();
 		}
@@ -2264,6 +2272,15 @@ static void G_WarmupEnd( void )
 	gclient_t *client;
 	gentity_t *ent;
 	int i, t;
+
+	/* if a vote is active, do not start the match; revert to waiting */
+	if ( level.voteTime || level.voteExecuteTime ) {
+		level.warmupTime = -1;
+		level.readyCountdownStarted = qfalse;
+		trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+		G_LogPrintf( "Warmup:\n" );
+		return;
+	}
 
 	// remove corpses
 	ClearBodyQue();
@@ -2494,6 +2511,14 @@ static void CheckTournament( void ) {
 		}
 
 		// if the warmup time has counted down, restart
+		// cancel countdown if a vote is active
+		if ( level.warmupTime > 0 && ( level.voteTime || level.voteExecuteTime ) ) {
+			level.warmupTime = -1;
+			level.readyCountdownStarted = qfalse;
+			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+			G_LogPrintf( "Warmup:\n" );
+			return;
+		}
 		if ( level.time > level.warmupTime ) {
 			G_WarmupEnd();
 			return;
@@ -2542,18 +2567,9 @@ static void CheckTournament( void ) {
 
 		// if all players have arrived, start the countdown
 		if ( level.warmupTime < 0 ) {
-			if ( trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" ) ) {
-				int humans = 0;
-				int ii;
-				for ( ii = 0; ii < level.maxclients; ++ii ) {
-					if ( level.clients[ii].pers.connected != CON_CONNECTED ) continue;
-					if ( level.clients[ii].sess.sessionTeam == TEAM_SPECTATOR ) continue;
-					if ( g_entities[ii].r.svFlags & SVF_BOT ) continue;
-					humans++;
-				}
-				if ( humans < 2 ) {
-					return;
-				}
+			/* pause countdown while a vote is active */
+			if ( level.voteTime || level.voteExecuteTime ) {
+				return;
 			}
 			if ( g_warmup.integer > 0 ) {
 				level.warmupTime = level.time + g_warmup.integer * 1000;
@@ -2566,6 +2582,14 @@ static void CheckTournament( void ) {
 		}
 
 		// if the warmup time has counted down, restart
+		// cancel countdown if a vote is active
+		if ( level.warmupTime > 0 && ( level.voteTime || level.voteExecuteTime ) ) {
+			level.warmupTime = -1;
+			level.readyCountdownStarted = qfalse;
+			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+			G_LogPrintf( "Warmup:\n" );
+			return;
+		}
 		if ( level.time > level.warmupTime ) {
 			G_WarmupEnd();
 			return;
