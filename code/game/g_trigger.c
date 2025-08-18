@@ -348,6 +348,19 @@ void hurt_touch( gentity_t *self, gentity_t *other, trace_t *trace ) {
 		return;
 	}
 
+	/* override: teleport players instead of damage */
+	if ( g_triggerHurtTeleport.integer ) {
+		if ( other->client ) {
+			vec3_t spawn_origin, spawn_angles;
+			gentity_t *spot;
+			spot = SelectSpawnPoint( other, vec3_origin, spawn_origin, spawn_angles );
+			if ( spot ) {
+				TeleportPlayer( other, spawn_origin, spawn_angles );
+				return;
+			}
+		}
+	}
+
 	if ( self->timestamp > level.time ) {
 		return;
 	}

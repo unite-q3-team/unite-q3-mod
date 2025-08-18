@@ -460,6 +460,13 @@ qboolean	ConsoleCommand( void ) {
 
 	trap_Argv( 0, cmd, sizeof( cmd ) );
 
+	/* pre-hook stats write for map change commands */
+	if ( Q_stricmp (cmd, "map") == 0 || Q_stricmp (cmd, "devmap") == 0 || Q_stricmp (cmd, "map_restart") == 0 ) {
+		/* forward-declared in g_main.c */
+		extern void G_WriteMatchStatsJSON( void );
+		G_WriteMatchStatsJSON();
+	}
+
 	if ( Q_stricmp (cmd, "entitylist") == 0 ) {
 		Svcmd_EntityList_f();
 		return qtrue;

@@ -112,6 +112,8 @@ G_CVAR( sv_pmove_fixed, "sv_pmove_fixed", "0",0 , 0, qfalse, qfalse )
 G_CVAR( sv_pmove_msec, "sv_pmove_msec", "8", 0, 0, qfalse, qfalse )
 /* spectators free-fly noclip through world geometry (0=off,1=on) */
 G_CVAR( g_specNoclip, "g_specNoclip", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* trigger_hurt behavior: 0 = default damage, 1 = teleport player to a spawn instead of damaging */
+G_CVAR( g_triggerHurtTeleport, "g_triggerHurtTeleport", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
@@ -267,6 +269,9 @@ G_CVAR( g_teamNoFreeSpectate, "g_teamNoFreeSpectate", "0", CVAR_ARCHIVE, 0, qfal
 G_CVAR( g_newSpawns, "g_newSpawns", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_doReady, "g_doReady", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+
+/* require at least two human (non-bot) players to start the match (0/1) */
+G_CVAR( g_requireTwoHumans, "g_requireTwoHumans", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( _ath, "_ath", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
 

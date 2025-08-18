@@ -829,6 +829,93 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 
     BroadcastTeamChange( client, oldTeam );
 
+	/* Check if we need to cancel ready countdown due to human player switching to spectator */
+	if ( level.readyCountdownStarted && level.warmupTime > 0 && level.time < level.warmupTime ) {
+		if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR && !(ent->r.svFlags & SVF_BOT) ) {
+			int totalHumans;
+			int totalPlayers;
+			int i;
+			totalHumans = 0;
+			totalPlayers = 0;
+			for ( i = 0; i < level.maxclients; i++ ) {
+				gentity_t *e = &g_entities[i];
+				gclient_t *cl = &level.clients[i];
+				if ( cl->pers.connected != CON_CONNECTED ) {
+					continue;
+				}
+				if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
+					continue;
+				}
+				totalPlayers++;
+				if ( !(e->r.svFlags & SVF_BOT) ) {
+					totalHumans++;
+				}
+			}
+			{
+				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+				if ( requireTwo && totalHumans < 2 ) {
+					level.readyCountdownStarted = qfalse;
+					level.warmupTime = -1;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled: need 2 human players\"" );
+				} else if ( totalPlayers < 2 ) {
+					level.readyCountdownStarted = qfalse;
+					level.warmupTime = -1;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled: need 2 players\"" );
+				}
+			}
+		}
+	}
+
+	/* Check if we need to cancel active match due to insufficient players */
+	if ( level.warmupTime == 0 && g_gametype.integer != GT_SINGLE_PLAYER ) {
+		if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
+			int totalHumans;
+			int totalPlayers;
+			int i;
+			totalHumans = 0;
+			totalPlayers = 0;
+			for ( i = 0; i < level.maxclients; i++ ) {
+				gentity_t *e = &g_entities[i];
+				gclient_t *cl = &level.clients[i];
+				if ( cl->pers.connected != CON_CONNECTED ) {
+					continue;
+				}
+				if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
+					continue;
+				}
+				totalPlayers++;
+				if ( !(e->r.svFlags & SVF_BOT) ) {
+					totalHumans++;
+				}
+			}
+			{
+				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+				if ( requireTwo && totalHumans < 2 ) {
+					level.warmupTime = -1;
+					level.readyCountdownStarted = qfalse;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_LogPrintf( "Warmup:\n" );
+					level.abortedDueToNoPlayers = 1;
+					G_BroadcastServerCommand( -1, "cp \"^3Match aborted: need 2 human players\"" );
+				} else if ( totalPlayers < 2 ) {
+					level.warmupTime = -1;
+					level.readyCountdownStarted = qfalse;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_LogPrintf( "Warmup:\n" );
+					level.abortedDueToNoPlayers = 1;
+					G_BroadcastServerCommand( -1, "cp \"^3Match aborted: need 2 players\"" );
+				}
+			}
+		}
+	}
+
+	/* Reset ready status when switching to spectator */
+	if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
+		ent->readyBegin = qfalse;
+	}
+
 	// get and distribute relevent paramters
 	ClientUserinfoChanged( clientNum );
 
@@ -3052,6 +3139,13 @@ static void G_CheckAllReadyAndStart(void) {
         totalHumans++;
         if ( e->readyBegin ) {
             readyHumans++;
+        }
+    }
+
+    {
+        int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+        if ( requireTwo && totalHumans < 2 ) {
+            return;
         }
     }
 

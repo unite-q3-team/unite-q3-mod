@@ -44,6 +44,7 @@ static void G_RunFrame( int levelTime );
 static void G_ShutdownGame( int restart );
 static void CheckExitRules( void );
 static void SendScoreboardMessageToAllClients( void );
+void G_WriteMatchStatsJSON( void );
 
 // extension interface
 #ifdef Q3_VM
@@ -136,6 +137,28 @@ void QDECL G_Error( const char *fmt, ... ) {
 	va_end( argptr );
 
 	trap_Error( text );
+}
+
+/* C89-friendly helper for appending formatted text into a buffer */
+static void JSON_Append( char *buf, int *pOff, int capacity, const char *fmt, ... ) {
+	va_list argptr;
+	char local[1024];
+	int n, off;
+	if ( !buf || !pOff || capacity <= 0 ) return;
+	off = *pOff;
+	if ( off >= capacity - 4 ) return;
+	va_start( argptr, fmt );
+	n = Q_vsprintf( local, fmt, argptr );
+	va_end( argptr );
+	if ( n < 0 ) n = 0;
+	if ( n > (int)sizeof(local) - 1 ) n = (int)sizeof(local) - 1;
+	if ( off + n >= capacity - 1 ) n = (capacity - 1) - off;
+	if ( n > 0 ) {
+		int i;
+		for ( i = 0; i < n; ++i ) buf[ off + i ] = local[ i ];
+		off += n;
+	}
+	*pOff = off;
 }
 
 /*
@@ -810,6 +833,9 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	level.previousTime = levelTime;
 	level.msec = FRAMETIME;
 
+	/* clear abort flag for this match */
+	level.abortedDueToNoPlayers = 0;
+
 	level.snd_fry = G_SoundIndex("sound/player/fry.wav");	// FIXME standing in lava / slime
 
 	if ( g_gametype.integer != GT_SINGLE_PLAYER && g_log.string[0] ) {
@@ -953,6 +979,9 @@ G_ShutdownGame
 static void G_ShutdownGame( int restart ) 
 {
 	G_Printf ("==== ShutdownGame ====\n");
+
+	/* Ensure match stats saved on direct map changes (vote/console) */
+	G_WriteMatchStatsJSON();
 
 	if ( level.logFile != FS_INVALID_HANDLE ) {
 		G_LogPrintf("ShutdownGame:\n" );
@@ -1625,6 +1654,132 @@ void QDECL G_LogPrintf( const char *fmt, ... ) {
 }
 
 
+/* Helper: write JSON match stats once per match */
+void G_WriteMatchStatsJSON( void ) {
+    fileHandle_t f;
+    char filename[128];
+    char *buf;
+    int i;
+    int first = 1;
+    char serverinfo[MAX_INFO_STRING];
+    char hostname[128];
+    int epoch;
+
+    /* do not write during warmup (only after warmup fully ended) */
+    if ( g_gametype.integer != GT_SINGLE_PLAYER && level.warmupTime != 0 ) {
+        return;
+    }
+
+    /* suppress write if match was aborted due to insufficient players */
+    if ( level.abortedDueToNoPlayers ) {
+        return;
+    }
+
+    if ( level.statsWritten ) {
+        return;
+    }
+
+    /* allocate a temporary buffer (released when level frees) */
+    buf = (char*)G_Alloc( 64 * 1024 );
+    if ( !buf ) {
+        return;
+    }
+
+    {
+        int off = 0;
+        const int cap = 64 * 1024;
+        trap_GetServerinfo( serverinfo, sizeof(serverinfo) );
+        {
+            const char *h = Info_ValueForKey( serverinfo, "sv_hostname" );
+            Q_strncpyz( hostname, (h && *h) ? h : "", sizeof(hostname) );
+        }
+
+        epoch = trap_RealTime( NULL );
+        Com_sprintf( filename, sizeof(filename), "unite-stats/match_%d_%s.json",
+            epoch, g_mapname.string[0] ? g_mapname.string : "unknown" );
+
+        /* build JSON using C89-safe appender */
+        JSON_Append( buf, &off, cap, "{\n\t\"timestamp\": %i,\n", level.time );
+        JSON_Append( buf, &off, cap, "\t\"map\": \"%s\",\n", g_mapname.string );
+        JSON_Append( buf, &off, cap, "\t\"gametype\": %i,\n", g_gametype.integer );
+        JSON_Append( buf, &off, cap, "\t\"hostname\": \"%s\",\n", hostname );
+        JSON_Append( buf, &off, cap, "\t\"players\": [" );
+
+        for ( i = 0 ; i < level.maxclients ; i++ ) {
+            gclient_t *cl = &level.clients[i];
+            gentity_t *ent = &g_entities[i];
+            if ( cl->pers.connected != CON_CONNECTED ) continue;
+            if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+            if ( ent->r.svFlags & SVF_BOT ) continue; /* skip bots */
+
+            if ( !first ) { JSON_Append( buf, &off, cap, "," ); }
+            first = 0;
+
+            {
+                char nameEsc[128];
+                int j, k; char c;
+                for ( j = 0, k = 0; j < (int)sizeof(cl->pers.netname) && cl->pers.netname[j] && k < (int)sizeof(nameEsc) - 2; j++ ) {
+                    c = cl->pers.netname[j];
+                    if ( c == '\\' || c == '\"' ) { nameEsc[k++] = '\\'; nameEsc[k++] = c; }
+                    else if ( (unsigned char)c < 32 ) { nameEsc[k++] = ' '; }
+                    else { nameEsc[k++] = c; }
+                }
+                nameEsc[k] = '\0';
+                JSON_Append( buf, &off, cap, "\n\t\t{\"name\": \"%s\", ", nameEsc );
+            }
+
+            JSON_Append( buf, &off, cap, "\"team\": %d, ", cl->sess.sessionTeam );
+            JSON_Append( buf, &off, cap, "\"score\": %d, ", cl->ps.persistant[PERS_SCORE] );
+            JSON_Append( buf, &off, cap, "\"kills\": %d, ", cl->kills );
+            JSON_Append( buf, &off, cap, "\"deaths\": %d, ", cl->deaths );
+            JSON_Append( buf, &off, cap, "\"suicides\": %d, ", cl->suicides );
+            JSON_Append( buf, &off, cap, "\"bestKillStreak\": %d, ", cl->bestKillStreak );
+            JSON_Append( buf, &off, cap, "\"hits\": %d, ", cl->accuracy_hits );
+            JSON_Append( buf, &off, cap, "\"shots\": %d, ", cl->accuracy_shots );
+            JSON_Append( buf, &off, cap, "\"damageGiven\": %d, ", cl->totalDamageGiven );
+            JSON_Append( buf, &off, cap, "\"damageTaken\": %d, ", cl->totalDamageTaken );
+            JSON_Append( buf, &off, cap, "\"ping\": %d, ", (cl->ps.ping < 999 ? cl->ps.ping : 999) );
+
+            /* per-weapon stats */
+            {
+                int w;
+                int wfirst = 1;
+                JSON_Append( buf, &off, cap, "\"weapons\": [" );
+                for ( w = 0 ; w < WP_NUM_WEAPONS ; ++w ) {
+                    int shots = cl->perWeaponShots[w];
+                    int hits = cl->perWeaponHits[w];
+                    int kls = cl->perWeaponKills[w];
+                    int dths = cl->perWeaponDeaths[w];
+                    int dmgG = cl->perWeaponDamageGiven[w];
+                    int dmgT = cl->perWeaponDamageTaken[w];
+                    int pcks = cl->perWeaponPickups[w];
+                    int drps = cl->perWeaponDrops[w];
+                    if ( shots || hits || kls || dths || dmgG || dmgT || pcks || drps ) {
+                        if ( !wfirst ) { JSON_Append( buf, &off, cap, "," ); }
+                        wfirst = 0;
+                        JSON_Append( buf, &off, cap, "{\"id\": %d, \"shots\": %d, \"hits\": %d, \"kills\": %d, \"deaths\": %d, \"dmgGiven\": %d, \"dmgTaken\": %d, \"pickups\": %d, \"drops\": %d}",
+                            w, shots, hits, kls, dths, dmgG, dmgT, pcks, drps );
+                    }
+                }
+                JSON_Append( buf, &off, cap, "]" );
+            }
+
+            JSON_Append( buf, &off, cap, "}" );
+        }
+
+        JSON_Append( buf, &off, cap, "\n\t]\n}" );
+        if ( off < cap ) buf[off] = '\0';
+
+        if ( trap_FS_FOpenFile( filename, &f, FS_WRITE ) >= 0 && f != FS_INVALID_HANDLE ) {
+            trap_FS_Write( buf, (int)strlen(buf), f );
+            trap_FS_FCloseFile( f );
+            level.statsWritten = 1;
+        } else {
+            G_Printf("WARNING: could not open %s for writing match stats. Ensure folder exists under fs_homepath.\n", filename);
+        }
+    }
+}
+
 /*
 ================
 LogExit
@@ -1639,7 +1794,115 @@ void LogExit( const char *string ) {
 	qboolean won = qtrue;
 #endif
 	G_LogPrintf( "Exit: %s\n", string );
+    /* write JSON match stats for site ingestion (non-bot humans only) */
+    {
+        fileHandle_t f;
+        char filename[128];
+        char *buf;
+        int i;
+        int first = 1;
+        char serverinfo[MAX_INFO_STRING];
+        char hostname[128];
+        int epoch;
 
+        /* allocate a temporary buffer (released when level frees) */
+        buf = (char*)G_Alloc( 64 * 1024 );
+        if ( buf ) {
+            int off = 0;
+            const int cap = 64 * 1024;
+            trap_GetServerinfo( serverinfo, sizeof(serverinfo) );
+            {
+                const char *h = Info_ValueForKey( serverinfo, "sv_hostname" );
+                Q_strncpyz( hostname, (h && *h) ? h : "", sizeof(hostname) );
+            }
+
+            epoch = trap_RealTime( NULL );
+            Com_sprintf( filename, sizeof(filename), "unite-stats/match_%d_%s.json",
+                epoch, g_mapname.string[0] ? g_mapname.string : "unknown" );
+
+            /* build JSON using C89-safe appender */
+            JSON_Append( buf, &off, cap, "{\n\t\"timestamp\": %i,\n", level.time );
+            JSON_Append( buf, &off, cap, "\t\"map\": \"%s\",\n", g_mapname.string );
+            JSON_Append( buf, &off, cap, "\t\"gametype\": %i,\n", g_gametype.integer );
+            JSON_Append( buf, &off, cap, "\t\"hostname\": \"%s\",\n", hostname );
+            JSON_Append( buf, &off, cap, "\t\"players\": [" );
+
+            for ( i = 0 ; i < level.maxclients ; i++ ) {
+                gclient_t *cl = &level.clients[i];
+                gentity_t *ent = &g_entities[i];
+                if ( cl->pers.connected != CON_CONNECTED ) continue;
+                if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) continue;
+                if ( ent->r.svFlags & SVF_BOT ) continue; /* skip bots */
+
+                if ( !first ) { JSON_Append( buf, &off, cap, "," ); }
+                first = 0;
+
+                {
+                    char nameEsc[128];
+                    int j, k; char c;
+                    for ( j = 0, k = 0; j < (int)sizeof(cl->pers.netname) && cl->pers.netname[j] && k < (int)sizeof(nameEsc) - 2; j++ ) {
+                        c = cl->pers.netname[j];
+                        if ( c == '\\' || c == '\"' ) { nameEsc[k++] = '\\'; nameEsc[k++] = c; }
+                        else if ( (unsigned char)c < 32 ) { nameEsc[k++] = ' '; }
+                        else { nameEsc[k++] = c; }
+                    }
+                    nameEsc[k] = '\0';
+                    JSON_Append( buf, &off, cap, "\n\t\t{\"name\": \"%s\", ", nameEsc );
+                }
+
+                JSON_Append( buf, &off, cap, "\"team\": %d, ", cl->sess.sessionTeam );
+                JSON_Append( buf, &off, cap, "\"score\": %d, ", cl->ps.persistant[PERS_SCORE] );
+                JSON_Append( buf, &off, cap, "\"kills\": %d, ", cl->kills );
+                JSON_Append( buf, &off, cap, "\"deaths\": %d, ", cl->deaths );
+                JSON_Append( buf, &off, cap, "\"suicides\": %d, ", cl->suicides );
+                JSON_Append( buf, &off, cap, "\"bestKillStreak\": %d, ", cl->bestKillStreak );
+                JSON_Append( buf, &off, cap, "\"hits\": %d, ", cl->accuracy_hits );
+                JSON_Append( buf, &off, cap, "\"shots\": %d, ", cl->accuracy_shots );
+                JSON_Append( buf, &off, cap, "\"damageGiven\": %d, ", cl->totalDamageGiven );
+                JSON_Append( buf, &off, cap, "\"damageTaken\": %d, ", cl->totalDamageTaken );
+                JSON_Append( buf, &off, cap, "\"ping\": %d, ", (cl->ps.ping < 999 ? cl->ps.ping : 999) );
+
+                /* per-weapon stats */
+                {
+                    int w;
+                    int wfirst = 1;
+                    JSON_Append( buf, &off, cap, "\"weapons\": [" );
+                    for ( w = 0 ; w < WP_NUM_WEAPONS ; ++w ) {
+                        int shots = cl->perWeaponShots[w];
+                        int hits = cl->perWeaponHits[w];
+                        int kls = cl->perWeaponKills[w];
+                        int dths = cl->perWeaponDeaths[w];
+                        int dmgG = cl->perWeaponDamageGiven[w];
+                        int dmgT = cl->perWeaponDamageTaken[w];
+                        int pcks = cl->perWeaponPickups[w];
+                        int drps = cl->perWeaponDrops[w];
+                        if ( shots || hits || kls || dths || dmgG || dmgT || pcks || drps ) {
+                            if ( !wfirst ) { JSON_Append( buf, &off, cap, "," ); }
+                            wfirst = 0;
+                            JSON_Append( buf, &off, cap, "{\"id\": %d, \"shots\": %d, \"hits\": %d, \"kills\": %d, \"deaths\": %d, \"dmgGiven\": %d, \"dmgTaken\": %d, \"pickups\": %d, \"drops\": %d}",
+                                w, shots, hits, kls, dths, dmgG, dmgT, pcks, drps );
+                        }
+                    }
+                    JSON_Append( buf, &off, cap, "]" );
+                }
+
+                JSON_Append( buf, &off, cap, "}" );
+            }
+
+            JSON_Append( buf, &off, cap, "\n\t]\n}" );
+            if ( off < cap ) buf[off] = '\0';
+
+            if ( trap_FS_FOpenFile( filename, &f, FS_WRITE ) >= 0 && f != FS_INVALID_HANDLE ) {
+                trap_FS_Write( buf, (int)strlen(buf), f );
+                trap_FS_FCloseFile( f );
+                level.statsWritten = 1;
+            } else {
+                G_Printf("WARNING: could not open %s for writing match stats. Ensure folder exists under fs_homepath.\n", filename);
+            }
+
+            /* no explicit free; G_Alloc memory is cleared on level change */
+        }
+    }
 	level.intermissionQueued = level.time;
 
 	// this will keep the clients from playing any voice sounds
@@ -1858,13 +2121,21 @@ static void CheckExitRules( void ) {
 
 	if ( g_timelimit.integer && !level.warmupTime ) {
 		if ( level.time - level.startTime >= g_timelimit.integer*60000 ) {
-			G_BroadcastServerCommand( -1, "print \"Timelimit hit.\n\"");
+			G_BroadcastServerCommand( -1, "print \"Timelimit hit.\n\"" );
 			LogExit( "Timelimit hit." );
 			return;
 		}
 	}
 
 	if ( level.numPlayingClients < 2 ) {
+		/* If match already started (warmup ended), but players left → abort back to warmup without stats */
+		if ( g_gametype.integer != GT_SINGLE_PLAYER && level.warmupTime == 0 ) {
+			level.warmupTime = -1;
+			level.readyCountdownStarted = qfalse;
+			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+			G_LogPrintf( "Warmup:\n" );
+			level.abortedDueToNoPlayers = 1;
+		}
 		return;
 	}
 
@@ -2208,6 +2479,19 @@ static void CheckTournament( void ) {
 
 		// if all players have arrived, start the countdown
 		if ( level.warmupTime < 0 ) {
+			if ( trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" ) ) {
+				int humans = 0;
+				int ii;
+				for ( ii = 0; ii < level.maxclients; ++ii ) {
+					if ( level.clients[ii].pers.connected != CON_CONNECTED ) continue;
+					if ( level.clients[ii].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+					if ( g_entities[ii].r.svFlags & SVF_BOT ) continue;
+					humans++;
+				}
+				if ( humans < 2 ) {
+					return;
+				}
+			}
 			if ( g_warmup.integer > 0 ) {
 				level.warmupTime = level.time + g_warmup.integer * 1000;
 			} else {

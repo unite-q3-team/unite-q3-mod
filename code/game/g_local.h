@@ -518,6 +518,12 @@ typedef struct {
 	// ready system: true if the 5s warmup countdown was triggered by All players ready
 	qboolean	readyCountdownStarted;
 
+	// stats: set when match stats have been written to disk to avoid duplicates
+	int			statsWritten;
+
+	// mark if match was aborted due to insufficient players; suppress stats save
+	int			abortedDueToNoPlayers;
+
 } level_locals_t;
 
 
