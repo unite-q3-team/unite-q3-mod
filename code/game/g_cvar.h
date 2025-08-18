@@ -117,6 +117,9 @@ G_CVAR( sv_pmove_msec, "sv_pmove_msec", "8", 0, 0, qfalse, qfalse )
 G_CVAR( g_specNoclip, "g_specNoclip", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* trigger_hurt behavior: 0 = default damage, 1 = teleport player to a spawn instead of damaging */
 G_CVAR( g_triggerHurtTeleport, "g_triggerHurtTeleport", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* telefrag handling on teleport: 0=default telefrag; 1=force teleport (no telefrag);
+   2=place near without clipping; 3=push occupant; 4=nearby spawn; 5=wait; 6=kill both */
+G_CVAR( g_telefragMode, "g_telefragMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 

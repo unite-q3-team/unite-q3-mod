@@ -3,6 +3,7 @@
 // g_misc.c
 
 #include "g_local.h"
+#include "g_freeze.h"
 
 
 /*QUAKED func_group (0 0 0) ?
@@ -58,6 +59,22 @@ TELEPORTERS
 
 void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	gentity_t	*tent;
+	int mode;
+	qboolean skipKillbox;
+	qboolean killBoth;
+	vec3_t finalOrigin;
+	vec3_t mins, maxs;
+	int touch[MAX_GENTITIES];
+	int num, i;
+	gentity_t *hit;
+	vec3_t dir;
+	float radii[4];
+	int ri, ai;
+	vec3_t cand, off;
+	static const float OFF8[8][2] = {
+		{1.0f, 0.0f}, {0.70710678f, 0.70710678f}, {0.0f, 1.0f}, {-0.70710678f, 0.70710678f},
+		{-1.0f, 0.0f}, {-0.70710678f, -0.70710678f}, {0.0f, -1.0f}, {0.70710678f, -0.70710678f}
+	};
 
 	// use temp events at source and destination to prevent the effect
 	// from getting dropped by a second player event
@@ -72,10 +89,70 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		tent->s.clientNum = player->s.clientNum;
 	}
 
+	/* telefrag mode handling */
+	mode = g_telefragMode.integer;
+	skipKillbox = qfalse;
+	killBoth = qfalse;
+	VectorCopy( origin, finalOrigin );
+	if ( mode != 0 ) {
+		/* occupancy at target */
+		VectorAdd( origin, player->r.mins, mins );
+		VectorAdd( origin, player->r.maxs, maxs );
+		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		if ( mode == 5 ) {
+			if ( num > 0 ) {
+				return; /* wait until clear */
+			}
+			skipKillbox = qtrue;
+		} else if ( mode == 4 ) {
+			vec3_t angs;
+			SelectSpawnPoint( player, origin, finalOrigin, angs );
+			if ( angles ) {
+				VectorCopy( angs, angles );
+			}
+			skipKillbox = qtrue;
+		} else if ( mode == 3 ) {
+			for ( i = 0; i < num; ++i ) {
+				hit = &g_entities[ touch[i] ];
+				if ( hit == player ) continue;
+				if ( hit->client ) {
+					VectorSubtract( hit->r.currentOrigin, origin, dir );
+					if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
+					VectorMA( hit->client->ps.velocity, 400.0f, dir, hit->client->ps.velocity );
+				} else if ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) {
+					VectorSubtract( hit->r.currentOrigin, origin, dir );
+					if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
+					VectorMA( hit->s.pos.trDelta, 200.0f, dir, hit->s.pos.trDelta );
+					hit->s.pos.trType = TR_GRAVITY;
+					hit->s.pos.trTime = level.time;
+				}
+			}
+			skipKillbox = qtrue;
+		} else if ( mode == 2 ) {
+			radii[0]=16.0f; radii[1]=32.0f; radii[2]=48.0f; radii[3]=64.0f;
+			for ( ri = 0; ri < 4; ++ri ) {
+				for ( ai = 0; ai < 8; ++ai ) {
+					off[0] = OFF8[ai][0] * radii[ri];
+					off[1] = OFF8[ai][1] * radii[ri];
+					off[2] = 0.0f;
+					VectorAdd( origin, off, cand );
+					VectorAdd( cand, player->r.mins, mins );
+					VectorAdd( cand, player->r.maxs, maxs );
+					num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+					if ( num == 0 ) { VectorCopy( cand, finalOrigin ); skipKillbox = qtrue; ri = 4; break; }
+				}
+			}
+		} else if ( mode == 1 ) {
+			skipKillbox = qtrue;
+		} else if ( mode == 6 ) {
+			killBoth = qtrue; skipKillbox = qfalse;
+		}
+	}
+
 	// unlink to make sure it can't possibly interfere with G_KillBox
 	trap_UnlinkEntity( player );
 
-	VectorCopy( origin, player->client->ps.origin );
+	VectorCopy( finalOrigin, player->client->ps.origin );
 	player->client->ps.origin[2] += 1.0f;
 
 	// spit the player out
@@ -101,12 +178,31 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	// unlagged
 	G_ResetHistory( player );
 
-	// kill anything at the destination
+	// handle telefrag per mode
 	if (
 		(g_freeze.integer && !ftmod_isSpectator( player->client )) ||
 		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
 	) {
-		G_KillBox( player );
+		if ( !skipKillbox ) {
+			G_KillBox( player );
+			/* For frozen bodies: mode 0 and 6 thaw bodies at destination */
+			if ( g_freeze.integer && (mode == 0 || mode == 6) ) {
+				VectorAdd( finalOrigin, player->r.mins, mins );
+				VectorAdd( finalOrigin, player->r.maxs, maxs );
+				num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+				for ( i = 0; i < num; ++i ) {
+					hit = &g_entities[ touch[i] ];
+					if ( ftmod_isBodyFrozen( hit ) ) {
+						if ( hit->target_ent && hit->target_ent->client ) {
+							ftmod_bodyFree( hit );
+						}
+					}
+				}
+			}
+		}
+		if ( killBoth ) {
+			G_Damage( player, player, player, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
+		}
 	}
 
 	// save results of pmove
