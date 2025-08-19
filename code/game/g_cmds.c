@@ -1745,6 +1745,7 @@ void Cmd_CV_f( gentity_t *ent ); /* from cmds/votesystem.c */
 static void Cmd_SpawnFrozenBody_f( gentity_t *ent );
 static void Cmd_ReadyAll_f( gentity_t *ent );
 static void Cmd_UnreadyAll_f( gentity_t *ent );
+static void Cmd_RemoveFrozenBody_f( gentity_t *ent );
 /* announcer commands */
 void AN_Cmd_AnnReload( gentity_t *ent );
 void AN_Cmd_AnnList( gentity_t *ent );
@@ -1843,6 +1844,7 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "from",            Cmd_From_f,         qfalse },
     { "ready",           Cmd_Ready_f,        qfalse },
     { "unready",         Cmd_Unready_f,      qfalse },
+    { "removefrozenbody", Cmd_RemoveFrozenBody_f, qtrue },
 };
 
 /* Commands handled directly in ClientCommand (not via table) */
@@ -3440,4 +3442,55 @@ static void Cmd_UnreadyAll_f( gentity_t *ent ) {
     }
     /* Update scoreboard ready mask */
     ftmod_checkDelay();
+}
+
+static void Cmd_RemoveFrozenBody_f( gentity_t *ent ) {
+    int i;
+    int removed = 0;
+    gentity_t *body;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    // Check if freeze tag is enabled
+    if ( !g_freeze.integer ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Freeze tag is not enabled.\n\"" );
+        return;
+    }
+
+    // Remove all frozen bodies spawned by this player
+    for ( i = 0; i < level.num_entities; i++ ) {
+        body = &g_entities[i];
+        if ( !body->inuse ) {
+            continue;
+        }
+        if ( !body->freezeState ) {
+            continue;
+        }
+        if ( Q_stricmp( body->classname, "freezebody" ) != 0 ) {
+            continue;
+        }
+        // Check if this body belongs to the player
+        if ( body->target_ent == ent || body->s.otherEntityNum == ent->s.number ) {
+            // Clear the player's reference to this body
+            if ( ent->target_ent == body ) {
+                ent->target_ent = NULL;
+            }
+            // Remove the body
+            G_FreeEntity( body );
+            removed++;
+        }
+    }
+
+    if ( removed > 0 ) {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^2Removed %d frozen body/bodies.\n\"", removed ) );
+    } else {
+        trap_SendServerCommand( ent - g_entities, "print \"^3No frozen bodies found to remove.\n\"" );
+    }
 }
