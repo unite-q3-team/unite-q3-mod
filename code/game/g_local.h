@@ -362,6 +362,7 @@ struct gclient_s {
 
 	qboolean	fireHeld;			// used for hook
 	gentity_t	*hook;				// grapple hook if out
+	int			hookAttachTime;     // level.time when offhand hook attached
 
 	int			switchTeamTime;		// time the player switched teams
 

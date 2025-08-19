@@ -409,6 +409,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		/* mark pull intent; actual pull target is decided in think based on cvar */
 		ent->parent->client->ps.pm_flags |= PMF_GRAPPLE_PULL;
 		VectorCopy( ent->r.currentOrigin, ent->parent->client->ps.grapplePoint);
+		/* record attach time for offhand hook limit */
+		if ( ent->parent && ent->parent->client ) {
+			ent->parent->client->hookAttachTime = level.time;
+		}
 
 		/* optionally hide the latched hook entity (visual beam is client-side in mods; here we can choose) */
 		if ( !g_hook_visiblePull.integer ) {

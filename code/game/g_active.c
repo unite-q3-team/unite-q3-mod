@@ -1237,6 +1237,14 @@ void ClientThink_real( gentity_t *ent ) {
             // offhand hook persists until -hook or weapon attack released via -hook
             // nothing here; release handled by -hook command
         }
+        /* enforce offhand hang time limit (seconds) */
+        if ( g_hook_offhandTime.integer > 0 && client->hookAttachTime > 0 ) {
+            int limitMs = g_hook_offhandTime.integer * 1000;
+            if ( client->hookAttachTime > 0 && level.time - client->hookAttachTime >= limitMs ) {
+                Weapon_HookFree( client->hook );
+                client->fireHeld = qfalse;
+            }
+        }
     }
 
 	// set up for pmove
