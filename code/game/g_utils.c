@@ -561,7 +561,40 @@ Adds an event+parm and twiddles the event counter
 ===============
 */
 void G_AddPredictableEvent( gentity_t *ent, entity_event_t event, int eventParm ) {
+	int	pending;
 	if ( !ent->client ) {
+		return;
+	}
+	/*
+	 * If too many predictable events are queued this frame, older ones get overwritten
+	 * due to MAX_PS_EVENTS ring size. To avoid losing events (e.g., pickups/hits),
+	 * fall back to sending a single-client temp event for the local client.
+	 */
+	pending = ent->client->ps.eventSequence - ent->client->ps.entityEventSequence;
+	if ( pending >= MAX_PS_EVENTS ) {
+		gentity_t *t;
+		int ev;
+		int number;
+		int extEvent;
+		/* synthesize toggled event code similar to BG_PlayerStateToEntityState */
+		ev = event | ( ( ent->client->ps.eventSequence & 3 ) << 8 );
+		/* temporarily clear externalEvent so packer won't overwrite our temp entity */
+		extEvent = ent->client->ps.externalEvent;
+		ent->client->ps.externalEvent = 0;
+		t = G_TempEntity( ent->client->ps.origin, ev );
+		number = t->s.number;
+		BG_PlayerStateToEntityState( &ent->client->ps, &t->s, qtrue );
+		t->s.number = number;
+		t->s.eType = ET_EVENTS + ev;
+		t->s.eFlags |= EF_PLAYER_EVENT;
+		t->s.otherEntityNum = ent->s.number;
+		/* only send to the originating client */
+		t->r.svFlags |= SVF_SINGLECLIENT;
+		t->r.singleClient = ent->s.number;
+		/* ensure correct parameter (e.g., modelindex for EV_ITEM_PICKUP) */
+		t->s.eventParm = eventParm;
+		/* restore external event */
+		ent->client->ps.externalEvent = extEvent;
 		return;
 	}
 	BG_AddPredictableEventToPlayerstate( event, eventParm, &ent->client->ps );
@@ -587,11 +620,36 @@ void G_AddEvent( gentity_t *ent, int event, int eventParm ) {
 	// clients need to add the event in playerState_t instead of entityState_t
 	if ( ent->client ) {
 		client = ent->client;
-		bits = client->ps.externalEvent & EV_EVENT_BITS;
-		bits = ( bits + EV_EVENT_BIT1 ) & EV_EVENT_BITS;
-		client->ps.externalEvent = event | bits;
-		client->ps.externalEventParm = eventParm;
-		client->ps.externalEventTime = level.time;
+		/* if an external event is already set this frame, send a single-client temp event to avoid dropping */
+		if ( client->ps.externalEvent && client->ps.externalEventTime == level.time ) {
+			gentity_t *t;
+			int ev;
+			int number;
+			int extEvent;
+			bits = client->ps.externalEvent & EV_EVENT_BITS;
+			bits = ( bits + EV_EVENT_BIT1 ) & EV_EVENT_BITS;
+			ev = event | bits;
+			extEvent = client->ps.externalEvent;
+			client->ps.externalEvent = 0;
+			t = G_TempEntity( client->ps.origin, ev );
+			number = t->s.number;
+			BG_PlayerStateToEntityState( &client->ps, &t->s, qtrue );
+			t->s.number = number;
+			t->s.eType = ET_EVENTS + ev;
+			t->s.eFlags |= EF_PLAYER_EVENT;
+			t->s.otherEntityNum = ent->s.number;
+			t->r.svFlags |= SVF_SINGLECLIENT;
+			t->r.singleClient = ent->s.number;
+			/* propagate parameter for the event */
+			t->s.eventParm = eventParm;
+			client->ps.externalEvent = extEvent;
+		} else {
+			bits = client->ps.externalEvent & EV_EVENT_BITS;
+			bits = ( bits + EV_EVENT_BIT1 ) & EV_EVENT_BITS;
+			client->ps.externalEvent = event | bits;
+			client->ps.externalEventParm = eventParm;
+			client->ps.externalEventTime = level.time;
+		}
 	} else {
 		bits = ent->s.event & EV_EVENT_BITS;
 		bits = ( bits + EV_EVENT_BIT1 ) & EV_EVENT_BITS;
