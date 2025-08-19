@@ -192,6 +192,8 @@ G_CVAR( g_ricochet_gl,  "g_ricochet_gl",  "-1", 0, 0, qtrue, qfalse )
 G_CVAR( g_ricochet_rl,  "g_ricochet_rl",  "0", 0, 0, qtrue, qfalse )
 G_CVAR( g_ricochet_pg,  "g_ricochet_pg",  "0", 0, 0, qtrue, qfalse )
 G_CVAR( g_ricochet_bfg, "g_ricochet_bfg", "0", 0, 0, qtrue, qfalse )
+/* play grenade bounce sound only for GL; for other ricochet projectiles, mute bounce sound (0/1) */
+G_CVAR( g_ricochetMuteNonGL, "g_ricochetMuteNonGL", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
 G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )

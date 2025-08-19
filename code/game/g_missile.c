@@ -267,7 +267,10 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
                 ent->count--;
             }
             G_BounceMissile( ent, trace );
-            G_AddEvent( ent, EV_GRENADE_BOUNCE, 0 );
+            /* Optional: mute bounce sound for non-GL ricochet projectiles */
+            if ( ent->s.weapon == WP_GRENADE_LAUNCHER || !g_ricochetMuteNonGL.integer ) {
+                G_AddEvent( ent, EV_GRENADE_BOUNCE, 0 );
+            }
             return;
         } else {
             // disable further bounces and continue to explode below
