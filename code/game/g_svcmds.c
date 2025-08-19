@@ -989,9 +989,13 @@ static void Svcmd_AdminDumpUser_f( void ) {
     char arg[MAX_TOKEN_CHARS];
     gentity_t *target;
     char userinfo[MAX_INFO_STRING];
+    char *s;
+    char key[256];
+    char value[256];
+    char *o;
 
     if ( trap_Argc() < 2 ) {
-        G_Printf( "Usage: dumpuser <clientNum>\n" );
+        G_Printf( "Usage: adumpuser <clientNum>\n" );
         return;
     }
 
@@ -1011,9 +1015,40 @@ static void Svcmd_AdminDumpUser_f( void ) {
 
     trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
-    G_Printf( "Player %d (%s) userinfo:\n", clientNum, target->client->pers.netname );
+    G_Printf( "=== Player %d (%s) Information ===\n", clientNum, target->client->pers.netname );
     
-    // Use Info_Print function
-    Info_Print( userinfo );
+    // Parse userinfo string and display as key: value pairs
+    s = userinfo;
+    if ( *s == '\\' )
+        s++;
+    
+    while ( *s ) {
+        // Extract key
+        o = key;
+        while ( *s && *s != '\\' && o < key + sizeof(key) - 1 )
+            *o++ = *s++;
+        *o = 0;
+
+        if ( !*s ) {
+            break;
+        }
+
+        // Extract value
+        s++; // skip the '\'
+        o = value;
+        while ( *s && *s != '\\' && o < value + sizeof(value) - 1 )
+            *o++ = *s++;
+        *o = 0;
+
+        // Print key: value pair
+        if ( key[0] ) {
+            G_Printf( "%s: %s\n", key, value );
+        }
+
+        if ( *s )
+            s++;
+    }
+    
+    G_Printf( "=== End Player Information ===\n" );
 }
 

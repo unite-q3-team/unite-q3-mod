@@ -4685,8 +4685,10 @@ static void Cmd_AdminDumpUser_f( gentity_t *ent ) {
     char arg[MAX_TOKEN_CHARS];
     gentity_t *target;
     char userinfo[MAX_INFO_STRING];
-    char buffer[1024];
-    int i;
+    char *s;
+    char key[256];
+    char value[256];
+    char *o;
 
     if ( !ent || !ent->client ) {
         return;
@@ -4716,39 +4718,42 @@ static void Cmd_AdminDumpUser_f( gentity_t *ent ) {
         return;
     }
 
-    // Get userinfo
     trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
 
-    if ( userinfo[0] == '\0' ) {
-        trap_SendServerCommand( ent - g_entities, va( "print \"^1Client %d: <empty userinfo>\n\"", clientNum ) );
-        return;
-    }
-
     // Send header
-    trap_SendServerCommand( ent - g_entities, va( "print \"^2--- Userinfo for Client %d (%s) ---\n\"", clientNum, target->client->pers.netname ) );
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2=== Player %d (%s) Information ===\n\"", clientNum, target->client->pers.netname ) );
+    
+    // Parse userinfo string and display as key: value pairs
+    s = userinfo;
+    if ( *s == '\\' )
+        s++;
+    
+    while ( *s ) {
+        // Extract key
+        o = key;
+        while ( *s && *s != '\\' && o < key + sizeof(key) - 1 )
+            *o++ = *s++;
+        *o = 0;
 
-    // Parse and send userinfo in chunks
-    Q_strncpyz( buffer, "^3userinfo\n", sizeof( buffer ) );
-    Q_strcat( buffer, sizeof( buffer ), "^3--------\n" );
-
-    for ( i = 0; i < (int)strlen( userinfo ); i++ ) {
-        if ( userinfo[i] == '\\' ) {
-            Q_strcat( buffer, sizeof( buffer ), "\n" );
-        } else {
-            char temp[2];
-            temp[0] = userinfo[i];
-            temp[1] = '\0';
-            Q_strcat( buffer, sizeof( buffer ), temp );
+        if ( !*s ) {
+            break;
         }
 
-        // Send in chunks to avoid overflow
-        if ( strlen( buffer ) > 900 ) {
-            trap_SendServerCommand( ent - g_entities, va( "print \"%s\"", buffer ) );
-            buffer[0] = '\0';
-        }
-    }
+        // Extract value
+        s++; // skip the '\'
+        o = value;
+        while ( *s && *s != '\\' && o < value + sizeof(value) - 1 )
+            *o++ = *s++;
+        *o = 0;
 
-    if ( buffer[0] ) {
-        trap_SendServerCommand( ent - g_entities, va( "print \"%s\"", buffer ) );
+        // Print key: value pair
+        if ( key[0] ) {
+            trap_SendServerCommand( ent - g_entities, va( "print \"^7%s: ^3%s\n\"", key, value ) );
+        }
+
+        if ( *s )
+            s++;
     }
+    
+    trap_SendServerCommand( ent - g_entities, "print \"^2=== End Player Information ===\n\"" );
 }
