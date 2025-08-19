@@ -257,6 +257,10 @@ typedef struct bot_state_s
 	bot_waypoint_t *patrolpoints;					//patrol points
 	bot_waypoint_t *curpatrolpoint;					//current patrol point the bot is going for
 	int patrolflags;								//patrol flags
+	
+	// Sound awareness fields
+	float lastheardenemy;							//time the bot last heard an enemy
+	vec3_t lastheardenemyorigin;					//origin of the last heard enemy
 } bot_state_t;
 
 //resets the whole bot state

@@ -99,6 +99,10 @@ static float s_wiggleNextFlipTime[MAX_CLIENTS];
 static int   s_wiggleDir[MAX_CLIENTS]; /* -1 left, +1 right, 0 unset */
 vmCvar_t g_spSkill;
 
+// Forward declarations
+static void BotHandleSoundEvent(bot_state_t *bs, entityState_t *state, int event);
+static qboolean BotEnemyHasDangerousPowerup(bot_state_t *bs, int enemy);
+
 extern vmCvar_t bot_developer;
 
 vec3_t lastteleport_origin;		//last teleport event origin
@@ -2270,6 +2274,12 @@ BotAggression
 ==================
 */
 float BotAggression(bot_state_t *bs) {
+	//if the bot has dangerous powerups, be very aggressive
+	if (BotHasDangerousPowerup(bs)) {
+		// Very high aggression when bot has powerups
+		return 95;
+	}
+	
 	//if the bot has quad
 	if (bs->inventory[INVENTORY_QUAD]) {
 		//if the bot is not holding the gauntlet or the enemy is really nearby
@@ -2381,6 +2391,10 @@ int BotWantsToRetreat(bot_state_t *bs) {
 	if (bs->ltgtype == LTG_GETFLAG)
 		return qtrue;
 	//
+	//if the bot has dangerous powerups, never retreat
+	if (BotHasDangerousPowerup(bs))
+		return qfalse;
+	//
 	if (BotAggression(bs) < 50)
 		return qtrue;
 	return qfalse;
@@ -2431,6 +2445,10 @@ int BotWantsToChase(bot_state_t *bs) {
 	//if the bot is getting the flag
 	if (bs->ltgtype == LTG_GETFLAG)
 		return qfalse;
+	//
+	//if the bot has dangerous powerups, always chase enemies
+	if (BotHasDangerousPowerup(bs))
+		return qtrue;
 	//
 	if (BotAggression(bs) > 50)
 		return qtrue;
@@ -3053,6 +3071,15 @@ int BotFindEnemy(bot_state_t *bs, int curenemy) {
 	if (curenemy >= 0) {
 		BotEntityInfo(curenemy, &curenemyinfo);
 		if (EntityCarriesFlag(&curenemyinfo)) return qfalse;
+		
+		// Check if current enemy has dangerous powerups - avoid engagement
+		if (BotEnemyHasDangerousPowerup(bs, curenemy)) {
+			// Add avoid spot around enemy with powerup
+			trap_BotAddAvoidSpot(bs->ms, curenemyinfo.origin, 300, AVOID_ALWAYS);
+			// Don't engage this enemy
+			return -1;
+		}
+		
 		VectorSubtract(curenemyinfo.origin, bs->origin, dir);
 		cursquaredist = VectorLengthSquared(dir);
 	}
@@ -3102,6 +3129,12 @@ int BotFindEnemy(bot_state_t *bs, int curenemy) {
 		if (EntityIsDead(&entinfo) || entinfo.number == bs->entitynum) continue;
 		//if the enemy is invisible and not shooting
 		if (EntityIsInvisible(&entinfo) && !EntityIsShooting(&entinfo)) {
+			continue;
+		}
+		//if the enemy has dangerous powerups, avoid them
+		if (BotEnemyHasDangerousPowerup(bs, i)) {
+			// Add avoid spot around enemy with powerup
+			trap_BotAddAvoidSpot(bs->ms, entinfo.origin, 300, AVOID_ALWAYS);
 			continue;
 		}
 		//if not an easy fragger don't shoot at chatting players
@@ -5106,6 +5139,29 @@ void BotCheckEvents(bot_state_t *bs, entityState_t *state) {
 			else if (attacker == bs->enemy && target == attacker) {
 				bs->enemysuicide = qtrue;
 			}
+			//if a teammate was killed by an enemy
+			else if (target >= 0 && target < MAX_CLIENTS && attacker >= 0 && attacker < MAX_CLIENTS) {
+				if (BotSameTeam(bs, target) && !BotSameTeam(bs, attacker)) {
+					float distance; // C89: declare at beginning of block
+					
+					// Teammate killed by enemy - be more cautious around this attacker
+					bs->lastheardenemy = FloatTime();
+					VectorCopy(state->pos.trBase, bs->lastheardenemyorigin);
+					
+					// If this attacker is nearby, avoid the area
+					distance = Distance(bs->origin, state->pos.trBase);
+					if (distance < 800) {
+						trap_BotAddAvoidSpot(bs->ms, state->pos.trBase, 200, AVOID_ALWAYS);
+					}
+					
+					// Consider this attacker as high priority enemy
+					if (bs->enemy < 0 || bs->enemy == target) {
+						bs->enemy = attacker;
+						bs->enemysight_time = FloatTime();
+						VectorCopy(state->pos.trBase, bs->enemyorigin);
+					}
+				}
+			}
 			//
 #ifdef MISSIONPACK			
 			if (gametype == GT_1FCTF) {
@@ -5274,7 +5330,8 @@ void BotCheckEvents(bot_state_t *bs, entityState_t *state) {
 		case EV_NOAMMO:
 		case EV_CHANGE_WEAPON:
         case EV_FIRE_WEAPON:
-            // just noise
+            // Handle sound events for bot awareness
+            BotHandleSoundEvent(bs, state, event);
             break;
 		case EV_USE_ITEM0:
 		case EV_USE_ITEM1:
@@ -5810,5 +5867,230 @@ BotShutdownDeathmatchAI
 */
 void BotShutdownDeathmatchAI(void) {
 	altroutegoals_setup = qfalse;
+}
+
+/*
+==================
+BotHandleSoundEvent
+
+Handle sound events to improve bot awareness of enemy actions
+==================
+*/
+static void BotHandleSoundEvent(bot_state_t *bs, entityState_t *state, int event) {
+    int soundEntity;
+    float distance;
+    vec3_t soundOrigin;
+    vec3_t direction;
+    float volume;
+    qboolean isEnemy;
+    
+    // Get the entity that made the sound
+    soundEntity = state->number;
+    
+    // Skip if it's the bot itself
+    if (soundEntity == bs->client) {
+        return;
+    }
+    
+    // Get sound origin
+    VectorCopy(state->pos.trBase, soundOrigin);
+    
+    // Calculate distance to sound
+    distance = Distance(bs->origin, soundOrigin);
+    
+    // Skip if sound is too far away (adjust range as needed)
+    if (distance > 1000) {
+        return;
+    }
+    
+    // Calculate direction to sound
+    VectorSubtract(soundOrigin, bs->origin, direction);
+    VectorNormalize(direction);
+    
+    // Determine if the sound came from an enemy
+    isEnemy = qfalse;
+    if (soundEntity >= 0 && soundEntity < MAX_CLIENTS) {
+        if (g_entities[soundEntity].client) {
+            isEnemy = !BotSameTeam(bs, soundEntity);
+        }
+    }
+    
+    // Handle different sound events
+    switch (event) {
+        case EV_FOOTSTEP:
+        case EV_FOOTSTEP_METAL:
+        case EV_FOOTSPLASH:
+        case EV_FOOTWADE:
+        case EV_SWIM:
+        case EV_FALL_SHORT:
+        case EV_FALL_MEDIUM:
+        case EV_FALL_FAR:
+        case EV_STEP_4:
+        case EV_STEP_8:
+        case EV_STEP_12:
+        case EV_STEP_16:
+        case EV_JUMP:
+            // Movement sounds - enemies are nearby
+            if (isEnemy && distance < 400) {
+                // Update bot's awareness of enemy location
+                bs->lastheardenemy = FloatTime();
+                VectorCopy(soundOrigin, bs->lastheardenemyorigin);
+                
+                // If bot doesn't have a current enemy, this could become one
+                if (bs->enemy < 0 && random() < 0.3) {
+                    bs->enemy = soundEntity;
+                    bs->enemysight_time = FloatTime();
+                    VectorCopy(soundOrigin, bs->enemyorigin);
+                }
+                
+                // Add avoid spot if enemy is very close
+                if (distance < 200) {
+                    trap_BotAddAvoidSpot(bs->ms, soundOrigin, 100, AVOID_DONTBLOCK);
+                }
+            }
+            break;
+            
+        case EV_ITEM_PICKUP:
+        case EV_GLOBAL_ITEM_PICKUP:
+            // Item pickup sounds - enemy got a powerup/weapon
+            if (isEnemy && distance < 600) {
+                // Enemy picked up an item nearby
+                bs->lastheardenemy = FloatTime();
+                VectorCopy(soundOrigin, bs->lastheardenemyorigin);
+                
+                // Increase awareness of this enemy
+                if (bs->enemy == soundEntity) {
+                    bs->enemysight_time = FloatTime();
+                    VectorCopy(soundOrigin, bs->enemyorigin);
+                }
+            }
+            break;
+            
+        case EV_TAUNT:
+            // Taunt sounds - enemy is confident/teasing
+            if (isEnemy && distance < 800) {
+                // Enemy taunted nearby
+                bs->lastheardenemy = FloatTime();
+                VectorCopy(soundOrigin, bs->lastheardenemyorigin);
+                
+                // This might indicate enemy is vulnerable or confident
+                if (bs->enemy == soundEntity) {
+                    bs->enemysight_time = FloatTime();
+                    VectorCopy(soundOrigin, bs->enemyorigin);
+                }
+            }
+            break;
+            
+        case EV_FIRE_WEAPON:
+            // Weapon fire sounds - enemy is attacking
+            if (isEnemy && distance < 700) {
+                // Enemy fired a weapon nearby
+                bs->lastheardenemy = FloatTime();
+                VectorCopy(soundOrigin, bs->lastheardenemyorigin);
+                
+                // This is definitely an enemy to engage
+                if (bs->enemy < 0 || bs->enemy == soundEntity) {
+                    bs->enemy = soundEntity;
+                    bs->enemysight_time = FloatTime();
+                    VectorCopy(soundOrigin, bs->enemyorigin);
+                }
+            }
+            break;
+            
+        case EV_NOAMMO:
+        case EV_CHANGE_WEAPON:
+            // Weapon-related sounds - enemy might be vulnerable
+            if (isEnemy && distance < 500) {
+                // Enemy is out of ammo or changing weapons
+                bs->lastheardenemy = FloatTime();
+                VectorCopy(soundOrigin, bs->lastheardenemyorigin);
+                
+                // This might be a good time to attack
+                if (bs->enemy == soundEntity) {
+                    bs->enemysight_time = FloatTime();
+                    VectorCopy(soundOrigin, bs->enemyorigin);
+                }
+            }
+            break;
+    }
+}
+
+/*
+==================
+BotHasDangerousPowerup
+
+Check if bot has dangerous powerups that make them aggressive
+Returns qtrue if bot should be aggressive
+==================
+*/
+qboolean BotHasDangerousPowerup(bot_state_t *bs) {
+    // Check for dangerous powerups that make bot aggressive
+    if (bs->inventory[INVENTORY_QUAD]) {
+        // Quad damage - very aggressive
+        return qtrue;
+    }
+    
+    if (bs->inventory[INVENTORY_ENVIRONMENTSUIT]) {
+        // Environment suit (battle suit) - aggressive due to protection
+        return qtrue;
+    }
+    
+    if (bs->inventory[INVENTORY_HASTE]) {
+        // Haste - aggressive due to speed advantage
+        return qtrue;
+    }
+    
+    if (bs->inventory[INVENTORY_REGEN]) {
+        // Regeneration - aggressive due to health regen
+        return qtrue;
+    }
+    
+    return qfalse;
+}
+
+/*
+==================
+BotEnemyHasDangerousPowerup
+
+Check if enemy has powerups that make them dangerous to engage
+Returns qtrue if enemy should be avoided
+==================
+*/
+static qboolean BotEnemyHasDangerousPowerup(bot_state_t *bs, int enemy) {
+    aas_entityinfo_t entinfo;
+    
+    if (enemy < 0 || enemy >= MAX_CLIENTS) {
+        return qfalse;
+    }
+    
+    // Get entity info for the enemy
+    BotEntityInfo(enemy, &entinfo);
+    
+    // Check for dangerous powerups (exclude invisibility and flight)
+    if (entinfo.powerups & (1 << PW_QUAD)) {
+        // Quad damage - very dangerous
+        return qtrue;
+    }
+    
+    if (entinfo.powerups & (1 << PW_BATTLESUIT)) {
+        // Battle suit (environment suit) - dangerous in certain situations
+        return qtrue;
+    }
+    
+    if (entinfo.powerups & (1 << PW_HASTE)) {
+        // Haste - makes enemy faster and more dangerous
+        return qtrue;
+    }
+    
+    if (entinfo.powerups & (1 << PW_REGEN)) {
+        // Regeneration - makes enemy harder to kill
+        return qtrue;
+    }
+    
+    // Don't avoid invisibility and flight powerups
+    // if (entinfo.powerups & (1 << PW_INVIS)) - allow engagement
+    // if (entinfo.powerups & (1 << PW_FLIGHT)) - allow engagement
+    
+    return qfalse;
 }
 

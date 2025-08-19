@@ -2018,6 +2018,17 @@ int AINode_Seek_LTG(bot_state_t *bs)
 	}
 	//if there is an enemy
 	if (BotFindEnemy(bs, -1)) {
+		//if bot has dangerous powerups, call for backup and be aggressive
+		if (BotHasDangerousPowerup(bs)) {
+			// Call for backup when bot has powerups
+			BotVoiceChatOnly(bs, -1, "onoffense");
+			// Be very aggressive with powerups
+			trap_BotResetLastAvoidReach(bs->ms);
+			trap_BotEmptyGoalStack(bs->gs);
+			AIEnter_Battle_Fight(bs, "seek ltg: found enemy with powerup");
+			return qfalse;
+		}
+		
 		if (BotWantsToRetreat(bs)) {
 			//keep the current long term goal and retreat
 			AIEnter_Battle_Retreat(bs, "seek ltg: found enemy");
@@ -2246,6 +2257,12 @@ int AINode_Battle_Fight(bot_state_t *bs) {
 	}
 	//update the attack inventory values
 	BotUpdateBattleInventory(bs, bs->enemy);
+	
+	//if bot has dangerous powerups, call for backup periodically
+	if (BotHasDangerousPowerup(bs) && random() < 0.1) {
+		BotVoiceChatOnly(bs, -1, "onoffense");
+	}
+	
 	//if the bot's health decreased
 	if (bs->lastframe_health > bs->inventory[INVENTORY_HEALTH]) {
 		if (BotChat_HitNoDeath(bs)) {

@@ -1344,6 +1344,11 @@ void BotResetState(bot_state_t *bs) {
 	bs->entitynum = entitynum;
 	bs->character = character;
 	bs->entergame_time = entergame_time;
+	
+	// Initialize sound awareness fields
+	bs->lastheardenemy = 0;
+	VectorClear(bs->lastheardenemyorigin);
+	
 	//reset several states
 	if (bs->ms) trap_BotResetMoveState(bs->ms);
 	if (bs->gs) trap_BotResetGoalState(bs->gs);
