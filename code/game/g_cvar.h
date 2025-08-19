@@ -203,6 +203,8 @@ G_CVAR( g_vampireMaxHealth, "g_vampire_max_health", "500", CVAR_NORESTART, 0, qt
 
 G_CVAR( g_instagib, "g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH, 0, qtrue, qfalse )
 G_CVAR( g_railJump, 			"g_railJump", "0", CVAR_ARCHIVE, 0, qtrue, qfalse )
+/* Ignore handicap for players (forces full 100 max health regardless of userinfo 'handicap') */
+G_CVAR( g_ignorePlayerHandicap, "g_ignorePlayerHandicap", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_items_deathDrop, "g_items_deathDrop", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_dropWeaponOnDeath, "g_dropWeaponOnDeath", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
@@ -309,6 +311,8 @@ G_CVAR( g_botRescueFrozen, "g_botRescueFrozen", "1", CVAR_ARCHIVE, 0, qfalse, qf
 G_CVAR( g_botShoveBodies,  "g_botShoveBodies",  "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* 0 = off, 1 = high priority (current), 2 = override everything (suicidal rescue) */
 G_CVAR( g_botRescuePriority, "g_botRescuePriority", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* When adding bots, ignore skill-based handicap and set 100 */
+G_CVAR( g_ignoreBotHandicap, "g_ignoreBotHandicap", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 /* announcer */
 G_CVAR( g_announcer, "g_announcer", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )

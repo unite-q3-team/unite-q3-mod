@@ -1048,6 +1048,7 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 		client->pers.maxHealth = HEALTH_SOFT_LIMIT*2;
 	} else {
 		health = atoi( Info_ValueForKey( userinfo, "handicap" ) );
+		if ( g_ignorePlayerHandicap.integer ) { health = HEALTH_SOFT_LIMIT; }
 		client->pers.maxHealth = health;
 		if ( client->pers.maxHealth < 1 || client->pers.maxHealth > HEALTH_SOFT_LIMIT ) {
 			client->pers.maxHealth = HEALTH_SOFT_LIMIT;
@@ -1055,6 +1056,7 @@ qboolean ClientUserinfoChanged( int clientNum ) {
 	}
 #else
 	health = atoi( Info_ValueForKey( userinfo, "handicap" ) );
+	if ( g_ignorePlayerHandicap.integer ) { health = HEALTH_SOFT_LIMIT; }
 	client->pers.maxHealth = health;
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > HEALTH_SOFT_LIMIT ) {
 		client->pers.maxHealth = HEALTH_SOFT_LIMIT;
@@ -1596,9 +1598,9 @@ void ClientSpawn(gentity_t *ent) {
 	trap_GetUserinfo( index, userinfo, sizeof(userinfo) );
 	// set max health
 	client->pers.maxHealth = atoi( Info_ValueForKey( userinfo, "handicap" ) );
+	if ( g_ignorePlayerHandicap.integer ) { client->pers.maxHealth = HEALTH_SOFT_LIMIT; }
 	if ( client->pers.maxHealth < 1 || client->pers.maxHealth > HEALTH_SOFT_LIMIT ) {
-		client->pers.maxHealth = HEALTH_SOFT_LIMIT;
-	}
+		client->pers.maxHealth = HEALTH_SOFT_LIMIT; }
 	// clear entity values
 	client->ps.stats[STAT_MAX_HEALTH] = client->pers.maxHealth;
 	client->ps.eFlags = flags;

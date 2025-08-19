@@ -912,7 +912,7 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 #endif
 	// reduce damage by the attacker's handicap value
 	// unless they are rocket jumping
-	if ( attacker->client && attacker != targ ) {
+	if ( attacker->client && attacker != targ && !g_ignorePlayerHandicap.integer ) {
 		max = attacker->client->ps.stats[STAT_MAX_HEALTH];
 #ifdef MISSIONPACK
 		if( bg_itemlist[attacker->client->ps.stats[STAT_PERSISTANT_POWERUP]].giTag == PW_GUARD ) {
