@@ -1252,6 +1252,11 @@ const char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 		return "You are banned from this server.";
 	}
 
+	// Check custom ban list
+	if ( !isAdmin && IsBanned( value ) ) {
+		return "You are banned from this server.";
+	}
+
 	// we don't check password for bots and local client
 	// NOTE: local client <-> "ip" "localhost"
 	// this means this client is not running in our current process

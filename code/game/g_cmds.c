@@ -17,6 +17,17 @@ qboolean SetTeamSafe( gentity_t *ent, const char *s );
 static int s_cachedMapCount = 0;
 static char s_cachedMaps[512][64];
 
+/* Admin ban/mute system - structures defined in g_local.h */
+
+banEntry_t s_bans[MAX_BANS];
+muteEntry_t s_mutes[MAX_MUTES];
+int s_banCount = 0;
+int s_muteCount = 0;
+
+/* File paths for persistent storage */
+#define BANS_FILE "bans.dat"
+#define MUTES_FILE "mutes.dat"
+
 void G_EnsureMapListCache(void) {
     char listbuf[8192];
     int count, i, pos;
@@ -1671,8 +1682,24 @@ Cmd_Say_f
 */
 static void Cmd_Say_f( gentity_t *ent, int mode, qboolean arg0 ) {
 	char		*p;
+	char		*ip;
 
 	if ( trap_Argc () < 2 && !arg0 ) {
+		return;
+	}
+
+	// Check if player is muted
+	{
+		char userinfo[MAX_INFO_STRING];
+		trap_GetUserinfo( ent - g_entities, userinfo, sizeof( userinfo ) );
+		ip = Info_ValueForKey( userinfo, "ip" );
+		if ( !ip || !ip[0] ) {
+			ip = "unknown";
+		}
+	}
+	
+	if ( IsMuted( ip ) ) {
+		trap_SendServerCommand( ent - g_entities, "print \"^1You are muted and cannot speak.\n\"" );
 		return;
 	}
 
@@ -1699,8 +1726,24 @@ static void Cmd_Tell_f( gentity_t *ent ) {
 	gentity_t	*target;
 	char		*p;
 	char		arg[MAX_TOKEN_CHARS];
+	char		*ip;
 
 	if ( trap_Argc () < 2 ) {
+		return;
+	}
+
+	// Check if player is muted
+	{
+		char userinfo[MAX_INFO_STRING];
+		trap_GetUserinfo( ent - g_entities, userinfo, sizeof( userinfo ) );
+		ip = Info_ValueForKey( userinfo, "ip" );
+		if ( !ip || !ip[0] ) {
+			ip = "unknown";
+		}
+	}
+	
+	if ( IsMuted( ip ) ) {
+		trap_SendServerCommand( ent - g_entities, "print \"^1You are muted and cannot speak.\n\"" );
 		return;
 	}
 
@@ -2081,6 +2124,16 @@ static void Cmd_SpawnFrozenBody_f( gentity_t *ent );
 static void Cmd_ReadyAll_f( gentity_t *ent );
 static void Cmd_UnreadyAll_f( gentity_t *ent );
 static void Cmd_RemoveFrozenBody_f( gentity_t *ent );
+static void Cmd_AdminCP_f( gentity_t *ent );
+static void Cmd_AdminSay_f( gentity_t *ent );
+static void Cmd_AdminBan_f( gentity_t *ent );
+static void Cmd_AdminKick_f( gentity_t *ent );
+static void Cmd_AdminMute_f( gentity_t *ent );
+static void Cmd_AdminBanList_f( gentity_t *ent );
+static void Cmd_AdminMuteList_f( gentity_t *ent );
+static void Cmd_AdminUnban_f( gentity_t *ent );
+static void Cmd_AdminUnmute_f( gentity_t *ent );
+static void Cmd_AdminDumpUser_f( gentity_t *ent );
 /* announcer commands */
 void AN_Cmd_AnnReload( gentity_t *ent );
 void AN_Cmd_AnnList( gentity_t *ent );
@@ -2180,6 +2233,16 @@ static const gameCommandDef_t gameCommandTable[] = {
     { "ready",           Cmd_Ready_f,        qfalse },
     { "unready",         Cmd_Unready_f,      qfalse },
     { "removefrozenbody", Cmd_RemoveFrozenBody_f, qtrue },
+    { "acp",              Cmd_AdminCP_f,      qtrue  },
+    { "asay",            Cmd_AdminSay_f,     qtrue  },
+    { "aban",            Cmd_AdminBan_f,     qtrue  },
+    { "akick",           Cmd_AdminKick_f,    qtrue  },
+    { "amute",           Cmd_AdminMute_f,    qtrue  },
+    { "abanlist",        Cmd_AdminBanList_f, qtrue  },
+    { "amutelist",       Cmd_AdminMuteList_f, qtrue  },
+    { "aunban",          Cmd_AdminUnban_f,   qtrue  },
+    { "aunmute",         Cmd_AdminUnmute_f,  qtrue  },
+    { "adumpuser",       Cmd_AdminDumpUser_f, qtrue  },
 };
 
 /* Commands handled directly in ClientCommand (not via table) */
@@ -3827,5 +3890,865 @@ static void Cmd_RemoveFrozenBody_f( gentity_t *ent ) {
         trap_SendServerCommand( ent - g_entities, va( "print \"^2Removed %d frozen body/bodies.\n\"", removed ) );
     } else {
         trap_SendServerCommand( ent - g_entities, "print \"^3No frozen bodies found to remove.\n\"" );
+    }
+}
+
+/*
+==================
+Cmd_AdminCP_f
+
+Admin command to send centerprint message to all players
+Usage: cp <message>
+==================
+*/
+static void Cmd_AdminCP_f( gentity_t *ent ) {
+    char *message;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: cp <message>\n\"" );
+        return;
+    }
+
+    message = ConcatArgs( 1 );
+    if ( !message || !message[0] ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: cp <message>\n\"" );
+        return;
+    }
+
+    // Send centerprint to all connected players
+    G_BroadcastServerCommand( -1, va( "cp \"%s\"", message ) );
+    
+    // Confirm to admin
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2CenterPrint sent: ^7%s\n\"", message ) );
+}
+
+/*
+==================
+Cmd_AdminSay_f
+
+Admin command to send server announcement to all players
+Usage: asay <message>
+==================
+*/
+static void Cmd_AdminSay_f( gentity_t *ent ) {
+    char *message;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: asay <message>\n\"" );
+        return;
+    }
+
+    message = ConcatArgs( 1 );
+    if ( !message || !message[0] ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: asay <message>\n\"" );
+        return;
+    }
+
+    // Send server announcement to all connected players
+    G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s\n\"", message ) );
+    
+    // Confirm to admin
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2Server announcement sent: ^7%s\n\"", message ) );
+}
+
+/*
+==================
+Helper functions for ban/mute system
+==================
+*/
+
+static void SaveBans( void );
+static void SaveMutes( void );
+
+void AddBan( const char *ip, const char *name, const char *reason, int admin, int duration ) {
+    if ( s_banCount >= MAX_BANS ) {
+        return;
+    }
+    
+    Q_strncpyz( s_bans[s_banCount].ip, ip, sizeof(s_bans[s_banCount].ip) );
+    Q_strncpyz( s_bans[s_banCount].name, name, sizeof(s_bans[s_banCount].name) );
+    Q_strncpyz( s_bans[s_banCount].reason, reason, sizeof(s_bans[s_banCount].reason) );
+    s_bans[s_banCount].time = level.time;
+    s_bans[s_banCount].admin = admin;
+    s_bans[s_banCount].duration = duration;
+    s_banCount++;
+    
+    SaveBans();
+}
+
+void AddMute( const char *ip, const char *name, const char *reason, int admin, int duration ) {
+    if ( s_muteCount >= MAX_MUTES ) {
+        return;
+    }
+    
+    Q_strncpyz( s_mutes[s_muteCount].ip, ip, sizeof(s_mutes[s_muteCount].ip) );
+    Q_strncpyz( s_mutes[s_muteCount].name, name, sizeof(s_mutes[s_muteCount].name) );
+    Q_strncpyz( s_mutes[s_muteCount].reason, reason, sizeof(s_mutes[s_muteCount].reason) );
+    s_mutes[s_muteCount].time = level.time;
+    s_mutes[s_muteCount].admin = admin;
+    s_mutes[s_muteCount].duration = duration;
+    s_muteCount++;
+    
+    SaveMutes();
+}
+
+qboolean IsBanned( const char *ip ) {
+    int i;
+    int currentTime;
+    
+    currentTime = level.time;
+    for ( i = 0; i < s_banCount; i++ ) {
+        if ( !Q_stricmp( s_bans[i].ip, ip ) ) {
+            /* Check if ban has expired */
+            if ( s_bans[i].duration > 0 ) {
+                if ( currentTime - s_bans[i].time > s_bans[i].duration * 1000 ) {
+                    /* Ban expired, remove it */
+                    RemoveBan( i );
+                    i--; /* Adjust index since we removed an element */
+                    continue;
+                }
+            }
+            return qtrue;
+        }
+    }
+    return qfalse;
+}
+
+qboolean IsMuted( const char *ip ) {
+    int i;
+    int currentTime;
+    
+    currentTime = level.time;
+    for ( i = 0; i < s_muteCount; i++ ) {
+        if ( !Q_stricmp( s_mutes[i].ip, ip ) ) {
+            /* Check if mute has expired */
+            if ( s_mutes[i].duration > 0 ) {
+                if ( currentTime - s_mutes[i].time > s_mutes[i].duration * 1000 ) {
+                    /* Mute expired, remove it */
+                    RemoveMute( i );
+                    i--; /* Adjust index since we removed an element */
+                    continue;
+                }
+            }
+            return qtrue;
+        }
+    }
+    return qfalse;
+}
+
+void RemoveBan( int index ) {
+    int i;
+    if ( index < 0 || index >= s_banCount ) {
+        return;
+    }
+    
+    for ( i = index; i < s_banCount - 1; i++ ) {
+        s_bans[i] = s_bans[i + 1];
+    }
+    s_banCount--;
+    
+    SaveBans();
+}
+
+void RemoveMute( int index ) {
+    int i;
+    if ( index < 0 || index >= s_muteCount ) {
+        return;
+    }
+    
+    for ( i = index; i < s_muteCount - 1; i++ ) {
+        s_mutes[i] = s_mutes[i + 1];
+    }
+    s_muteCount--;
+    
+    SaveMutes();
+}
+
+static void SaveBans( void ) {
+    fileHandle_t f;
+    int i;
+    
+    if ( trap_FS_FOpenFile( BANS_FILE, &f, FS_WRITE ) < 0 ) {
+        G_Printf( "Warning: Could not save bans to %s\n", BANS_FILE );
+        return;
+    }
+    
+    trap_FS_Write( &s_banCount, sizeof( s_banCount ), f );
+    for ( i = 0; i < s_banCount; i++ ) {
+        trap_FS_Write( &s_bans[i], sizeof( s_bans[i] ), f );
+    }
+    
+    trap_FS_FCloseFile( f );
+}
+
+void LoadBans( void ) {
+    fileHandle_t f;
+    int len;
+    int i;
+    
+    len = trap_FS_FOpenFile( BANS_FILE, &f, FS_READ );
+    if ( len < 0 ) {
+        return; /* File doesn't exist yet */
+    }
+    
+    if ( len < sizeof( s_banCount ) ) {
+        trap_FS_FCloseFile( f );
+        return;
+    }
+    
+    trap_FS_Read( &s_banCount, sizeof( s_banCount ), f );
+    if ( s_banCount < 0 || s_banCount > MAX_BANS ) {
+        s_banCount = 0;
+        trap_FS_FCloseFile( f );
+        return;
+    }
+    
+    for ( i = 0; i < s_banCount; i++ ) {
+        trap_FS_Read( &s_bans[i], sizeof( s_bans[i] ), f );
+    }
+    
+    trap_FS_FCloseFile( f );
+}
+
+static void SaveMutes( void ) {
+    fileHandle_t f;
+    int i;
+    
+    if ( trap_FS_FOpenFile( MUTES_FILE, &f, FS_WRITE ) < 0 ) {
+        G_Printf( "Warning: Could not save mutes to %s\n", MUTES_FILE );
+        return;
+    }
+    
+    trap_FS_Write( &s_muteCount, sizeof( s_muteCount ), f );
+    for ( i = 0; i < s_muteCount; i++ ) {
+        trap_FS_Write( &s_mutes[i], sizeof( s_mutes[i] ), f );
+    }
+    
+    trap_FS_FCloseFile( f );
+}
+
+void LoadMutes( void ) {
+    fileHandle_t f;
+    int len;
+    int i;
+    
+    len = trap_FS_FOpenFile( MUTES_FILE, &f, FS_READ );
+    if ( len < 0 ) {
+        return; /* File doesn't exist yet */
+    }
+    
+    if ( len < sizeof( s_muteCount ) ) {
+        trap_FS_FCloseFile( f );
+        return;
+    }
+    
+    trap_FS_Read( &s_muteCount, sizeof( s_muteCount ), f );
+    if ( s_muteCount < 0 || s_muteCount > MAX_MUTES ) {
+        s_muteCount = 0;
+        trap_FS_FCloseFile( f );
+        return;
+    }
+    
+    for ( i = 0; i < s_muteCount; i++ ) {
+        trap_FS_Read( &s_mutes[i], sizeof( s_mutes[i] ), f );
+    }
+    
+    trap_FS_FCloseFile( f );
+}
+
+void CleanupExpiredBansAndMutes( void ) {
+    int i;
+    int currentTime;
+    qboolean changed = qfalse;
+    
+    currentTime = level.time;
+    
+    /* Clean up expired bans */
+    for ( i = 0; i < s_banCount; i++ ) {
+        if ( s_bans[i].duration > 0 ) {
+            if ( currentTime - s_bans[i].time > s_bans[i].duration * 1000 ) {
+                RemoveBan( i );
+                i--; /* Adjust index since we removed an element */
+                changed = qtrue;
+            }
+        }
+    }
+    
+    /* Clean up expired mutes */
+    for ( i = 0; i < s_muteCount; i++ ) {
+        if ( s_mutes[i].duration > 0 ) {
+            if ( currentTime - s_mutes[i].time > s_mutes[i].duration * 1000 ) {
+                RemoveMute( i );
+                i--; /* Adjust index since we removed an element */
+                changed = qtrue;
+            }
+        }
+    }
+    
+    if ( changed ) {
+        G_Printf( "Cleaned up expired bans and mutes\n" );
+    }
+}
+
+void Info_Print( const char *s ) {
+    char key[256];
+    char value[256];
+    char *o;
+    int l;
+
+    if ( *s == '\\' )
+        s++;
+    while ( *s ) {
+        o = key;
+        while ( *s && *s != '\\' )
+            *o++ = *s++;
+
+        l = o - key;
+        if ( l < 20 ) {
+            memset( o, ' ', 20 - l );
+            key[20] = 0;
+        } else {
+            *o = 0;
+        }
+
+        if ( !*s ) {
+            return;
+        }
+
+        o = value;
+        s++;
+        while ( *s && *s != '\\' )
+            *o++ = *s++;
+        *o = 0;
+
+        if ( *s )
+            s++;
+    }
+}
+
+/*
+==================
+Cmd_AdminBan_f
+
+Admin command to ban a player
+Usage: aban <clientNum> [reason]
+==================
+*/
+static void Cmd_AdminBan_f( gentity_t *ent ) {
+    int clientNum;
+    char arg[MAX_TOKEN_CHARS];
+    char reason[256];
+    gentity_t *target;
+    char *ip;
+    int duration = 0;  /* 0 = permanent */
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: aban <clientNum> [duration] [reason]\n\"" );
+        trap_SendServerCommand( ent - g_entities, "print \"^3Duration: 0=permanent, or time in minutes (e.g. 30 for 30 minutes)\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    clientNum = atoi( arg );
+    
+    if ( clientNum < 0 || clientNum >= level.maxclients ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client number.\n\"" );
+        return;
+    }
+
+    target = &g_entities[clientNum];
+    if ( !target->client || target->client->pers.connected != CON_CONNECTED ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Client not connected.\n\"" );
+        return;
+    }
+
+    // Parse duration and reason
+    if ( trap_Argc() > 2 ) {
+        char durationArg[MAX_TOKEN_CHARS];
+        trap_Argv( 2, durationArg, sizeof( durationArg ) );
+        
+        // Check if second argument is a number (duration)
+        if ( durationArg[0] >= '0' && durationArg[0] <= '9' ) {
+            duration = atoi( durationArg ) * 60; // Convert minutes to seconds
+            if ( trap_Argc() > 3 ) {
+                Q_strncpyz( reason, ConcatArgs( 3 ), sizeof( reason ) );
+            } else {
+                Q_strncpyz( reason, "No reason specified", sizeof( reason ) );
+            }
+        } else {
+            // Second argument is reason, duration is permanent
+            duration = 0;
+            Q_strncpyz( reason, ConcatArgs( 2 ), sizeof( reason ) );
+        }
+    } else {
+        Q_strncpyz( reason, "No reason specified", sizeof( reason ) );
+    }
+
+    // Get IP
+    {
+        char userinfo[MAX_INFO_STRING];
+        trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+        ip = Info_ValueForKey( userinfo, "ip" );
+        if ( !ip || !ip[0] ) {
+            ip = "unknown";
+        }
+    }
+
+    // Add to ban list
+    AddBan( ip, target->client->pers.netname, reason, ent - g_entities, duration );
+
+    // Kick the player
+    if ( duration > 0 ) {
+        trap_DropClient( clientNum, va( "You have been banned for %d minutes: %s", duration / 60, reason ) );
+    } else {
+        trap_DropClient( clientNum, va( "You have been permanently banned: %s", reason ) );
+    }
+
+    // Notify admin
+    if ( duration > 0 ) {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^2Banned ^7%s ^2for %d minutes: ^7%s\n\"", target->client->pers.netname, duration / 60, reason ) );
+    } else {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^2Permanently banned ^7%s ^2for: ^7%s\n\"", target->client->pers.netname, reason ) );
+    }
+
+    // Notify all players
+    if ( duration > 0 ) {
+        G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s ^1has been banned for %d minutes by admin.\n\"", target->client->pers.netname, duration / 60 ) );
+    } else {
+        G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s ^1has been permanently banned by admin.\n\"", target->client->pers.netname ) );
+    }
+}
+
+/*
+==================
+Cmd_AdminKick_f
+
+Admin command to kick a player
+Usage: akick <clientNum> [reason]
+==================
+*/
+static void Cmd_AdminKick_f( gentity_t *ent ) {
+    int clientNum;
+    char arg[MAX_TOKEN_CHARS];
+    char reason[256];
+    gentity_t *target;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: akick <clientNum> [reason]\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    clientNum = atoi( arg );
+    
+    if ( clientNum < 0 || clientNum >= level.maxclients ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client number.\n\"" );
+        return;
+    }
+
+    target = &g_entities[clientNum];
+    if ( !target->client || target->client->pers.connected != CON_CONNECTED ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Client not connected.\n\"" );
+        return;
+    }
+
+    // Get reason
+    if ( trap_Argc() > 2 ) {
+        Q_strncpyz( reason, ConcatArgs( 2 ), sizeof( reason ) );
+    } else {
+        Q_strncpyz( reason, "No reason specified", sizeof( reason ) );
+    }
+
+    // Kick the player
+    trap_DropClient( clientNum, va( "You have been kicked: %s", reason ) );
+
+    // Notify admin
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2Kicked ^7%s ^2for: ^7%s\n\"", target->client->pers.netname, reason ) );
+
+    // Notify all players
+    G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s ^1has been kicked by admin.\n\"", target->client->pers.netname ) );
+}
+
+/*
+==================
+Cmd_AdminMute_f
+
+Admin command to mute a player
+Usage: amute <clientNum> [reason]
+==================
+*/
+static void Cmd_AdminMute_f( gentity_t *ent ) {
+    int clientNum;
+    char arg[MAX_TOKEN_CHARS];
+    char reason[256];
+    gentity_t *target;
+    char *ip;
+    int duration = 0;  /* 0 = permanent */
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: amute <clientNum> [duration] [reason]\n\"" );
+        trap_SendServerCommand( ent - g_entities, "print \"^3Duration: 0=permanent, or time in minutes (e.g. 30 for 30 minutes)\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    clientNum = atoi( arg );
+    
+    if ( clientNum < 0 || clientNum >= level.maxclients ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client number.\n\"" );
+        return;
+    }
+
+    target = &g_entities[clientNum];
+    if ( !target->client || target->client->pers.connected != CON_CONNECTED ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Client not connected.\n\"" );
+        return;
+    }
+
+    // Parse duration and reason
+    if ( trap_Argc() > 2 ) {
+        char durationArg[MAX_TOKEN_CHARS];
+        trap_Argv( 2, durationArg, sizeof( durationArg ) );
+        
+        // Check if second argument is a number (duration)
+        if ( durationArg[0] >= '0' && durationArg[0] <= '9' ) {
+            duration = atoi( durationArg ) * 60; // Convert minutes to seconds
+            if ( trap_Argc() > 3 ) {
+                Q_strncpyz( reason, ConcatArgs( 3 ), sizeof( reason ) );
+            } else {
+                Q_strncpyz( reason, "No reason specified", sizeof( reason ) );
+            }
+        } else {
+            // Second argument is reason, duration is permanent
+            duration = 0;
+            Q_strncpyz( reason, ConcatArgs( 2 ), sizeof( reason ) );
+        }
+    } else {
+        Q_strncpyz( reason, "No reason specified", sizeof( reason ) );
+    }
+
+    // Get IP
+    {
+        char userinfo[MAX_INFO_STRING];
+        trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+        ip = Info_ValueForKey( userinfo, "ip" );
+        if ( !ip || !ip[0] ) {
+            ip = "unknown";
+        }
+    }
+
+    // Add to mute list
+    AddMute( ip, target->client->pers.netname, reason, ent - g_entities, duration );
+
+    // Notify admin
+    if ( duration > 0 ) {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^2Muted ^7%s ^2for %d minutes: ^7%s\n\"", target->client->pers.netname, duration / 60, reason ) );
+    } else {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^2Permanently muted ^7%s ^2for: ^7%s\n\"", target->client->pers.netname, reason ) );
+    }
+
+    // Notify all players
+    if ( duration > 0 ) {
+        G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s ^1has been muted for %d minutes by admin.\n\"", target->client->pers.netname, duration / 60 ) );
+    } else {
+        G_BroadcastServerCommand( -1, va( "print \"^1[SERVER] ^7%s ^1has been permanently muted by admin.\n\"", target->client->pers.netname ) );
+    }
+}
+
+/*
+==================
+Cmd_AdminBanList_f
+
+Admin command to show ban list
+Usage: abanlist
+==================
+*/
+static void Cmd_AdminBanList_f( gentity_t *ent ) {
+    int i;
+    char timeStr[64];
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( s_banCount == 0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3No banned players.\n\"" );
+        return;
+    }
+
+    trap_SendServerCommand( ent - g_entities, "print \"^2=== Banned Players ===\n\"" );
+    for ( i = 0; i < s_banCount; i++ ) {
+        int minutes = ( level.time - s_bans[i].time ) / 60000;
+        if ( s_bans[i].duration > 0 ) {
+            int remaining = ( s_bans[i].duration - ( level.time - s_bans[i].time ) ) / 1000;
+            if ( remaining > 0 ) {
+                Q_strncpyz( timeStr, va( "%d min remaining", remaining / 60 ), sizeof( timeStr ) );
+            } else {
+                Q_strncpyz( timeStr, "EXPIRED", sizeof( timeStr ) );
+            }
+        } else {
+            Q_strncpyz( timeStr, "PERMANENT", sizeof( timeStr ) );
+        }
+        trap_SendServerCommand( ent - g_entities, va( "print \"^3%d. ^7%s ^3(%s) ^1- ^7%s ^3[%s]\n\"", 
+            i, s_bans[i].name, s_bans[i].ip, s_bans[i].reason, timeStr ) );
+    }
+}
+
+/*
+==================
+Cmd_AdminMuteList_f
+
+Admin command to show mute list
+Usage: amutelist
+==================
+*/
+static void Cmd_AdminMuteList_f( gentity_t *ent ) {
+    int i;
+    char timeStr[64];
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( s_muteCount == 0 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3No muted players.\n\"" );
+        return;
+    }
+
+    trap_SendServerCommand( ent - g_entities, "print \"^2=== Muted Players ===\n\"" );
+    for ( i = 0; i < s_muteCount; i++ ) {
+        int minutes = ( level.time - s_mutes[i].time ) / 60000;
+        if ( s_mutes[i].duration > 0 ) {
+            int remaining = ( s_mutes[i].duration - ( level.time - s_mutes[i].time ) ) / 1000;
+            if ( remaining > 0 ) {
+                Q_strncpyz( timeStr, va( "%d min remaining", remaining / 60 ), sizeof( timeStr ) );
+            } else {
+                Q_strncpyz( timeStr, "EXPIRED", sizeof( timeStr ) );
+            }
+        } else {
+            Q_strncpyz( timeStr, "PERMANENT", sizeof( timeStr ) );
+        }
+        trap_SendServerCommand( ent - g_entities, va( "print \"^3%d. ^7%s ^3(%s) ^1- ^7%s ^3[%s]\n\"", 
+            i, s_mutes[i].name, s_mutes[i].ip, s_mutes[i].reason, timeStr ) );
+    }
+}
+
+/*
+==================
+Cmd_AdminUnban_f
+
+Admin command to unban a player
+Usage: aunban <index>
+==================
+*/
+static void Cmd_AdminUnban_f( gentity_t *ent ) {
+    int index;
+    char arg[MAX_TOKEN_CHARS];
+    char name[64];
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: aunban <index>\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    index = atoi( arg );
+    
+    if ( index < 0 || index >= s_banCount ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid ban index.\n\"" );
+        return;
+    }
+
+    Q_strncpyz( name, s_bans[index].name, sizeof( name ) );
+    RemoveBan( index );
+
+    // Notify admin
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2Unbanned ^7%s\n\"", name ) );
+}
+
+/*
+==================
+Cmd_AdminUnmute_f
+
+Admin command to unmute a player
+Usage: aunmute <index>
+==================
+*/
+static void Cmd_AdminUnmute_f( gentity_t *ent ) {
+    int index;
+    char arg[MAX_TOKEN_CHARS];
+    char name[64];
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: aunmute <index>\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    index = atoi( arg );
+    
+    if ( index < 0 || index >= s_muteCount ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid mute index.\n\"" );
+        return;
+    }
+
+    Q_strncpyz( name, s_mutes[index].name, sizeof( name ) );
+    RemoveMute( index );
+
+    // Notify admin
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2Unmuted ^7%s\n\"", name ) );
+}
+
+/*
+==================
+Cmd_AdminDumpUser_f
+
+Admin command to dump user info
+Usage: adumpuser <clientNum>
+==================
+*/
+static void Cmd_AdminDumpUser_f( gentity_t *ent ) {
+    int clientNum;
+    char arg[MAX_TOKEN_CHARS];
+    gentity_t *target;
+    char userinfo[MAX_INFO_STRING];
+    char buffer[1024];
+    int i;
+
+    if ( !ent || !ent->client ) {
+        return;
+    }
+
+    // Check if player is authenticated
+    if ( !ent->authed ) {
+        return;
+    }
+
+    if ( trap_Argc() < 2 ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^3Usage: adumpuser <clientNum>\n\"" );
+        return;
+    }
+
+    trap_Argv( 1, arg, sizeof( arg ) );
+    clientNum = atoi( arg );
+    
+    if ( clientNum < 0 || clientNum >= level.maxclients ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Invalid client number.\n\"" );
+        return;
+    }
+
+    target = &g_entities[clientNum];
+    if ( !target->client || target->client->pers.connected != CON_CONNECTED ) {
+        trap_SendServerCommand( ent - g_entities, "print \"^1Client not connected.\n\"" );
+        return;
+    }
+
+    // Get userinfo
+    trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+
+    if ( userinfo[0] == '\0' ) {
+        trap_SendServerCommand( ent - g_entities, va( "print \"^1Client %d: <empty userinfo>\n\"", clientNum ) );
+        return;
+    }
+
+    // Send header
+    trap_SendServerCommand( ent - g_entities, va( "print \"^2--- Userinfo for Client %d (%s) ---\n\"", clientNum, target->client->pers.netname ) );
+
+    // Parse and send userinfo in chunks
+    Q_strncpyz( buffer, "^3userinfo\n", sizeof( buffer ) );
+    Q_strcat( buffer, sizeof( buffer ), "^3--------\n" );
+
+    for ( i = 0; i < (int)strlen( userinfo ); i++ ) {
+        if ( userinfo[i] == '\\' ) {
+            Q_strcat( buffer, sizeof( buffer ), "\n" );
+        } else {
+            char temp[2];
+            temp[0] = userinfo[i];
+            temp[1] = '\0';
+            Q_strcat( buffer, sizeof( buffer ), temp );
+        }
+
+        // Send in chunks to avoid overflow
+        if ( strlen( buffer ) > 900 ) {
+            trap_SendServerCommand( ent - g_entities, va( "print \"%s\"", buffer ) );
+            buffer[0] = '\0';
+        }
+    }
+
+    if ( buffer[0] ) {
+        trap_SendServerCommand( ent - g_entities, va( "print \"%s\"", buffer ) );
     }
 }

@@ -562,6 +562,44 @@ void StopFollowingNew( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, team_t oldTeam );
 qboolean SetTeam( gentity_t *ent, const char *s );
 qboolean SetTeamSafe( gentity_t *ent, const char *s );
+qboolean IsBanned( const char *ip );
+qboolean IsMuted( const char *ip );
+void LoadBans( void );
+void LoadMutes( void );
+void CleanupExpiredBansAndMutes( void );
+void AddBan( const char *ip, const char *name, const char *reason, int admin, int duration );
+void AddMute( const char *ip, const char *name, const char *reason, int admin, int duration );
+void RemoveBan( int index );
+void RemoveMute( int index );
+void Info_Print( const char *s );
+
+// Ban/Mute system structures and globals
+typedef struct {
+    char ip[64];
+    char name[64];
+    char reason[256];
+    int time;
+    int admin;
+    int duration;  /* duration in seconds, 0 = permanent */
+} banEntry_t;
+
+typedef struct {
+    char ip[64];
+    char name[64];
+    char reason[256];
+    int time;
+    int admin;
+    int duration;  /* duration in seconds, 0 = permanent */
+} muteEntry_t;
+
+#define MAX_BANS 128
+#define MAX_MUTES 128
+
+extern int s_banCount;
+extern int s_muteCount;
+extern banEntry_t s_bans[MAX_BANS];
+extern muteEntry_t s_mutes[MAX_MUTES];
+
 void Cmd_FollowCycle_f( gentity_t *ent, int dir );
 void G_RevertVote( gclient_t *client );
 

@@ -818,6 +818,10 @@ static void G_InitGame( int levelTime, int randomSeed, int restart ) {
     VS_Init();
     /* initialize announcer */
     AN_Init();
+    
+    /* load ban and mute lists */
+    LoadBans();
+    LoadMutes();
 
     /* build cached map list once at startup */
     G_EnsureMapListCache();
@@ -2982,6 +2986,11 @@ static void G_RunFrame( int levelTime ) {
 
 	/* run announcer */
 	AN_RunFrame();
+
+	/* cleanup expired bans and mutes every 30 seconds */
+	if ( level.time % 30000 == 0 ) {
+		CleanupExpiredBansAndMutes();
+	}
 
 	// for tracking changes
 	CheckCvars();
