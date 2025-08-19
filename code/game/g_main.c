@@ -2551,6 +2551,20 @@ static void CheckTournament( void ) {
 			if ( level.voteTime || level.voteExecuteTime ) {
 				return;
 			}
+			/* do not run countdown when there are no human players */
+			{
+				int totalHumans = 0;
+				int j;
+				for ( j = 0; j < level.maxclients; ++j ) {
+					if ( level.clients[j].pers.connected != CON_CONNECTED ) continue;
+					if ( level.clients[j].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+					if ( !(g_entities[j].r.svFlags & SVF_BOT) ) { totalHumans++; }
+				}
+				if ( totalHumans == 0 ) {
+					/* keep waiting for players */
+					return;
+				}
+			}
 			if ( g_warmup.integer > 0 ) {
 				level.warmupTime = level.time + g_warmup.integer * 1000;
 			} else {
