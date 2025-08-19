@@ -1134,8 +1134,11 @@ void G_RunItem( gentity_t *ent ) {
 			//freeze
 			if (g_freeze.integer) {
 				if ( ftmod_isBody( ent ) ) {
-					if ( level.time - ent->timestamp > 10000 ) {
-						ftmod_bodyFree( ent );
+					/* Keep frozen bodies even in nodrop zones if configured */
+					if ( !trap_Cvar_VariableIntegerValue("g_freezeKeepBodies") ) {
+						if ( level.time - ent->timestamp > 10000 ) {
+							ftmod_bodyFree( ent );
+						}
 					}
 					return;
 				}

@@ -126,6 +126,11 @@ G_CVAR( g_telefragMode, "g_telefragMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
    Uses the same mode mapping as g_telefragMode. */
 G_CVAR( g_telefragFrozenMode, "g_telefragFrozenMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* FreezeTag: keep frozen bodies alive during active rounds (0/1) */
+G_CVAR( g_freezeKeepBodies, "g_freezeKeepBodies", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* FreezeTag: keep frozen bodies when teleported into (0/1) */
+G_CVAR( g_freezeKeepBodiesOnTeleport, "g_freezeKeepBodiesOnTeleport", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_selfDamage,     "g_selfDamage",     "1", 0, 0, qfalse, qfalse )

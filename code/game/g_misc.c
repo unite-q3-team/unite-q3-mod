@@ -284,8 +284,8 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		if ( !skipKillbox ) {
 			if ( g_debugTrace.integer ) G_Printf("[TP] calling G_KillBox for client %d at %s\n", player->s.clientNum, vtos(finalOrigin));
 			G_KillBox( player );
-			/* For frozen bodies: mode 0 and 6 thaw bodies at destination */
-			if ( g_freeze.integer && (mode == 0 || mode == 6) ) {
+			/* For frozen bodies: mode 0 and 6 thaw bodies at destination, unless keeping bodies on teleport is enabled */
+			if ( g_freeze.integer && (mode == 0 || mode == 6) && !trap_Cvar_VariableIntegerValue("g_freezeKeepBodiesOnTeleport") ) {
 				VectorAdd( finalOrigin, player->r.mins, mins );
 				VectorAdd( finalOrigin, player->r.maxs, maxs );
 				num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );

@@ -58,6 +58,9 @@ int gametype;		//game type
 
 vmCvar_t bot_grapple;
 vmCvar_t bot_rocketjump;
+vmCvar_t bot_grapplemove;
+vmCvar_t bot_preferHook;
+vmCvar_t bot_grapplemove_minDist;
 vmCvar_t bot_fastchat;
 vmCvar_t bot_nochat;
 vmCvar_t bot_testrchat;
@@ -2709,6 +2712,13 @@ bot_moveresult_t BotAttackMove(bot_state_t *bs, int tfl) {
 	aas_entityinfo_t entinfo;
 	bot_moveresult_t moveresult;
 	bot_goal_t goal;
+	/* offhand hook support */
+	int hookEnabled;
+	int hookMaxDist;
+	qboolean hasHookEntity;
+	gentity_t *me;
+	bsp_trace_t trace;
+	vec3_t target;
 
 	attackentity = bs->enemy;
 	//
@@ -2741,6 +2751,32 @@ bot_moveresult_t BotAttackMove(bot_state_t *bs, int tfl) {
 	VectorSubtract(entinfo.origin, bs->origin, forward);
 	//the distance towards the enemy
 	dist = VectorNormalize(forward);
+
+	/*
+	=================
+	Bot offhand grappling hook usage
+	- Press and hold ACTION_AFFIRMATIVE to fire/hold the offhand hook
+	- Release (stop sending) to detach when close or no LOS
+	=================
+	*/
+	me = &g_entities[ bs->client ];
+	hookEnabled = trap_Cvar_VariableIntegerValue("g_hook");
+	hookMaxDist = trap_Cvar_VariableIntegerValue("g_hook_maxDist");
+	if ( hookMaxDist <= 0 ) hookMaxDist = 1200;
+	hasHookEntity = ( me && me->client && me->client->hook ) ? qtrue : qfalse;
+	if ( hookEnabled && me && me->client ) {
+		/* simple LOS check to enemy center */
+		VectorCopy( entinfo.origin, target );
+		BotAI_Trace( &trace, bs->eye, NULL, NULL, target, bs->client, CONTENTS_SOLID );
+		/* if far enough and clear LOS, try/use hook; otherwise release */
+		if ( dist > 700.0f && dist < (float)(hookMaxDist + 200) && (trace.fraction >= 1.0f || trace.ent == attackentity) ) {
+			/* hold the hook button while we want to pull */
+			trap_EA_Action( bs->client, ACTION_AFFIRMATIVE );
+		} else if ( hasHookEntity ) {
+			/* stop holding to detach */
+			/* (no explicit call needed; just don't press to generate a release edge) */
+		}
+	}
 	VectorNegate(forward, backward);
 	//walk, crouch or jump
 	movetype = MOVE_WALK;
@@ -5675,6 +5711,9 @@ void BotSetupDeathmatchAI(void) {
 
 	trap_Cvar_Register(&bot_rocketjump, "bot_rocketjump", "1", 0);
 	trap_Cvar_Register(&bot_grapple, "bot_grapple", "0", 0);
+	trap_Cvar_Register(&bot_grapplemove, "bot_grapplemove", "0", 0);
+	trap_Cvar_Register(&bot_preferHook, "bot_preferHook", "0", 0);
+	trap_Cvar_Register(&bot_grapplemove_minDist, "bot_grapplemove_minDist", "900", 0);
 	trap_Cvar_Register(&bot_fastchat, "bot_fastchat", "0", 0);
 	trap_Cvar_Register(&bot_nochat, "bot_nochat", "0", 0);
 	trap_Cvar_Register(&bot_testrchat, "bot_testrchat", "0", 0);

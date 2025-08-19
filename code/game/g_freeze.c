@@ -552,8 +552,9 @@ void ftmod_copyToBody(gentity_t *ent) {
     body->takedamage = qtrue;
 
     /* Mark as a standalone (manual) body not tied to a live player */
-    body->target_ent = body;
-    body->s.otherEntityNum = ENTITYNUM_NONE;
+    body->target_ent = ent;
+    ent->target_ent = body;
+    body->s.otherEntityNum = ent->s.number;
     body->noise_index = G_SoundIndex("sound/player/tankjr/jump1.wav");
     body->freezeState = qtrue;
     body->spawnflags = ent->client->sess.sessionTeam;

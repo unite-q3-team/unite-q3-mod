@@ -171,6 +171,9 @@ extern vmCvar_t bot_grapple;
 extern vmCvar_t bot_rocketjump;
 extern vmCvar_t bot_fastchat;
 extern vmCvar_t bot_nochat;
+extern vmCvar_t bot_grapplemove;   /* allow bots to use offhand hook for movement */
+extern vmCvar_t bot_preferHook;    /* prefer grapple over rocketjump for item movement */
+extern vmCvar_t bot_grapplemove_minDist; /* minimum straight distance to try grapple movement */
 extern vmCvar_t bot_testrchat;
 extern vmCvar_t bot_challenge;
 

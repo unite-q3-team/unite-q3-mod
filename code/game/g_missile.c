@@ -827,6 +827,8 @@ gentity_t *fire_grapple (gentity_t *self, vec3_t start, vec3_t dir) {
 	gentity_t	*hook;
 	// unlagged
 	int			hooktime;
+	trace_t	tr;
+	vec3_t	safeStart;
 
 	VectorNormalize (dir);
 
@@ -844,6 +846,10 @@ gentity_t *fire_grapple (gentity_t *self, vec3_t start, vec3_t dir) {
 	hook->parent = self;
 	hook->target_ent = NULL;
 
+	/* shrink hook bbox to avoid snagging when fired flush to walls */
+	VectorSet( hook->r.mins, -0.1f, -0.1f, -0.1f );
+	VectorSet( hook->r.maxs,  0.1f,  0.1f,  0.1f );
+
     // missile owner
     hook->s.clientNum = self->s.clientNum;
     hook->s.generic1 = WP_GRAPPLING_HOOK; /* remember real weapon for impact logic */
@@ -858,11 +864,17 @@ gentity_t *fire_grapple (gentity_t *self, vec3_t start, vec3_t dir) {
 
 	hook->s.pos.trType = TR_LINEAR;
 	hook->s.pos.trTime = hooktime;
-	VectorCopy( start, hook->s.pos.trBase );
+	/* ensure initial spawn point is not inside solid: trace from owner to desired start */
+	trap_Trace( &tr, self->r.currentOrigin, hook->r.mins, hook->r.maxs, start, self->s.number, MASK_SHOT );
+	VectorCopy( tr.endpos, safeStart );
+	if ( tr.startsolid || tr.allsolid ) {
+		VectorMA( self->r.currentOrigin, 8.0f, dir, safeStart );
+	}
+	VectorCopy( safeStart, hook->s.pos.trBase );
 	SnapVector( hook->s.pos.trBase );			// save net bandwidth
     VectorScale( dir, g_hook_speed.integer > 0 ? (float)g_hook_speed.integer : 800.0f, hook->s.pos.trDelta );
 	SnapVector( hook->s.pos.trDelta );			// save net bandwidth
-	VectorCopy (start, hook->r.currentOrigin);
+	VectorCopy (safeStart, hook->r.currentOrigin);
 
 	/* initial clamp: if already beyond max distance, abort */
 	if ( g_hook_maxDist.integer > 0 ) {

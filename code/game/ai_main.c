@@ -1403,6 +1403,8 @@ int BotAIStartFrame(int time) {
 
 	trap_Cvar_Update(&bot_rocketjump);
 	trap_Cvar_Update(&bot_grapple);
+	trap_Cvar_Update(&bot_grapplemove);
+	trap_Cvar_Update(&bot_preferHook);
 	trap_Cvar_Update(&bot_fastchat);
 	trap_Cvar_Update(&bot_nochat);
 	trap_Cvar_Update(&bot_testrchat);

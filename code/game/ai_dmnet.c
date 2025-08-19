@@ -1580,7 +1580,7 @@ int AINode_Seek_ActivateEntity(bot_state_t *bs) {
 	}
 	//
 	bs->tfl = TFL_DEFAULT;
-	if (bot_grapple.integer) bs->tfl |= TFL_GRAPPLEHOOK;
+	if (bot_grapple.integer || bot_grapplemove.integer) bs->tfl |= TFL_GRAPPLEHOOK;
 	// if in lava or slime the bot should be able to get out
 	if (BotInLavaOrSlime(bs)) bs->tfl |= TFL_LAVA|TFL_SLIME;
 	// map specific code
@@ -1793,11 +1793,11 @@ int AINode_Seek_NBG(bot_state_t *bs) {
 	}
 	//
 	bs->tfl = TFL_DEFAULT;
-	if (bot_grapple.integer) bs->tfl |= TFL_GRAPPLEHOOK;
+	if (bot_grapple.integer || bot_grapplemove.integer) bs->tfl |= TFL_GRAPPLEHOOK;
 	//if in lava or slime the bot should be able to get out
 	if (BotInLavaOrSlime(bs)) bs->tfl |= TFL_LAVA|TFL_SLIME;
 	//
-	if (BotCanAndWantsToRocketJump(bs)) {
+	if (!bot_preferHook.integer && BotCanAndWantsToRocketJump(bs)) {
 		bs->tfl |= TFL_ROCKETJUMP;
 	}
 	//map specific code
@@ -1827,6 +1827,38 @@ int AINode_Seek_NBG(bot_state_t *bs) {
 		return qfalse;
 	//initialize the movement state
 	BotSetupForMovement(bs);
+
+	/* Optional grapple move assist: if enabled and path is long/straight with LOS, press hook */
+	if ( bot_grapplemove.integer && g_hook.integer ) {
+		float minDist = (float)trap_Cvar_VariableIntegerValue("bot_grapplemove_minDist");
+		vec3_t toGoal;
+		float d2;
+		bsp_trace_t los;
+		VectorSubtract( goal.origin, bs->origin, toGoal );
+		d2 = toGoal[0]*toGoal[0] + toGoal[1]*toGoal[1] + toGoal[2]*toGoal[2];
+		if ( d2 > (minDist>0?minDist:900.0f) * (minDist>0?minDist:900.0f) ) {
+			BotAI_Trace( &los, bs->eye, NULL, NULL, goal.origin, bs->client, CONTENTS_SOLID );
+			if ( los.fraction >= 1.0f ) {
+				trap_EA_Action( bs->client, ACTION_AFFIRMATIVE );
+			}
+		}
+	}
+
+	/* Optional grapple move assist: if enabled and path is long/straight with LOS, press hook */
+	if ( bot_grapplemove.integer && g_hook.integer ) {
+		float minDist = (float)trap_Cvar_VariableIntegerValue("bot_grapplemove_minDist");
+		vec3_t toGoal;
+		float d2;
+		bsp_trace_t los;
+		VectorSubtract( goal.origin, bs->origin, toGoal );
+		d2 = toGoal[0]*toGoal[0] + toGoal[1]*toGoal[1] + toGoal[2]*toGoal[2];
+		if ( d2 > (minDist>0?minDist:900.0f) * (minDist>0?minDist:900.0f) ) {
+			BotAI_Trace( &los, bs->eye, NULL, NULL, goal.origin, bs->client, CONTENTS_SOLID );
+			if ( los.fraction >= 1.0f ) {
+				trap_EA_Action( bs->client, ACTION_AFFIRMATIVE );
+			}
+		}
+	}
     //move towards the goal
     trap_BotMoveToGoal(&moveresult, bs->ms, &goal, bs->tfl);
     /* If our LTG is a rescue goal, relax waiting and keep pushing forward */
@@ -1952,7 +1984,7 @@ int AINode_Seek_LTG(bot_state_t *bs)
 	//if in lava or slime the bot should be able to get out
 	if (BotInLavaOrSlime(bs)) bs->tfl |= TFL_LAVA|TFL_SLIME;
 	//
-	if (BotCanAndWantsToRocketJump(bs)) {
+	if (!bot_preferHook.integer && BotCanAndWantsToRocketJump(bs)) {
 		bs->tfl |= TFL_ROCKETJUMP;
 	}
 	//map specific code

@@ -434,8 +434,12 @@ static void G_UpdateCvars( void ) {
 				cv->modificationCount = cv->vmCvar->modificationCount;
 
 				if ( cv->trackChange ) {
-					G_BroadcastServerCommand( -1, va("print \"Server: %s changed to %s\n\"", 
-						cv->cvarName, cv->vmCvar->string ) );
+					/* suppress noisy announcements for vote-permission toggles */
+					if ( Q_stricmp( cv->cvarName, "g_allowVote" ) != 0 
+						&& Q_stricmp( cv->cvarName, "g_allowVoteChange" ) != 0 ) {
+						G_BroadcastServerCommand( -1, va("print \"Server: %s changed to %s\n\"", 
+							cv->cvarName, cv->vmCvar->string ) );
+					}
 				}
 
 				if (cv->teamShader) {
