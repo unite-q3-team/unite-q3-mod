@@ -1564,6 +1564,45 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
 	} else {
 		ent->client->ps.pm_flags &= ~PMF_SCOREBOARD;
 	}
+
+    /* spectator time-limit enforcement (if enabled) */
+    if ( g_specLimit.integer ) {
+        gclient_t *client = ent->client;
+        int alarm = g_specAlarm.integer;
+        int kick = g_specKick.integer;
+        int idle;
+        char msg[256];
+        char tbuf[16];
+        if ( client->specJoinTime == 0 ) {
+            client->specJoinTime = level.time;
+            client->specWarned = 0;
+        }
+        if ( alarm > 0 && kick > 0 ) {
+            idle = level.time - client->specJoinTime;
+            if ( idle >= alarm * 1000 ) {
+                int total = (alarm + kick) * 1000;
+                int remainMs = total - idle;
+                int remainSec;
+                if ( remainMs < 0 ) remainMs = 0;
+                remainSec = (remainMs + 999) / 1000;
+                Com_sprintf(tbuf, sizeof(tbuf), "%d", remainSec);
+                G_ReplaceToken(msg, sizeof(msg), g_specMsgCprint.string, "{time}", tbuf);
+                trap_SendServerCommand( ent - g_entities, va("cp \"%s\"", msg) );
+                if ( !client->specWarned ) {
+                    G_ReplaceToken(msg, sizeof(msg), g_specMsgPrint.string, "{time}", tbuf);
+                    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", msg) );
+                    if ( g_specSound.string[0] ) {
+                        G_Sound( ent, CHAN_AUTO, G_SoundIndex( g_specSound.string ) );
+                    }
+                    client->specWarned = 1;
+                }
+                if ( idle >= total ) {
+                    trap_DropClient( ent - g_entities, "Kicked for prolonged spectating" );
+                    return;
+                }
+            }
+        }
+    }
 }
 
 
@@ -1658,8 +1697,56 @@ void ClientEndFrame( gentity_t *ent ) {
     // tick once-a-second timers using server frame msec for consistency
     ClientTimerActions( ent, level.msec );
 
+    /* spectator time-limit enforcement (if enabled) */
+    if ( g_specLimit.integer ) {
+        if (
+            (g_freeze.integer && ftmod_isSpectator(client)) ||
+            (!g_freeze.integer && client->sess.sessionTeam == TEAM_SPECTATOR)
+        ) {
+            int alarm = g_specAlarm.integer;
+            int kick = g_specKick.integer;
+            int idle;
+            char msg[256];
+            char tbuf[16];
+            if ( client->specJoinTime == 0 ) {
+                client->specJoinTime = level.time;
+                client->specWarned = 0;
+            }
+            idle = level.time - client->specJoinTime;
+            if ( alarm > 0 && kick > 0 && idle >= alarm * 1000 ) {
+                int total = (alarm + kick) * 1000;
+                int remainMs = total - idle;
+                int remainSec;
+                if ( remainMs < 0 ) remainMs = 0;
+                remainSec = (remainMs + 999) / 1000;
+                Com_sprintf(tbuf, sizeof(tbuf), "%d", remainSec);
+                G_ReplaceToken(msg, sizeof(msg), g_specMsgCprint.string, "{time}", tbuf);
+                trap_SendServerCommand( ent - g_entities, va("cp \"%s\"", msg) );
+                if ( !client->specWarned ) {
+                    G_ReplaceToken(msg, sizeof(msg), g_specMsgPrint.string, "{time}", tbuf);
+                    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", msg) );
+                    if ( g_specSound.string[0] ) {
+                        G_Sound( ent, CHAN_AUTO, G_SoundIndex( g_specSound.string ) );
+                    }
+                    client->specWarned = 1;
+                }
+                if ( idle >= total ) {
+                    trap_DropClient( ent - g_entities, "Kicked for prolonged spectating" );
+                    return;
+                }
+            }
+        } else {
+            /* reset when player joins a team */
+            client->specJoinTime = 0;
+            if ( client->specWarned ) {
+                trap_SendServerCommand( ent - g_entities, "cp \"\"" );
+            }
+            client->specWarned = 0;
+        }
+    }
+
     // set the latest info
-	BG_PlayerStateToEntityState( &client->ps, &ent->s, qtrue );
+    BG_PlayerStateToEntityState( &client->ps, &ent->s, qtrue );
 
 	SendPendingPredictableEvents( &client->ps );
 

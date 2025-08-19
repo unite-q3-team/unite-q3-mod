@@ -1731,6 +1731,13 @@ void ClientSpawn(gentity_t *ent) {
     /* init AFK tracker */
     client->afkLastActiveTime = level.time;
     client->afkWarned = 0;
+    /* init spectator timers */
+    if ( isSpectator ) {
+        client->specJoinTime = level.time;
+    } else {
+        client->specJoinTime = 0;
+    }
+    client->specWarned = 0;
 
 	AssignStartingWeapons(client);
 

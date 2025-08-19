@@ -201,6 +201,13 @@ G_CVAR( g_afkSpec,  "g_afkSpec",  "20", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_afkMsgCprint, "g_afkMsgCprint", "^1WARNING! MOVE NOW!\n^3Or you'll be moved to spectators in {time} seconds\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_afkMsgPrint,  "g_afkMsgPrint",  "^1WARNING! MOVE NOW!\n^3Or you'll be moved to spectators in {time} seconds\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_afkSound,      "g_afkSound",      "sound/teamplay/flagtk_red", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* Spectator time limit (disabled by default). Warn after N seconds in spectators, then kick after M more seconds */
+G_CVAR( g_specLimit,      "g_specLimit",      "0",  CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_specAlarm,      "g_specAlarm",      "120", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_specKick,       "g_specKick",       "60",  CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_specMsgCprint,  "g_specMsgCprint",  "^1SPECTATOR WARNING!\n^3Join a team in {time} seconds or you'll be kicked\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_specMsgPrint,   "g_specMsgPrint",   "^1SPECTATOR WARNING!\n^3Join a team in {time} seconds or you'll be kicked\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_specSound,      "g_specSound",      "sound/teamplay/flagtk_red", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
 G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )

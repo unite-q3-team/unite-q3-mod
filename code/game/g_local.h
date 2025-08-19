@@ -396,6 +396,10 @@ struct gclient_s {
 	/* AFK tracking */
 	int			afkLastActiveTime; /* level.time of last movement/attack */
 	int			afkWarned;         /* 0 = not warned, 1 = warned */
+
+	/* Spectator time limit tracking */
+	int			specJoinTime;      /* level.time when entered spectator */
+	int			specWarned;        /* 0/1: warning shown */
 };
 
 
