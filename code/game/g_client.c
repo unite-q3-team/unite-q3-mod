@@ -1728,6 +1728,9 @@ void ClientSpawn(gentity_t *ent) {
 	VectorCopy (playerMaxs, ent->r.maxs);
 
 	client->ps.clientNum = index;
+    /* init AFK tracker */
+    client->afkLastActiveTime = level.time;
+    client->afkWarned = 0;
 
 	AssignStartingWeapons(client);
 

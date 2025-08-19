@@ -392,6 +392,10 @@ struct gclient_s {
 		int		enemy;
 		int		amount;
 	} damage;
+
+	/* AFK tracking */
+	int			afkLastActiveTime; /* level.time of last movement/attack */
+	int			afkWarned;         /* 0 = not warned, 1 = warned */
 };
 
 

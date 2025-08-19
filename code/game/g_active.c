@@ -563,6 +563,28 @@ ClientTimerActions
 Actions that happen once a second
 ==================
 */
+/* simple bounded token replacement helper for server strings (C89) */
+static void G_ReplaceToken(char *dst, int dstSize, const char *src, const char *token, const char *replacement) {
+    int di = 0;
+    int i = 0;
+    int tokenLen = (int)strlen(token);
+    int repLen = (int)strlen(replacement);
+    if (dstSize <= 0) return;
+    if (!src) { dst[0] = '\0'; return; }
+    while (src[i] != '\0' && di < dstSize - 1) {
+        if (tokenLen > 0 && Q_strncmp(&src[i], token, tokenLen) == 0) {
+            int k;
+            for (k = 0; k < repLen && di < dstSize - 1; ++k) {
+                dst[di++] = replacement[k];
+            }
+            i += tokenLen;
+        } else {
+            dst[di++] = src[i++];
+        }
+    }
+    dst[di] = '\0';
+}
+
 void ClientTimerActions( gentity_t *ent, int msec ) {
 	gclient_t	*client;
 #ifdef MISSIONPACK
@@ -626,6 +648,70 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
 		// count down armor when over max
 		if ( client->ps.stats[STAT_ARMOR] > client->ps.stats[STAT_MAX_HEALTH] ) {
 			client->ps.stats[STAT_ARMOR]--;
+        }
+
+        /* AFK check for non-spectator clients */
+        if ( g_afkCheck.integer ) {
+            if (
+                (g_freeze.integer && !ftmod_isSpectator(client)) ||
+                (!g_freeze.integer && client->sess.sessionTeam != TEAM_SPECTATOR)
+            ) {
+                qboolean isMoving;
+                int fm, rm, um;
+                int alarm = g_afkAlarm.integer;
+                int spec = g_afkSpec.integer;
+                int warnTime;
+                int idleTime;
+                char msg[256];
+                char tbuf[16];
+                /* movement or attack resets idle */
+                fm = client->pers.cmd.forwardmove;
+                rm = client->pers.cmd.rightmove;
+                um = client->pers.cmd.upmove;
+                isMoving = (fm != 0) || (rm != 0) || (um != 0) || (client->pers.cmd.buttons & BUTTON_ATTACK);
+                if ( isMoving ) {
+                    client->lastCmdTime = level.time;
+                    /* if warning was active, clear CP immediately */
+                    if ( client->afkWarned ) {
+                        trap_SendServerCommand( ent - g_entities, "cp \"\"" );
+                    }
+                    client->afkLastActiveTime = level.time;
+                    client->afkWarned = 0;
+                    if ( g_debugTrace.integer ) {
+                        G_Printf("[AFK] activity detected for %s\n", client->pers.netname);
+                    }
+                }
+                idleTime = level.time - client->afkLastActiveTime;
+                if ( idleTime >= alarm * 1000 && spec > 0 ) {
+                    int remainMs;
+                    int remainSec;
+                    int remainPrint;
+                    /* remaining milliseconds until move to spectators */
+                    warnTime = (alarm + spec) * 1000;
+                    remainMs = warnTime - idleTime;
+                    if ( remainMs < 0 ) remainMs = 0;
+                    /* ceil to next second for display: (ms+999)/1000 */
+                    remainSec = (remainMs + 999) / 1000;
+                    if ( remainSec < 0 ) remainSec = 0;
+                    Com_sprintf(tbuf, sizeof(tbuf), "%d", remainSec);
+                    /* always update CP once per second while warning is active */
+                    G_ReplaceToken(msg, sizeof(msg), g_afkMsgCprint.string, "{time}", tbuf);
+                    trap_SendServerCommand( ent - g_entities, va("cp \"%s\"", msg) );
+                    /* print and sound only once when entering warning state */
+                    if ( !client->afkWarned ) {
+                        G_ReplaceToken(msg, sizeof(msg), g_afkMsgPrint.string, "{time}", tbuf);
+                        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", msg) );
+                        if ( g_afkSound.string[0] ) {
+                            G_Sound( ent, CHAN_AUTO, G_SoundIndex( g_afkSound.string ) );
+                        }
+                        client->afkWarned = 1;
+                    }
+                    /* move to spectators when time is up */
+                    if ( idleTime >= warnTime ) {
+                        SetTeam( ent, "spectator" );
+                    }
+                }
+            }
         }
 
         /* moved frequent cp updates to ClientThink_real with throttling */

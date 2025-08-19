@@ -194,6 +194,13 @@ G_CVAR( g_ricochet_pg,  "g_ricochet_pg",  "0", 0, 0, qtrue, qfalse )
 G_CVAR( g_ricochet_bfg, "g_ricochet_bfg", "0", 0, 0, qtrue, qfalse )
 /* play grenade bounce sound only for GL; for other ricochet projectiles, mute bounce sound (0/1) */
 G_CVAR( g_ricochetMuteNonGL, "g_ricochetMuteNonGL", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* AFK handling: enable(1)/disable(0), warn after N seconds, then spectate after M seconds */
+G_CVAR( g_afkCheck, "g_afkCheck", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_afkAlarm, "g_afkAlarm", "30", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_afkSpec,  "g_afkSpec",  "20", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_afkMsgCprint, "g_afkMsgCprint", "^1WARNING! MOVE NOW!\n^3Or you'll be moved to spectators in {time} seconds\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_afkMsgPrint,  "g_afkMsgPrint",  "^1WARNING! MOVE NOW!\n^3Or you'll be moved to spectators in {time} seconds\n", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_afkSound,      "g_afkSound",      "sound/teamplay/flagtk_red", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_gauntlet_fireRatio,    "g_gauntlet_fireRatio",    "400",  0, 0, qfalse, qfalse )
 G_CVAR( g_lg_fireRatio,   "g_lg_fireRatio",   "50",   0, 0, qfalse, qfalse )
