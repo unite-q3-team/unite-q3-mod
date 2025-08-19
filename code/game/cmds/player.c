@@ -526,7 +526,7 @@ void fteam_f(gentity_t *ent){
 
 	// set the team
 	trap_Argv( 2, str, sizeof( str ) );
-	SetTeam( &g_entities[victim->client - level.clients], str );
+	SetTeamSafe( &g_entities[victim->client - level.clients], str );
 }
 
 /* Soft team move without killing: returns qtrue if changed */

@@ -1095,7 +1095,7 @@ void AddTournamentPlayer( void ) {
 	level.warmupTime = -1;
 
 	// set them to free-for-all team
-	SetTeam( &g_entities[ nextInLine - level.clients ], "f" );
+	SetTeamSafe( &g_entities[ nextInLine - level.clients ], "f" );
 }
 
 
@@ -1120,7 +1120,7 @@ void RemoveTournamentLoser( void ) {
 	}
 
 	// make them a spectator
-	SetTeam( &g_entities[ clientNum ], "s" );
+	SetTeamSafe( &g_entities[ clientNum ], "s" );
 }
 
 
@@ -1143,7 +1143,7 @@ void RemoveTournamentWinner( void ) {
 	}
 
 	// make them a spectator
-	SetTeam( &g_entities[ clientNum ], "s" );
+	SetTeamSafe( &g_entities[ clientNum ], "s" );
 }
 
 

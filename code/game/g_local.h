@@ -561,6 +561,7 @@ void StopFollowing( gentity_t *ent, qboolean release );
 void StopFollowingNew( gentity_t *ent );
 void BroadcastTeamChange( gclient_t *client, team_t oldTeam );
 qboolean SetTeam( gentity_t *ent, const char *s );
+qboolean SetTeamSafe( gentity_t *ent, const char *s );
 void Cmd_FollowCycle_f( gentity_t *ent, int dir );
 void G_RevertVote( gclient_t *client );
 

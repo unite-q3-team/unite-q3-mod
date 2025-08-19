@@ -713,7 +713,7 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
                     }
                     /* move to spectators when time is up */
                     if ( idleTime >= warnTime ) {
-                        SetTeam( ent, "spectator" );
+                        SetTeamSafe( ent, "spectator" );
                     }
                 }
             }

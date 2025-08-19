@@ -10,6 +10,9 @@
 
 #define CHUNK_SIZE 1000
 
+/* Function declarations */
+qboolean SetTeamSafe( gentity_t *ent, const char *s );
+
 /* Cached map list to avoid repeated filesystem scans */
 static int s_cachedMapCount = 0;
 static char s_cachedMaps[512][64];
@@ -653,7 +656,339 @@ static qboolean AllowTeamSwitch( int clientNum, team_t newTeam ) {
 
 /*
 =================
+SetTeamSafe
+
+Safe team change that doesn't kill alive players
+=================
+*/
+qboolean SetTeamSafe( gentity_t *ent, const char *s ) {
+	team_t				team, oldTeam;
+	gclient_t			*client;
+	int					clientNum;
+	spectatorState_t	specState;
+	int					specClient;
+	int					teamLeader;
+	qboolean			checkTeamLeader;
+	qboolean			wasAlive;
+	int					savedHealth;
+	qboolean			savedFreezeState;
+	int					savedArmor;
+
+	//
+	// see what change is requested
+	//
+
+	clientNum = ent - g_entities;
+	client = level.clients + clientNum;
+
+	if ( g_debugTrace.integer ) {
+		G_Printf("[TEAM] safe request: client=%d name=%s from=%d arg=%s freeze=%d gt=%d\n",
+			clientNum,
+			client ? client->pers.netname : "<nc>",
+			client ? client->sess.sessionTeam : -1,
+			s ? s : "<null>",
+			g_freeze.integer,
+			g_gametype.integer);
+	}
+
+	// early team override
+	if ( client->pers.connected == CON_CONNECTING && g_gametype.integer >= GT_TEAM ) {
+		if ( !Q_stricmp( s, "red" ) || !Q_stricmp( s, "r" ) ) {
+			team = TEAM_RED;
+		} else if ( !Q_stricmp( s, "blue" ) || !Q_stricmp( s, "b" ) ) {
+			team = TEAM_BLUE; 
+		} else {
+			team = -1;
+		}
+		if ( team != -1 && AllowTeamSwitch( clientNum, team ) ) {
+			client->sess.sessionTeam = team;
+			client->pers.teamState.state = TEAM_BEGIN;
+			G_WriteClientSessionData( client );
+			// count current clients and rank for scoreboard
+			CalculateRanks();
+			if ( g_debugTrace.integer ) G_Printf("[TEAM] early override applied: to=%d\n", team);
+		}
+		return qfalse; // bypass flood protection
+	}
+
+	specClient = clientNum;
+	specState = SPECTATOR_NOT;
+	if ( !Q_stricmp( s, "scoreboard" ) || !Q_stricmp( s, "score" )  ) {
+		team = TEAM_SPECTATOR;
+		specState = SPECTATOR_SCOREBOARD;
+	} else if ( !Q_stricmp( s, "follow1" ) ) {
+		team = TEAM_SPECTATOR;
+		specState = SPECTATOR_FOLLOW;
+		specClient = -1;
+	} else if ( !Q_stricmp( s, "follow2" ) ) {
+		team = TEAM_SPECTATOR;
+		specState = SPECTATOR_FOLLOW;
+		specClient = -2;
+	} else if ( !Q_stricmp( s, "spectator" ) || !Q_stricmp( s, "s" ) ) {
+		team = TEAM_SPECTATOR;
+		specState = SPECTATOR_FREE;
+	} else if ( g_gametype.integer >= GT_TEAM ) {
+		// if running a team game, assign player to one of the teams
+		specState = SPECTATOR_NOT;
+		if ( !Q_stricmp( s, "red" ) || !Q_stricmp( s, "r" ) ) {
+			team = TEAM_RED;
+		} else if ( !Q_stricmp( s, "blue" ) || !Q_stricmp( s, "b" ) ) {
+			team = TEAM_BLUE;
+		} else {
+			// pick the team with the least number of players
+			team = PickTeam( clientNum );
+		}
+
+		if ( !AllowTeamSwitch( clientNum, team ) ) {
+			return qtrue;
+		}
+
+	} else {
+		// force them to spectators if there aren't any spots free
+		team = TEAM_FREE;
+	}
+
+	// override decision if limiting the players
+	if ( (g_gametype.integer == GT_TOURNAMENT)
+		&& level.numNonSpectatorClients >= 2 ) {
+		team = TEAM_SPECTATOR;
+	} else if ( g_maxGameClients.integer > 0 && 
+		level.numNonSpectatorClients >= g_maxGameClients.integer ) {
+		team = TEAM_SPECTATOR;
+	}
+
+	//
+	// decide if we will allow the change
+	//
+	oldTeam = client->sess.sessionTeam;
+	if ( team == oldTeam ) {
+		if ( team != TEAM_SPECTATOR )
+			return qfalse;
+
+		// do soft release if possible
+		if ( ( client->ps.pm_flags & PMF_FOLLOW ) && client->sess.spectatorState == SPECTATOR_FOLLOW ) {
+			StopFollowing( ent, qtrue );
+			return qfalse;
+		}
+
+		// second spectator team request will move player to intermission point
+		if ( client->ps.persistant[ PERS_TEAM ] == TEAM_SPECTATOR && !( client->ps.pm_flags & PMF_FOLLOW )
+			&& client->sess.spectatorState == SPECTATOR_FREE ) {
+			VectorCopy( level.intermission_origin, ent->s.origin );
+			VectorCopy( level.intermission_origin, client->ps.origin );
+			SetClientViewAngle( ent, level.intermission_angle );
+			return qfalse;
+		}
+	}
+
+	//
+	// execute the team change
+	//
+
+	// Check if player was alive before team change
+	wasAlive = (ent->health > 0);
+
+	// Save current state for alive players
+	savedHealth = ent->health;
+	savedFreezeState = ent->freezeState;
+	savedArmor = client->ps.stats[STAT_ARMOR];
+
+	// if the player was dead leave the body
+	if ( ent->health <= 0 ) {
+		CopyToBodyQue( ent );
+	}
+
+	// he starts at 'base'
+	client->pers.teamState.state = TEAM_BEGIN;
+
+    if ( oldTeam != TEAM_SPECTATOR ) {
+		
+		// revert any casted votes
+		if ( oldTeam != team )
+			G_RevertVote( ent->client );
+
+		// Only kill the player if they're moving to spectator or if they were already dead
+		if ( team == TEAM_SPECTATOR || !wasAlive ) {
+			// Kill him (makes sure he loses flags, etc)
+			ent->flags &= ~FL_GODMODE;
+			ent->client->ps.stats[STAT_HEALTH] = ent->health = 0;
+			player_die (ent, ent, ent, 100000, MOD_SUICIDE);
+			if ( g_debugTrace.integer ) G_Printf("[TEAM] forced suicide for team change client=%d\n", clientNum);
+		}
+
+        /* Reset extended stats on team change */
+        {
+            gclient_t *cl = client;
+            int w;
+            cl->accuracy_hits = 0;
+            cl->accuracy_shots = 0;
+            cl->totalDamageGiven = 0;
+            cl->totalDamageTaken = 0;
+            cl->kills = 0;
+            cl->deaths = 0;
+            cl->currentKillStreak = 0;
+            cl->armorPickedTotal = 0;
+            cl->healthPickedTotal = 0;
+            for ( w = 0; w < WP_NUM_WEAPONS; ++w ) {
+                cl->perWeaponDamageGiven[w] = 0;
+                cl->perWeaponDamageTaken[w] = 0;
+                cl->perWeaponShots[w] = 0;
+                cl->perWeaponHits[w] = 0;
+                cl->perWeaponKills[w] = 0;
+                cl->perWeaponDeaths[w] = 0;
+                cl->perWeaponPickups[w] = 0;
+                cl->perWeaponDrops[w] = 0;
+            }
+        }
+	}
+
+	// they go to the end of the line for tournements
+	if ( team == TEAM_SPECTATOR ) {
+		client->sess.spectatorTime = 0;
+	}
+
+	client->sess.sessionTeam = team;
+	client->sess.spectatorState = specState;
+	client->sess.spectatorClient = specClient;
+	if ( g_debugTrace.integer ) G_Printf("[TEAM] applied: client=%d newTeam=%d specState=%d specClient=%d\n", clientNum, team, specState, specClient);
+
+	checkTeamLeader = client->sess.teamLeader;
+	client->sess.teamLeader = qfalse;
+
+	if ( team == TEAM_RED || team == TEAM_BLUE ) {
+		teamLeader = TeamLeader( team );
+		// if there is no team leader or the team leader is a bot and this client is not a bot
+		if ( teamLeader == -1 || ( !(g_entities[clientNum].r.svFlags & SVF_BOT) && (g_entities[teamLeader].r.svFlags & SVF_BOT) ) ) {
+			SetLeader( team, clientNum );
+		}
+	}
+
+	// make sure there is a team leader on the team the player came from
+	if ( oldTeam == TEAM_RED || oldTeam == TEAM_BLUE ) {
+		if ( checkTeamLeader ) {
+			CheckTeamLeader( oldTeam );
+		}
+	}
+
+	G_WriteClientSessionData( client );
+
+    BroadcastTeamChange( client, oldTeam );
+
+	/* Check if we need to cancel ready countdown due to human player switching to spectator */
+	if ( level.readyCountdownStarted && level.warmupTime > 0 && level.time < level.warmupTime ) {
+		if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR && !(ent->r.svFlags & SVF_BOT) ) {
+			int totalHumans;
+			int totalPlayers;
+			int i;
+			totalHumans = 0;
+			totalPlayers = 0;
+			for ( i = 0; i < level.maxclients; i++ ) {
+				gentity_t *e = &g_entities[i];
+				gclient_t *cl = &level.clients[i];
+				if ( cl->pers.connected != CON_CONNECTED ) {
+					continue;
+				}
+				if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
+					continue;
+				}
+				totalPlayers++;
+				if ( !(e->r.svFlags & SVF_BOT) ) {
+					totalHumans++;
+				}
+			}
+			{
+				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+				if ( requireTwo && totalHumans < 2 ) {
+					level.readyCountdownStarted = qfalse;
+					level.warmupTime = -1;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled: need 2 human players\"" );
+				} else if ( totalPlayers < 2 ) {
+					level.readyCountdownStarted = qfalse;
+					level.warmupTime = -1;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_BroadcastServerCommand( -1, "cp \"^3Countdown cancelled: need 2 players\"" );
+				}
+			}
+		}
+	}
+
+	/* Check if we need to cancel active match due to insufficient players */
+	if ( level.warmupTime == 0 && g_gametype.integer != GT_SINGLE_PLAYER ) {
+		if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
+			int totalHumans;
+			int totalPlayers;
+			int i;
+			totalHumans = 0;
+			totalPlayers = 0;
+			for ( i = 0; i < level.maxclients; i++ ) {
+				gentity_t *e = &g_entities[i];
+				gclient_t *cl = &level.clients[i];
+				if ( cl->pers.connected != CON_CONNECTED ) {
+					continue;
+				}
+				if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
+					continue;
+				}
+				totalPlayers++;
+				if ( !(e->r.svFlags & SVF_BOT) ) {
+					totalHumans++;
+				}
+			}
+			{
+				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+				if ( requireTwo && totalHumans < 2 ) {
+					level.warmupTime = -1;
+					level.readyCountdownStarted = qfalse;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_LogPrintf( "Warmup:\n" );
+					level.abortedDueToNoPlayers = 1;
+					G_BroadcastServerCommand( -1, "cp \"^3Match aborted: need 2 human players\"" );
+				} else if ( totalPlayers < 2 ) {
+					level.warmupTime = -1;
+					level.readyCountdownStarted = qfalse;
+					trap_SetConfigstring( CS_WARMUP, va( "%i", level.warmupTime ) );
+					G_LogPrintf( "Warmup:\n" );
+					level.abortedDueToNoPlayers = 1;
+					G_BroadcastServerCommand( -1, "cp \"^3Match aborted: need 2 players\"" );
+				}
+			}
+		}
+	}
+
+	/* Reset ready status when switching to spectator */
+	if ( team == TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
+		ent->readyBegin = qfalse;
+	}
+
+	// get and distribute relevent paramters
+	ClientUserinfoChanged( clientNum );
+
+	//freeze
+	ent->freezeState = qfalse;
+
+    ClientBegin( clientNum );
+
+	// Restore state for alive players who switched teams
+	if ( wasAlive && team != TEAM_SPECTATOR && oldTeam != TEAM_SPECTATOR ) {
+		ent->health = savedHealth;
+		client->ps.stats[STAT_HEALTH] = savedHealth;
+		client->ps.stats[STAT_ARMOR] = savedArmor;
+		ent->freezeState = savedFreezeState;
+		if ( g_debugTrace.integer ) G_Printf("[TEAM] restored state: health=%d armor=%d freeze=%d\n", savedHealth, savedArmor, savedFreezeState);
+	}
+
+	// count current clients and rank for scoreboard
+	CalculateRanks();
+
+	return qfalse;
+}
+
+/*
+=================
 SetTeam
+
+Legacy function - now uses SetTeamSafe for non-spectator changes
 =================
 */
 qboolean SetTeam( gentity_t *ent, const char *s ) {
@@ -1130,7 +1465,7 @@ static void Cmd_Follow_f( gentity_t *ent ) {
 
 	// first set them to spectator
 	if ( ent->client->sess.sessionTeam != TEAM_SPECTATOR ) {
-		SetTeam( ent, "spectator" );
+		SetTeamSafe( ent, "spectator" );
 	}
 
 	ent->client->sess.spectatorState = SPECTATOR_FOLLOW;
@@ -1164,7 +1499,7 @@ void Cmd_FollowCycle_f( gentity_t *ent, int dir ) {
 
 	// first set them to spectator
 	if ( client->sess.spectatorState == SPECTATOR_NOT ) {
-		SetTeam( ent, "spectator" );
+		SetTeamSafe( ent, "spectator" );
 	}
 
 	if ( dir != 1 && dir != -1 ) {
