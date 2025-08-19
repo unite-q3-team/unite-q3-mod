@@ -578,6 +578,10 @@ static void G_ReplaceToken(char *dst, int dstSize, const char *src, const char *
                 dst[di++] = replacement[k];
             }
             i += tokenLen;
+        } else if (src[i] == '\\' && src[i+1] == 'n') {
+            /* convert \n sequence to actual newline */
+            dst[di++] = '\n';
+            i += 2;
         } else {
             dst[di++] = src[i++];
         }
