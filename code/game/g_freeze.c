@@ -209,6 +209,8 @@ static void ftmod_bodyExplode(gentity_t *self) {
     int nearbyPlayerCount = 0;
     int thawTime;
     int baseThawTime = (int)(g_thawTime.value * 1000);
+    float speedBonus;
+    int maxPlayers;
     
     // Find all nearby players
     for (i = 0; i < g_maxclients.integer; i++) {
@@ -237,13 +239,13 @@ static void ftmod_bodyExplode(gentity_t *self) {
     // Check if multiplayer thaw is enabled and we have multiple players
     if (g_thawMultiplayer.integer && nearbyPlayerCount > 1) {
         // Limit number of players that can participate
-        int maxPlayers = g_thawMaxPlayers.integer;
+        maxPlayers = g_thawMaxPlayers.integer;
         if (nearbyPlayerCount > maxPlayers) {
             nearbyPlayerCount = maxPlayers;
         }
         
         // Calculate thaw time with speed bonus
-        float speedBonus = g_thawSpeedBonus.value / 100.0f; // Convert percentage to decimal
+        speedBonus = g_thawSpeedBonus.value / 100.0f; // Convert percentage to decimal
         thawTime = (int)(baseThawTime * (1.0f - speedBonus * (nearbyPlayerCount - 1)));
         
         // Ensure minimum thaw time
