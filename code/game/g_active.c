@@ -653,8 +653,9 @@ void ClientTimerActions( gentity_t *ent, int msec ) {
         /* AFK check for non-spectator clients */
         if ( g_afkCheck.integer ) {
             if (
-                (g_freeze.integer && !ftmod_isSpectator(client)) ||
-                (!g_freeze.integer && client->sess.sessionTeam != TEAM_SPECTATOR)
+                !(ent->r.svFlags & SVF_BOT) &&
+                ((g_freeze.integer && !ftmod_isSpectator(client)) ||
+                (!g_freeze.integer && client->sess.sessionTeam != TEAM_SPECTATOR))
             ) {
                 qboolean isMoving;
                 int fm, rm, um;
@@ -1581,32 +1582,34 @@ void SpectatorClientEndFrame( gentity_t *ent ) {
         int idle;
         char msg[256];
         char tbuf[16];
-        if ( client->specJoinTime == 0 ) {
-            client->specJoinTime = level.time;
-            client->specWarned = 0;
-        }
-        if ( alarm > 0 && kick > 0 ) {
-            idle = level.time - client->specJoinTime;
-            if ( idle >= alarm * 1000 ) {
-                int total = (alarm + kick) * 1000;
-                int remainMs = total - idle;
-                int remainSec;
-                if ( remainMs < 0 ) remainMs = 0;
-                remainSec = (remainMs + 999) / 1000;
-                Com_sprintf(tbuf, sizeof(tbuf), "%d", remainSec);
-                G_ReplaceToken(msg, sizeof(msg), g_specMsgCprint.string, "{time}", tbuf);
-                trap_SendServerCommand( ent - g_entities, va("cp \"%s\"", msg) );
-                if ( !client->specWarned ) {
-                    G_ReplaceToken(msg, sizeof(msg), g_specMsgPrint.string, "{time}", tbuf);
-                    trap_SendServerCommand( ent - g_entities, va("print \"%s\"", msg) );
-                    if ( g_specSound.string[0] ) {
-                        G_Sound( ent, CHAN_AUTO, G_SoundIndex( g_specSound.string ) );
+        if ( !(ent->r.svFlags & SVF_BOT) ) {
+            if ( client->specJoinTime == 0 ) {
+                client->specJoinTime = level.time;
+                client->specWarned = 0;
+            }
+            if ( alarm > 0 && kick > 0 ) {
+                idle = level.time - client->specJoinTime;
+                if ( idle >= alarm * 1000 ) {
+                    int total = (alarm + kick) * 1000;
+                    int remainMs = total - idle;
+                    int remainSec;
+                    if ( remainMs < 0 ) remainMs = 0;
+                    remainSec = (remainMs + 999) / 1000;
+                    Com_sprintf(tbuf, sizeof(tbuf), "%d", remainSec);
+                    G_ReplaceToken(msg, sizeof(msg), g_specMsgCprint.string, "{time}", tbuf);
+                    trap_SendServerCommand( ent - g_entities, va("cp \"%s\"", msg) );
+                    if ( !client->specWarned ) {
+                        G_ReplaceToken(msg, sizeof(msg), g_specMsgPrint.string, "{time}", tbuf);
+                        trap_SendServerCommand( ent - g_entities, va("print \"%s\"", msg) );
+                        if ( g_specSound.string[0] ) {
+                            G_Sound( ent, CHAN_AUTO, G_SoundIndex( g_specSound.string ) );
+                        }
+                        client->specWarned = 1;
                     }
-                    client->specWarned = 1;
-                }
-                if ( idle >= total ) {
-                    trap_DropClient( ent - g_entities, "Kicked for prolonged spectating" );
-                    return;
+                    if ( idle >= total ) {
+                        trap_DropClient( ent - g_entities, "Kicked for prolonged spectating" );
+                        return;
+                    }
                 }
             }
         }
