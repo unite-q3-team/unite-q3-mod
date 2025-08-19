@@ -121,6 +121,35 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 			return;
 		}
 	}
+	/* Early handling for mode 7: if occupied, push the teleporter away and abort this frame */
+	if ( mode == 7 ) {
+		VectorAdd( origin, player->r.mins, mins );
+		VectorAdd( origin, player->r.maxs, maxs );
+		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		occupied = qfalse;
+		for ( i = 0; i < num; ++i ) {
+			hit = &g_entities[ touch[i] ];
+			if ( hit == player ) continue;
+			if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; }
+		}
+		if ( occupied ) {
+			/* reverse player's current velocity; if almost zero, push away from destination */
+			{
+				vec3_t curv;
+				float spd;
+				VectorCopy( player->client->ps.velocity, curv );
+				spd = VectorLength( curv );
+				if ( spd > 1.0f ) {
+					VectorScale( curv, -1.0f, player->client->ps.velocity );
+				} else {
+					VectorSubtract( player->client->ps.origin, origin, dir );
+					if ( VectorNormalize( dir ) == 0.0f ) { dir[0]=0.0f; dir[1]=0.0f; dir[2]=1.0f; }
+					VectorScale( dir, 400.0f, player->client->ps.velocity );
+				}
+			}
+			return;
+		}
+	}
 
 	// use temp events at source and destination to prevent the effect
 	// from getting dropped by a second player event
