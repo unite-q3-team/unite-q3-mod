@@ -62,6 +62,8 @@ G_CVAR( g_debugMove, "g_debugMove", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugDamage, "g_debugDamage", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugAlloc, "g_debugAlloc", "0", 0, 0, qfalse, qfalse )
 G_CVAR( g_debugFreeze, "g_debugFreeze", "262142", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* verbose server-side debug tracing for spawns/teleports/teams (0=off,1=on) */
+G_CVAR( g_debugTrace, "g_debugTrace", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_motd, "g_motd", "", 0, 0, qfalse, qfalse )
 G_CVAR( g_blood, "com_blood", "1", 0, 0, qfalse, qfalse )
 
@@ -120,6 +122,9 @@ G_CVAR( g_triggerHurtTeleport, "g_triggerHurtTeleport", "0", CVAR_ARCHIVE, 0, qf
 /* telefrag handling on teleport: 0=default telefrag; 1=force teleport (no telefrag);
    2=place near without clipping; 3=push occupant; 4=nearby spawn; 5=wait; 6=kill both */
 G_CVAR( g_telefragMode, "g_telefragMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* telefrag handling when destination is occupied by a frozen body (freezebody).
+   Uses the same mode mapping as g_telefragMode. */
+G_CVAR( g_telefragFrozenMode, "g_telefragFrozenMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 G_CVAR( g_rotation, "g_rotation", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
@@ -272,6 +277,9 @@ G_CVAR( g_freezeRealisticKnockback, "g_freezeRealisticKnockback", "0", CVAR_ARCH
 G_CVAR( g_freezeDisableKnockback, "g_freezeDisableKnockback", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 /* Disable collision for frozen bodies so players can pass through (0/1) */
 G_CVAR( g_freezeNoCollision, "g_freezeNoCollision", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+/* spawn handling when spawn spot is occupied only by frozen bodies:
+   0 = default (allow telefrag via KillBox), 1 = try place-near offsets before telefrag */
+G_CVAR( g_spawnFrozenMode, "g_spawnFrozenMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
 // Spectating behavior in team modes
 // 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates

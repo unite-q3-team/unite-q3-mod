@@ -1,6 +1,64 @@
 // Copyright (C) 1999-2000 Id Software, Inc.
 //
 #include "g_local.h"
+#include "g_freeze.h"
+
+/* spawn relocation helper constants (C89 file-scope) */
+static const float SPAWN_RADII[4] = { 16.0f, 32.0f, 48.0f, 64.0f };
+static const float SPAWN_OFF8[8][2] = {
+	{1.0f, 0.0f}, {0.70710678f, 0.70710678f}, {0.0f, 1.0f}, {-0.70710678f, 0.70710678f},
+	{-1.0f, 0.0f}, {-0.70710678f, -0.70710678f}, {0.0f, -1.0f}, {0.70710678f, -0.70710678f}
+};
+
+/*
+ * Try to slightly relocate a just-spawned player away from frozen bodies occupying the spawn spot.
+ * Only applies when the spot is occupied by frozen bodies and there is no live player at that spot.
+ */
+static void TryRelocateFromFrozenBodies( gentity_t *ent ) {
+	int tcount, ti;
+	int touch[MAX_GENTITIES];
+	gentity_t *hit;
+	vec3_t mins, maxs;
+	qboolean hasPlayer, hasFrozen;
+	int ri, ai;
+	vec3_t cand, cmins, cmaxs;
+
+	VectorAdd( ent->client->ps.origin, ent->r.mins, mins );
+	VectorAdd( ent->client->ps.origin, ent->r.maxs, maxs );
+	tcount = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+	hasPlayer = qfalse;
+	hasFrozen = qfalse;
+	for ( ti = 0; ti < tcount; ++ti ) {
+		hit = &g_entities[ touch[ti] ];
+		if ( hit == ent ) continue;
+		if ( hit->client ) { hasPlayer = qtrue; break; }
+		if ( ftmod_isBodyFrozen( hit ) ) { hasFrozen = qtrue; }
+	}
+	if ( hasPlayer || !hasFrozen ) {
+		return;
+	}
+	/* Try a few nearby offsets on the same height */
+	for ( ri = 0; ri < 4; ++ri ) {
+		for ( ai = 0; ai < 8; ++ai ) {
+			cand[0] = ent->client->ps.origin[0] + SPAWN_OFF8[ai][0] * SPAWN_RADII[ri];
+			cand[1] = ent->client->ps.origin[1] + SPAWN_OFF8[ai][1] * SPAWN_RADII[ri];
+			cand[2] = ent->client->ps.origin[2];
+			VectorAdd( cand, ent->r.mins, cmins );
+			VectorAdd( cand, ent->r.maxs, cmaxs );
+			tcount = trap_EntitiesInBox( cmins, cmaxs, touch, MAX_GENTITIES );
+			for ( ti = 0; ti < tcount; ++ti ) {
+				hit = &g_entities[ touch[ti] ];
+				if ( hit == ent ) continue;
+				if ( hit->client || ftmod_isBodyFrozen( hit ) ) break;
+			}
+			if ( ti == tcount ) {
+				VectorCopy( cand, ent->client->ps.origin );
+				G_SetOrigin( ent, cand );
+				return;
+			}
+		}
+	}
+}
 
 // g_client.c -- client functions that don't happen every frame
 
@@ -76,11 +134,13 @@ qboolean SpotWouldTelefrag( gentity_t *spot ) {
 
 	for (i=0 ; i<num ; i++) {
 		hit = &g_entities[touch[i]];
-		//if ( hit->client && hit->client->ps.stats[STAT_HEALTH] > 0 ) {
-		if ( hit->client) {
+		/* treat live players OR frozen bodies as blocking for spawn */
+		if ( hit->client ) {
 			return qtrue;
 		}
-
+		if ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) {
+			return qtrue;
+		}
 	}
 
 	return qfalse;
@@ -1309,8 +1369,17 @@ void ClientBegin( int clientNum ) {
 	int			spawns;
 
 	ent = g_entities + clientNum;
-
 	client = level.clients + clientNum;
+	if ( g_debugTrace.integer ) {
+		G_Printf("[BEGIN] enter: clientNum=%d entInuse=%d entSNum=%d clientConn=%d team=%d freeze=%d gt=%d\n",
+			clientNum,
+			(ent ? (ent->inuse ? 1 : 0) : 0),
+			(ent ? ent->s.number : -1),
+			(client ? client->pers.connected : -1),
+			(client ? client->sess.sessionTeam : -1),
+			g_freeze.integer,
+			g_gametype.integer);
+	}
 
 	if ( ent->r.linked ) {
 		trap_UnlinkEntity( ent );
@@ -1341,12 +1410,21 @@ void ClientBegin( int clientNum ) {
 
 	// ClientSpawn( ent );
 
-	if (g_freeze.integer && g_freeze_beginFrozen.integer)
+	if (g_freeze.integer && g_freeze_beginFrozen.integer) {
+		if ( g_debugTrace.integer ) G_Printf("[BEGIN] calling ftmod_spawnFrozenPlayer for %d\n", clientNum);
 		ftmod_spawnFrozenPlayer(ent, client);
-	else 
+	} else {
+		if ( g_debugTrace.integer ) G_Printf("[BEGIN] calling ClientSpawn for %d\n", clientNum);
 		ClientSpawn(ent);
-	
-
+	}
+	if ( g_debugTrace.integer ) {
+		G_Printf("[BEGIN] after spawn: client=%d entInuse=%d entClass=%s health=%d pm_type=%d\n",
+			clientNum,
+			(ent->inuse ? 1 : 0),
+			(ent->classname ? ent->classname : "<nc>"),
+			ent->health,
+			client->ps.pm_type);
+	}
 
 	if ( !client->pers.inGame ) {
 		BroadcastTeamChange( client, -1 );
@@ -1438,6 +1516,28 @@ void ClientSpawn(gentity_t *ent) {
 
 	index = ent - g_entities;
 	client = ent->client;
+
+	if ( g_debugTrace.integer ) {
+		G_Printf("[SPAWN] ClientSpawn enter: client=%d name=%s team=%d freeze=%d gametype=%d\n",
+			index,
+			ent && ent->client ? ent->client->pers.netname : "<nc>",
+			ent && ent->client ? ent->client->sess.sessionTeam : -1,
+			g_freeze.integer,
+			g_gametype.integer);
+	}
+	/* Guard: ensure this is a real client entity */
+	if ( index < 0 || index >= level.maxclients || client == NULL ) {
+		if ( g_debugTrace.integer ) {
+			G_Printf("[SPAWN] BAD CALL: index=%d s.number=%d classname=%s inuse=%d client=%p maxclients=%d\n",
+				index,
+				ent->s.number,
+				(ent->classname ? ent->classname : "<nc>"),
+				(ent->inuse ? 1 : 0),
+				(void*)client,
+				level.maxclients);
+		}
+		return;
+	}
 
 	trap_UnlinkEntity( ent );
 
@@ -1650,6 +1750,11 @@ void ClientSpawn(gentity_t *ent) {
 		if (ftmod_isSpectator(client)) {
 
 		} else {
+			/* If spawn spot is occupied only by frozen bodies and policy asks to place near, try offsets */
+			if ( g_spawnFrozenMode.integer == 1 ) {
+				TryRelocateFromFrozenBodies( ent );
+			}
+			if ( g_debugTrace.integer ) G_Printf("[SPAWN] calling G_KillBox (freeze) for client %d at %s\n", index, vtos(ent->client->ps.origin));
 			G_KillBox(ent);
 			trap_LinkEntity(ent);
 
@@ -1658,6 +1763,7 @@ void ClientSpawn(gentity_t *ent) {
 		if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
 
 		} else {
+			if ( g_debugTrace.integer ) G_Printf("[SPAWN] calling G_KillBox for client %d at %s\n", index, vtos(ent->client->ps.origin));
 			G_KillBox(ent);
 			trap_LinkEntity(ent);
 

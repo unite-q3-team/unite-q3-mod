@@ -569,18 +569,29 @@ Cmd_Kill_f
 =================
 */
 void Cmd_Kill_f(gentity_t *ent) {
+	if ( g_debugTrace.integer ) {
+		G_Printf("[KILL] request by client=%d name=%s health=%d team=%d freeze=%d\n",
+			ent ? ent->s.clientNum : -1,
+			(ent && ent->client) ? ent->client->pers.netname : "<nc>",
+			ent ? ent->health : -9999,
+			(ent && ent->client) ? ent->client->sess.sessionTeam : -1,
+			g_freeze.integer);
+	}
 	if ((g_freeze.integer && ftmod_isSpectator(ent->client)) ||
 		(!g_freeze.integer && ent->client->sess.sessionTeam == TEAM_SPECTATOR)) {
+		if ( g_debugTrace.integer ) G_Printf("[KILL] denied: spectator\n");
 		return;
 	}
 
 	if (ent->health <= 0) {
+		if ( g_debugTrace.integer ) G_Printf("[KILL] denied: already dead\n");
 		return;
 	}
 
 	ent->flags &= ~FL_GODMODE;
 	ent->client->ps.stats[STAT_HEALTH] = ent->health = -999;
 
+	if ( g_debugTrace.integer ) G_Printf("[KILL] executing player_die for client %d\n", ent->s.clientNum);
 	player_die(ent, ent, ent, 100000,
 		(MOD_SUICIDE));
 }
@@ -661,6 +672,16 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 	clientNum = ent - g_entities;
 	client = level.clients + clientNum;
 
+	if ( g_debugTrace.integer ) {
+		G_Printf("[TEAM] request: client=%d name=%s from=%d arg=%s freeze=%d gt=%d\n",
+			clientNum,
+			client ? client->pers.netname : "<nc>",
+			client ? client->sess.sessionTeam : -1,
+			s ? s : "<null>",
+			g_freeze.integer,
+			g_gametype.integer);
+	}
+
 	// early team override
 	if ( client->pers.connected == CON_CONNECTING && g_gametype.integer >= GT_TEAM ) {
 		if ( !Q_stricmp( s, "red" ) || !Q_stricmp( s, "r" ) ) {
@@ -676,6 +697,7 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 			G_WriteClientSessionData( client );
 			// count current clients and rank for scoreboard
 			CalculateRanks();
+			if ( g_debugTrace.integer ) G_Printf("[TEAM] early override applied: to=%d\n", team);
 		}
 		return qfalse; // bypass flood protection
 	}
@@ -772,6 +794,7 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 		ent->flags &= ~FL_GODMODE;
 		ent->client->ps.stats[STAT_HEALTH] = ent->health = 0;
         player_die (ent, ent, ent, 100000, MOD_SUICIDE);
+		if ( g_debugTrace.integer ) G_Printf("[TEAM] forced suicide for team change client=%d\n", clientNum);
 
         /* Reset extended stats on team change */
         {
@@ -807,6 +830,7 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
 	client->sess.sessionTeam = team;
 	client->sess.spectatorState = specState;
 	client->sess.spectatorClient = specClient;
+	if ( g_debugTrace.integer ) G_Printf("[TEAM] applied: client=%d newTeam=%d specState=%d specClient=%d\n", clientNum, team, specState, specClient);
 
 	checkTeamLeader = client->sess.teamLeader;
 	client->sess.teamLeader = qfalse;

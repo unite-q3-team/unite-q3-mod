@@ -522,6 +522,11 @@ void G_KillBox (gentity_t *ent) {
 
 	VectorAdd( ent->client->ps.origin, ent->r.mins, mins );
 	VectorAdd( ent->client->ps.origin, ent->r.maxs, maxs );
+	if ( g_debugTrace.integer ) {
+		G_Printf("[KBOX] client=%d at=%s mins=%s maxs=%s freeze=%d\n",
+			ent ? ent->s.clientNum : -1,
+			vtos(ent->client->ps.origin), vtos(mins), vtos(maxs), g_freeze.integer);
+	}
 	num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
 
 	for (i=0 ; i<num ; i++) {

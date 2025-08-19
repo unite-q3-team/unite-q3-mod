@@ -257,6 +257,15 @@ void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace
 	if ( other->client->ps.pm_type == PM_DEAD ) {
 		return;
 	}
+	if ( g_debugTrace.integer ) {
+		G_Printf("[TT] touch: client=%d name=%s team=%d freeze=%d target=%s mode=%d\n",
+			other->s.clientNum,
+			other->client ? other->client->pers.netname : "<nc>",
+			other->client ? other->client->sess.sessionTeam : -1,
+			g_freeze.integer,
+			self->target ? self->target : "<none>",
+			g_telefragMode.integer);
+	}
 	// Spectators only?
 	if (self->spawnflags & 1) {
 		if (!g_freeze.integer) {
@@ -280,6 +289,7 @@ void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace
 		return;
 	}
 
+	if ( g_debugTrace.integer ) G_Printf("[TT] call TeleportPlayer to %s ang %s\n", vtos(dest->s.origin), vtos(dest->s.angles));
 	TeleportPlayer( other, dest->s.origin, dest->s.angles );
 }
 

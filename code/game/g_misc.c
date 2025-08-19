@@ -77,6 +77,18 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 	};
 	qboolean occupied;
 
+	/* debug */
+	if ( g_debugTrace.integer ) {
+		G_Printf("[TP] enter: client=%d name=%s mode=%d freeze=%d dest=%s ang=%s curr=%s\n",
+			player ? player->s.clientNum : -1,
+			(player && player->client) ? player->client->pers.netname : "<nc>",
+			g_telefragMode.integer,
+			g_freeze.integer,
+			vtos(origin),
+			(angles ? vtos(angles) : "<null>"),
+			(player ? vtos(player->client->ps.origin) : "<null>") );
+	}
+
 	/* Early check: in WAIT mode (5), if destination is occupied, do nothing (no effects) */
 	mode = g_telefragMode.integer;
 	if ( mode == 5 ) {
@@ -90,6 +102,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 			if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; }
 		}
 		if ( occupied ) {
+			if ( g_debugTrace.integer ) G_Printf("[TP] mode=5 WAIT: destination occupied at %s, abort teleport for client %d\n", vtos(origin), player->s.clientNum);
 			return;
 		}
 	}
@@ -118,6 +131,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		}
 		if ( occupied ) {
 			/* after impulse they won't move immediately; treat as WAIT (5) for this frame */
+			if ( g_debugTrace.integer ) G_Printf("[TP] mode=3 PUSH: pushed occupants near %s, abort this frame for client %d\n", vtos(origin), player->s.clientNum);
 			return;
 		}
 	}
@@ -147,6 +161,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 					VectorScale( dir, 400.0f, player->client->ps.velocity );
 				}
 			}
+			if ( g_debugTrace.integer ) G_Printf("[TP] mode=7 BOUNCE: destination occupied at %s, reflected/pushed client %d and aborted\n", vtos(origin), player->s.clientNum);
 			return;
 		}
 	}
@@ -174,6 +189,21 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		VectorAdd( origin, player->r.mins, mins );
 		VectorAdd( origin, player->r.maxs, maxs );
 		num = trap_EntitiesInBox( mins, maxs, touch, MAX_GENTITIES );
+		/* If occupied only by frozen bodies (and no live players), switch to frozen-mode cvar */
+		if ( num > 0 ) {
+			qboolean hasPlayer = qfalse;
+			qboolean hasFrozen = qfalse;
+			for ( i = 0; i < num; ++i ) {
+				hit = &g_entities[ touch[i] ];
+				if ( hit == player ) continue;
+				if ( hit->client ) { hasPlayer = qtrue; }
+				else if ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) { hasFrozen = qtrue; }
+			}
+			if ( hasFrozen && !hasPlayer ) {
+				mode = g_telefragFrozenMode.integer;
+				if ( g_debugTrace.integer ) G_Printf("[TP] using frozen-mode %d due to frozen-only occupancy\n", mode);
+			}
+		}
 		if ( mode == 5 ) {
 			occupied = qfalse;
 			for ( i = 0; i < num; ++i ) { hit = &g_entities[ touch[i] ]; if ( hit == player ) continue; if ( hit->client || ( g_freeze.integer && ftmod_isBodyFrozen( hit ) ) ) { occupied = qtrue; break; } }
@@ -211,7 +241,13 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		}
 	}
 
+	if ( g_debugTrace.integer ) {
+		G_Printf("[TP] mode=%d resolved: skipKillbox=%d killBoth=%d finalOrigin=%s\n",
+			mode, (int)skipKillbox, (int)killBoth, vtos(finalOrigin));
+	}
+
 	// unlink to make sure it can't possibly interfere with G_KillBox
+	if ( g_debugTrace.integer ) G_Printf("[TP] unlink before move client %d\n", player->s.clientNum);
 	trap_UnlinkEntity( player );
 
 	VectorCopy( finalOrigin, player->client->ps.origin );
@@ -246,6 +282,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
 	) {
 		if ( !skipKillbox ) {
+			if ( g_debugTrace.integer ) G_Printf("[TP] calling G_KillBox for client %d at %s\n", player->s.clientNum, vtos(finalOrigin));
 			G_KillBox( player );
 			/* For frozen bodies: mode 0 and 6 thaw bodies at destination */
 			if ( g_freeze.integer && (mode == 0 || mode == 6) ) {
@@ -263,6 +300,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 			}
 		}
 		if ( killBoth ) {
+			if ( g_debugTrace.integer ) G_Printf("[TP] killBoth active: damaging teleporter client %d\n", player->s.clientNum);
 			G_Damage( player, player, player, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG );
 		}
 	}
@@ -285,6 +323,7 @@ void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles ) {
 		(g_freeze.integer && !ftmod_isSpectator( player->client )) ||
 		(!g_freeze.integer && player->client->sess.sessionTeam != TEAM_SPECTATOR)
 	) {
+		if ( g_debugTrace.integer ) G_Printf("[TP] link entity for client %d at %s\n", player->s.clientNum, vtos(player->client->ps.origin));
 		trap_LinkEntity( player );
 	}
 
