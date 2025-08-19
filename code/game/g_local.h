@@ -174,6 +174,12 @@ struct gentity_s {
 	qboolean	readyBegin;
 	//freeze
 
+	// Multi-player thaw system
+	int			thawPlayerCount;		// Number of players currently thawing
+	int			thawPlayers[MAX_CLIENTS];	// Array of client numbers thawing
+	int			thawStartTime;		// When thawing started
+	// Multi-player thaw system
+
 	qboolean	authed;
 };
 

@@ -157,6 +157,12 @@
 - `g_freeze_forceRevive`, `g_freeze_beginFrozen`, `g_freeze_beginFrozenDelay`
 - Поведение наблюдения в тим-режимах: `g_teamAllowEnemySpectate`, `g_autoFollowTeammate`, `g_teamNoFreeSpectate`
 
+**Множественная разморозка:**
+- `g_thawMultiplayer` — включить ускоренную разморозку несколькими игроками (0/1)
+- `g_thawSpeedBonus` — процент ускорения разморозки за каждого дополнительного игрока
+- `g_thawMaxPlayers` — максимальное количество игроков, которые могут размораживать один труп
+- `g_thawAssistAward` — награждать всех содействующих игроков медалью ASSIST (0/1)
+
 Спец. учтены переходы между командами, follow/ready, списание голосов при смене команды и т.п.
 
 

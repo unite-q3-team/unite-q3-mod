@@ -304,6 +304,12 @@ G_CVAR( g_freezeNoCollision, "g_freezeNoCollision", "0", CVAR_ARCHIVE, 0, qfalse
    0 = default (allow telefrag via KillBox), 1 = try place-near offsets before telefrag */
 G_CVAR( g_spawnFrozenMode, "g_spawnFrozenMode", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* Multi-player thaw system */
+G_CVAR( g_thawMultiplayer, "g_thawMultiplayer", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawSpeedBonus, "g_thawSpeedBonus", "20", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawMaxPlayers, "g_thawMaxPlayers", "3", CVAR_ARCHIVE, 0, qfalse, qfalse )
+G_CVAR( g_thawAssistAward, "g_thawAssistAward", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 // Spectating behavior in team modes
 // 1 = allow following enemies (default, current behavior), 0 = restrict follow to teammates
 G_CVAR( g_teamAllowEnemySpectate, "g_teamAllowEnemySpectate", "1", CVAR_ARCHIVE, 0, qfalse, qfalse )

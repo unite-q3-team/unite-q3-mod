@@ -202,10 +202,15 @@ void ftmod_bodyFree(gentity_t *self) {
 }
 
 static void ftmod_bodyExplode(gentity_t *self) {
-    int i;
+    int i, j;
     gentity_t *e, *tent;
     vec3_t point;
-
+    int nearbyPlayers[MAX_CLIENTS];
+    int nearbyPlayerCount = 0;
+    int thawTime;
+    int baseThawTime = (int)(g_thawTime.value * 1000);
+    
+    // Find all nearby players
     for (i = 0; i < g_maxclients.integer; i++) {
         e = g_entities + i;
         if (!e->inuse || e->health < 1)
@@ -213,20 +218,97 @@ static void ftmod_bodyExplode(gentity_t *self) {
         if (e->client->sess.sessionTeam != self->spawnflags)
             continue;
         VectorSubtract(self->s.pos.trBase, e->s.pos.trBase, point);
-        if (VectorLength(point) > 100)
+        if (VectorLength(point) > g_thawRadius.integer)
             continue;
         if (ftmod_isSpectator(e->client))
             continue;
+            
+        nearbyPlayers[nearbyPlayerCount++] = i;
+    }
+    
+    // If no players nearby, reset thaw state
+    if (nearbyPlayerCount == 0) {
+        self->count = 0;
+        self->thawPlayerCount = 0;
+        self->thawStartTime = 0;
+        return;
+    }
+    
+    // Check if multiplayer thaw is enabled and we have multiple players
+    if (g_thawMultiplayer.integer && nearbyPlayerCount > 1) {
+        // Limit number of players that can participate
+        int maxPlayers = g_thawMaxPlayers.integer;
+        if (nearbyPlayerCount > maxPlayers) {
+            nearbyPlayerCount = maxPlayers;
+        }
+        
+        // Calculate thaw time with speed bonus
+        float speedBonus = g_thawSpeedBonus.value / 100.0f; // Convert percentage to decimal
+        thawTime = (int)(baseThawTime * (1.0f - speedBonus * (nearbyPlayerCount - 1)));
+        
+        // Ensure minimum thaw time
+        if (thawTime < 500) {
+            thawTime = 500;
+        }
+        
+        // Start thawing if not already started
+        if (!self->count) {
+            self->count = level.time + thawTime;
+            self->thawStartTime = level.time;
+            self->thawPlayerCount = nearbyPlayerCount;
+            
+            // Store participating players
+            for (i = 0; i < nearbyPlayerCount; i++) {
+                self->thawPlayers[i] = nearbyPlayers[i];
+            }
+            
+            G_Sound(self, CHAN_AUTO, self->noise_index);
+            self->activator = &g_entities[nearbyPlayers[0]]; // First player is the primary thawer
+        }
+        
+        // Check if thawing is complete
+        if (self->count < level.time) {
+            // Award all participating players
+            for (i = 0; i < self->thawPlayerCount; i++) {
+                e = &g_entities[self->thawPlayers[i]];
+                if (e->inuse && e->client) {
+                    // Primary thawer gets the main reward
+                    if (i == 0) {
+                        tent = G_TempEntity(self->target_ent->r.currentOrigin, EV_OBITUARY);
+                        tent->s.eventParm = MOD_UNKNOWN;
+                        tent->s.otherEntityNum = self->target_ent->s.number;
+                        tent->s.otherEntityNum2 = e->s.number;
+                        tent->r.svFlags = SVF_BROADCAST;
 
-        if (!self->count)
-        {
-            self->count = level.time + (g_thawTime.value * 1000);
+                        G_LogPrintf("Kill: %i %i %i: %s killed %s by %s\n", e->s.number,
+                                    self->target_ent->s.number, MOD_UNKNOWN,
+                                    e->client->pers.netname,
+                                    self->target_ent->client->pers.netname, "MOD_UNKNOWN");
+
+                        AddScore(e, self->s.pos.trBase, 1);
+                        e->client->sess.wins++;
+                    }
+                    
+                    // Award assist to all participants if enabled
+                    if (g_thawAssistAward.integer) {
+                        e->client->ps.persistant[PERS_ASSIST_COUNT]++;
+                    }
+                }
+            }
+            
+            // Free the frozen player
+            G_Damage(self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG);
+        }
+    } else {
+        // Single player thaw (original logic)
+        e = &g_entities[nearbyPlayers[0]];
+        
+        if (!self->count) {
+            self->count = level.time + baseThawTime;
             G_Sound(self, CHAN_AUTO, self->noise_index);
             self->activator = e;
         }
-        else if (self->count < level.time)
-        {
-            // simplified case fallback
+        else if (self->count < level.time) {
             tent = G_TempEntity(self->target_ent->r.currentOrigin, EV_OBITUARY);
             tent->s.eventParm = MOD_UNKNOWN;
             tent->s.otherEntityNum = self->target_ent->s.number;
@@ -241,12 +323,9 @@ static void ftmod_bodyExplode(gentity_t *self) {
             AddScore(e, self->s.pos.trBase, 1);
             e->client->sess.wins++;
             e->client->ps.persistant[PERS_ASSIST_COUNT]++; // assist award
-            G_Damage(self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION,
-                     MOD_TELEFRAG);
+            G_Damage(self, NULL, NULL, NULL, NULL, 100000, DAMAGE_NO_PROTECTION, MOD_TELEFRAG);
         }
-        return;
     }
-    self->count = 0;
 }
 
 static void ftmod_bodyWorldEffects(gentity_t *self) {
@@ -485,6 +564,7 @@ qboolean ftmod_damageBody(gentity_t *targ, gentity_t *attacker, vec3_t dir,
 
 void ftmod_copyToBody(gentity_t *ent) {
     gentity_t *body;
+    int i;
 
     body = G_Spawn();
     body->classname = "freezebody";
@@ -560,6 +640,13 @@ void ftmod_copyToBody(gentity_t *ent) {
     body->spawnflags = ent->client->sess.sessionTeam;
     body->waterlevel = ent->waterlevel;
     body->count = 0;
+
+    // Initialize multi-player thaw fields
+    body->thawPlayerCount = 0;
+    body->thawStartTime = 0;
+    for (i = 0; i < MAX_CLIENTS; i++) {
+        body->thawPlayers[i] = -1;
+    }
 
     trap_LinkEntity(body);
 }
