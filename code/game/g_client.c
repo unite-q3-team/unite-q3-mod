@@ -1317,6 +1317,15 @@ const char *ClientConnect( int clientNum, qboolean firstTime, qboolean isBot ) {
 
 	ClientUserinfoChanged( clientNum );
 
+	// Print connection message to console (after userinfo is processed)
+	{
+		char userinfo[MAX_INFO_STRING];
+		const char *ipval;
+		trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+		ipval = Info_ValueForKey( userinfo, "ip" );
+		G_LogPrintf( "^2Player ^7%s^7[%d] ^2(%s) connected\n", client->pers.netname, clientNum, ipval );
+	}
+
 	// don't do the "xxx connected" messages if they were caried over from previous level
     if ( firstTime ) {
         {
@@ -1975,6 +1984,16 @@ void ClientDisconnect( int clientNum ) {
 	}
 
 	G_LogPrintf( "ClientDisconnect: %i\n", clientNum );
+
+	// Print disconnection message to console
+	{
+		char userinfo[MAX_INFO_STRING];
+		const char *ipval;
+		trap_GetUserinfo( clientNum, userinfo, sizeof( userinfo ) );
+		ipval = Info_ValueForKey( userinfo, "ip" );
+		G_LogPrintf( "^1Player ^7%s^7[%d] ^2(%s) ^1disconnected\n", ent->client->pers.netname, clientNum, ipval );
+	}
+
 	ent->authed = qfalse;
 
 	// if we are playing in tourney mode and losing, give a win to the other player
