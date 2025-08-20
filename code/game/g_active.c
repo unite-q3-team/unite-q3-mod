@@ -440,7 +440,9 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
 
     if ( client->sess.spectatorState != SPECTATOR_FOLLOW ) {
         /* If in team mode and free-look is disabled, force trying to follow a teammate (not during intermission) */
-        if ( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime ) {
+        /* Only apply this restriction to frozen players, not true spectators */
+        if ( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime && 
+             g_freeze.integer && ent->freezeState ) {
             int k;
             int myTeam = client->sess.sessionTeam;
             /* find a teammate to follow */
@@ -481,8 +483,9 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
         pm.trace = trap_Trace;
         pm.pointcontents = trap_PointContents;
 
-        // perform a pmove (unless disabled by teamNoFreeSpectate; ignore during intermission)
-        if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime ) ) {
+        // perform a pmove (unless disabled by teamNoFreeSpectate for frozen players; ignore during intermission)
+        if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime && 
+                g_freeze.integer && ent->freezeState ) ) {
             Pmove( &pm );
         }
         // save results of pmove
@@ -502,8 +505,9 @@ void SpectatorThink( gentity_t *ent, usercmd_t *ucmd ) {
                 /* true spectator: always allow free */
                 StopFollowing( ent, qtrue );
             } else {
-                /* not on spectator team: obey team free-spectate lock (not during intermission) */
-                if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime ) ) {
+                /* not on spectator team: obey team free-spectate lock only for frozen players (not during intermission) */
+                if ( !( g_gametype.integer >= GT_TEAM && g_teamNoFreeSpectate.integer && !level.intermissiontime && 
+                        g_freeze.integer && ent->freezeState ) ) {
                     StopFollowingNew( ent );
                 }
             }
