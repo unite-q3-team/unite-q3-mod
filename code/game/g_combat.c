@@ -1082,14 +1082,21 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		if ( OnSameTeam( targ, attacker ) ) {
 			attacker->client->damage.team++;
         } else {
+            int weaponForStats;
+            int weaponFromMod;
             attacker->client->damage.enemy++;
             // accumulate damage during server frame
             attacker->client->damage.amount += take + asave;
             // stats: attribute damage by current weapon on attacker snapshot
             attacker->client->totalDamageGiven += take + asave;
-            attacker->client->perWeaponDamageGiven[ attacker->s.weapon ] += take + asave;
+            // use weapon from inflictor (missile) if it's a missile, or from mod parameter if negative, otherwise from attacker
+            weaponFromMod = (mod < 0) ? -mod : 0;
+            weaponForStats = (inflictor && inflictor->s.eType == ET_MISSILE) ? inflictor->s.weapon : 
+                            (weaponFromMod > WP_NONE && weaponFromMod < WP_NUM_WEAPONS) ? weaponFromMod : attacker->s.weapon;
+            if ( weaponForStats < 0 || weaponForStats >= WP_NUM_WEAPONS ) weaponForStats = WP_NONE;
+            attacker->client->perWeaponDamageGiven[ weaponForStats ] += take + asave;
             client->totalDamageTaken += take + asave;
-            client->perWeaponDamageTaken[ attacker->s.weapon ] += take + asave;
+            client->perWeaponDamageTaken[ weaponForStats ] += take + asave;
         }
 #endif
 	}
@@ -1161,15 +1168,20 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
                 targ->client->deaths++;
             }
             if ( attacker && attacker->client && attacker != targ && !OnSameTeam(targ, attacker) ) {
+                int weaponForStats;
+                int weaponFromMod;
                 attacker->client->kills++;
                 /* increment current streak and update best */
                 attacker->client->currentKillStreak++;
                 if ( attacker->client->currentKillStreak > attacker->client->bestKillStreak ) {
                     attacker->client->bestKillStreak = attacker->client->currentKillStreak;
                 }
-                /* attribute per-weapon kill to current attacker weapon */
-                if ( attacker->s.weapon >= 0 && attacker->s.weapon < WP_NUM_WEAPONS ) {
-                    attacker->client->perWeaponKills[ attacker->s.weapon ]++;
+                /* attribute per-weapon kill to weapon that caused the damage */
+                weaponFromMod = (mod < 0) ? -mod : 0;
+                weaponForStats = (inflictor && inflictor->s.eType == ET_MISSILE) ? inflictor->s.weapon : 
+                                (weaponFromMod > WP_NONE && weaponFromMod < WP_NUM_WEAPONS) ? weaponFromMod : attacker->s.weapon;
+                if ( weaponForStats >= 0 && weaponForStats < WP_NUM_WEAPONS ) {
+                    attacker->client->perWeaponKills[ weaponForStats ]++;
                 }
             }
             targ->die (targ, inflictor, attacker, take, mod);
@@ -1368,9 +1380,19 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		points = damage * ( 1.0 - dist / radius );
 
 		if( CanDamage (ent, origin) || g_damageThroughWalls.integer) {
-			if( LogAccuracyHit( ent, attacker ) ) {
+			// use LogMissileAccuracyHit for missile splash damage
+			qboolean hit = (ignore && ignore->s.eType == ET_MISSILE) ? 
+				LogMissileAccuracyHit( ent, attacker ) : LogAccuracyHit( ent, attacker );
+			if( hit ) {
 				hitClient = qtrue;
 				hitCount++;
+				if (g_accLog.integer) {
+			G_Printf("RadiusDamage: hit registered for entity %d\n", ent->s.number);
+		}
+			} else {
+				if (g_accLog.integer) {
+					G_Printf("RadiusDamage: hit not registered for entity %d\n", ent->s.number);
+				}
 			}
 			VectorSubtract (ent->r.currentOrigin, origin, dir);
 			// push the center of mass higher than the origin so players
@@ -1380,10 +1402,39 @@ qboolean G_RadiusDamage ( vec3_t origin, gentity_t *attacker, float damage, floa
 		}
 	}
 
+	if (g_accLog.integer) {
+		G_Printf("RadiusDamage: hitCount=%d, attacker=%s, attacker->client=%s\n", 
+		         hitCount, attacker ? "valid" : "NULL", (attacker && attacker->client) ? "valid" : "NULL");
+	}
 	if ( hitCount > 0 && attacker && attacker->client ) {
-		int w = attacker->s.weapon;
-		if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
-		attacker->client->perWeaponHits[w] += hitCount;
+		int weaponForStats;
+		// extract weapon info from mod parameter if it was encoded there
+		int weaponFromMod = (mod < 0) ? -mod : 0;
+		if (g_accLog.integer) {
+			G_Printf("RadiusDamage: mod=%d, weaponFromMod=%d, ignore=%s, ignore->s.eType=%d, ignore->s.weapon=%d, ignore->parent=%s, attacker->s.weapon=%d\n", 
+			         mod, weaponFromMod, ignore ? "valid" : "NULL", ignore ? ignore->s.eType : -1, ignore ? ignore->s.weapon : -1, 
+			         (ignore && ignore->parent) ? "valid" : "NULL", attacker->s.weapon);
+		}
+		weaponForStats = (weaponFromMod > WP_NONE && weaponFromMod < WP_NUM_WEAPONS) ? 
+		                  weaponFromMod : attacker->s.weapon;
+		if (g_accLog.integer) {
+			G_Printf("RadiusDamage: weaponForStats=%d (using %s weapon)\n", 
+			         weaponForStats, (weaponFromMod > WP_NONE && weaponFromMod < WP_NUM_WEAPONS) ? 
+			                          "weaponFromMod" : "attacker");
+		}
+		if ( weaponForStats < 0 || weaponForStats >= WP_NUM_WEAPONS ) weaponForStats = WP_NONE;
+		// additional check to ensure client is still valid
+		if ( attacker->client ) {
+			attacker->client->perWeaponHits[weaponForStats] += hitCount;
+			if (g_accLog.integer) {
+			G_Printf("RadiusDamage: perWeaponHits[%d] += %d\n", weaponForStats, hitCount);
+		}
+		}
+	} else {
+		if (g_accLog.integer) {
+			G_Printf("RadiusDamage: not updating perWeaponHits (hitCount=%d, attacker=%s, client=%s)\n", 
+			         hitCount, attacker ? "valid" : "NULL", (attacker && attacker->client) ? "valid" : "NULL");
+		}
 	}
 	return hitClient;
 }

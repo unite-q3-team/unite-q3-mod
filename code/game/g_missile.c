@@ -47,6 +47,8 @@ Explode a missile without an impact
 void G_ExplodeMissile( gentity_t *ent ) {
 	vec3_t		dir;
 	vec3_t		origin;
+	int			weaponForSplash;
+	qboolean	isMissile;
 
 	BG_EvaluateTrajectory( &ent->s.pos, level.time, origin );
 	SnapVector( origin );
@@ -56,6 +58,10 @@ void G_ExplodeMissile( gentity_t *ent ) {
 	dir[0] = dir[1] = 0;
 	dir[2] = 1;
 
+	// save weapon info before changing entity type
+	weaponForSplash = ent->s.weapon;
+	isMissile = (ent->s.eType == ET_MISSILE);
+
 	ent->s.eType = ET_GENERAL;
 	G_AddEvent( ent, EV_MISSILE_MISS, DirToByte( dir ) );
 
@@ -63,12 +69,23 @@ void G_ExplodeMissile( gentity_t *ent ) {
 
 	// splash damage
 	if ( ent->splashDamage ) {
+		int w;
+        if (g_accLog.integer) {
+            G_Printf("Splash damage: checking radius damage for weapon %d (saved: %d, isMissile: %s, ent->parent=%s)\n", 
+                     ent->s.weapon, weaponForSplash, isMissile ? "true" : "false", ent->parent ? "valid" : "NULL");
+            G_Printf("Splash damage: calling G_RadiusDamage with mod=%d (splashMethodOfDeath=%d, weaponForSplash=%d)\n", 
+                     -weaponForSplash, ent->splashMethodOfDeath, weaponForSplash);
+        }
         if( G_RadiusDamage( ent->r.currentOrigin, ent->parent, ent->splashDamage, ent->splashRadius, ent
-            , ent->splashMethodOfDeath ) ) {
-            int w = ent->s.weapon;
-            if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
-            g_entities[ent->r.ownerNum].client->accuracy_hits++;
-            g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
+            , -weaponForSplash ) ) {
+            // statistics are handled in G_RadiusDamage
+            if (g_accLog.integer) {
+                G_Printf("Splash damage: G_RadiusDamage returned true\n");
+            }
+        } else {
+            if (g_accLog.integer) {
+                G_Printf("Splash damage: G_RadiusDamage returned false\n");
+            }
         }
 	}
 
@@ -304,12 +321,26 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		if ( ent->damage ) {
 			vec3_t	velocity;
 
-            if( LogAccuracyHit( other, &g_entities[ent->r.ownerNum] ) ) {
+            G_Printf("Missile hit: checking accuracy hit for weapon %d, target health: %d, target client: %s\n", 
+                     ent->s.weapon, 
+                     other->client ? other->client->ps.stats[STAT_HEALTH] : -1,
+                     other->client ? "valid" : "NULL");
+            if( LogMissileAccuracyHit( other, &g_entities[ent->r.ownerNum] ) ) {
                 int w = ent->s.weapon;
                 if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
-                g_entities[ent->r.ownerNum].client->accuracy_hits++;
-                g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
+                // check if owner client still exists and is valid
+                if ( g_entities[ent->r.ownerNum].client ) {
+                    g_entities[ent->r.ownerNum].client->accuracy_hits++;
+                    g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
+                    G_Printf("Missile hit: accuracy hit registered for weapon %d\n", w);
+                } else {
+                    G_Printf("Missile hit: owner client is NULL\n");
+                }
                 hitClient = qtrue;
+            } else {
+                		if (g_accLog.integer) {
+			G_Printf("Missile hit: LogMissileAccuracyHit returned false\n");
+		}
             }
 			BG_EvaluateTrajectoryDelta( &ent->s.pos, level.time, velocity );
 			if ( VectorLength( velocity ) == 0 ) {
@@ -449,8 +480,12 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 
 	// splash damage (doesn't apply to person directly hit)
 	if ( ent->splashDamage ) {
+		if (g_accLog.integer) {
+			G_Printf("MissileImpact: calling G_RadiusDamage with mod=%d (splashMethodOfDeath=%d, ent->s.weapon=%d)\n", 
+			         -ent->s.weapon, ent->splashMethodOfDeath, ent->s.weapon);
+		}
 		if( G_RadiusDamage( trace->endpos, ent->parent, ent->splashDamage, ent->splashRadius, 
-			other, ent->splashMethodOfDeath ) ) {
+			other, -ent->s.weapon ) ) {
 			if( !hitClient ) {
 				g_entities[ent->r.ownerNum].client->accuracy_hits++;
 			}

@@ -915,6 +915,60 @@ qboolean LogAccuracyHit( gentity_t *target, gentity_t *attacker ) {
 	return qtrue;
 }
 
+/*
+===============
+LogMissileAccuracyHit
+
+special version for missile hits that doesn't require attacker to be alive
+===============
+*/
+qboolean LogMissileAccuracyHit( gentity_t *target, gentity_t *attacker ) {
+	if( !target->takedamage ) {
+		if (g_accLog.integer) {
+			G_Printf("LogMissileAccuracyHit: target not takedamage\n");
+		}
+		return qfalse;
+	}
+
+	if ( target == attacker ) {
+		if (g_accLog.integer) {
+			G_Printf("LogMissileAccuracyHit: target == attacker\n");
+		}
+		return qfalse;
+	}
+
+	if( !target->client ) {
+		if (g_accLog.integer) {
+			G_Printf("LogMissileAccuracyHit: no target client\n");
+		}
+		return qfalse;
+	}
+
+	// don't require attacker to be alive for missile hits
+	// if( !attacker->client ) {
+	// 	return qfalse;
+	// }
+
+	if( target->client->ps.stats[STAT_HEALTH] <= 0 ) {
+		if (g_accLog.integer) {
+			G_Printf("LogMissileAccuracyHit: target health <= 0 (%d)\n", target->client->ps.stats[STAT_HEALTH]);
+		}
+		return qfalse;
+	}
+
+	if ( OnSameTeam( target, attacker ) ) {
+		if (g_accLog.integer) {
+			G_Printf("LogMissileAccuracyHit: same team\n");
+		}
+		return qfalse;
+	}
+
+	if (g_accLog.integer) {
+		G_Printf("LogMissileAccuracyHit: hit registered successfully\n");
+	}
+	return qtrue;
+}
+
 
 /*
 ===============

@@ -363,5 +363,8 @@ G_CVAR( g_announcer_file, "g_announcer_file", "announcements.txt", CVAR_ARCHIVE,
 G_CVAR( g_joinMessage, "g_joinMessage", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
 G_CVAR( g_joinCenter, "g_joinCenter", "", CVAR_ARCHIVE, 0, qfalse, qfalse )
 
+/* accuracy logging debug */
+G_CVAR( g_accLog, "g_accLog", "0", CVAR_ARCHIVE, 0, qfalse, qfalse )
+
 
 #undef G_CVAR
