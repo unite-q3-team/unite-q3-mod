@@ -320,6 +320,7 @@ struct gclient_s {
 
 	// per-client stats (cleared on spawn)
 	int			totalDamageGiven;
+	int			teamDamageGiven;
 	int			totalDamageTaken;
 	int			perWeaponDamageGiven[WP_NUM_WEAPONS];
 	int			perWeaponDamageTaken[WP_NUM_WEAPONS];
@@ -331,7 +332,8 @@ struct gclient_s {
 	int			perWeaponDrops[WP_NUM_WEAPONS];
 	int			kills;
 	int			deaths;
-		int			suicides; /* self-kills during the match */
+	int			suicides;
+	int			teamKills;
 
 	/* custom per-match counters */
 	int			chatFragCount; /* kills against chatting victims */
@@ -344,6 +346,7 @@ struct gclient_s {
 	int			armorPickedTotal;
 	int			armorYACount; // 50
 	int			armorRACount; // 100
+	int			armorGACount; // 25
 	int			armorShardCount; // 5
 	int			healthPickedTotal;
 	int			healthMegaCount; // 100

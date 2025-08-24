@@ -32,7 +32,7 @@ void Osp_Wstats(gentity_t *ent) {
     gclient_t *cl;
     gclient_t *targetCl;
     char msg[1024];
-    int base[24];
+    int base[MAX_QPATH];
     int i;
     unsigned int weaponMask;
     int w;
@@ -40,6 +40,7 @@ void Osp_Wstats(gentity_t *ent) {
     int firstW;
     int targetNum;
     int argc;
+    int hasWeaponInfo;
 
     if (!ent || !ent->client) {
         return;
@@ -84,93 +85,85 @@ void Osp_Wstats(gentity_t *ent) {
         base[i] = 0;
     }
 
-    /* Base indices */
-    base[OSP_STATS_UNKNOWN0] = 1; /* validity flag */
+    base[OSP_STATS_UNKNOWN0] = 1; // validity flag
     base[OSP_STATS_SCORE] = cl->ps.persistant[PERS_SCORE];
     base[OSP_STATS_TEAM] = cl->sess.sessionTeam;
     base[OSP_STATS_KILLS] = cl->kills;
     base[OSP_STATS_DEATHS] = cl->deaths;
-    base[OSP_STATS_SUCIDES] = 0; /* not tracked */
+    base[OSP_STATS_SUCIDES] = cl->suicides;
 
-    /* Pack wins/losses (low16) with armor/health taken (high16) */
-    base[OSP_STATS_WINS] = (cl->sess.wins & 0xFFFF) | ((cl->armorPickedTotal & 0xFFFF) << 16);
-    base[OSP_STATS_LOSSES] = (cl->sess.losses & 0xFFFF) | ((cl->healthPickedTotal & 0xFFFF) << 16);
+    if (g_freeze.integer)
+    {
+        base[OSP_STATS_WINS] = 0; // fixme
+        base[OSP_STATS_LOSSES] = cl->sess.wins; // lol, but true
+    }
+    else 
+    {
+        base[OSP_STATS_WINS] = cl->sess.wins;
+        base[OSP_STATS_LOSSES] = cl->sess.losses;
+    }
 
-    base[OSP_STATS_TEAM_KILLS] = 0; /* not tracked */
-    base[OSP_STATS_DMG_TEAM] = 0;   /* not tracked */
+    base[OSP_STATS_TEAM_KILLS] = cl->teamKills;
+    base[OSP_STATS_DMG_TEAM] = cl->teamDamageGiven;
     base[OSP_STATS_DMG_GIVEN] = cl->totalDamageGiven;
     base[OSP_STATS_DMG_RCVD] = cl->totalDamageTaken;
 
-    base[OSP_STATS_CAPS] = 0;
-    base[OSP_STATS_ASSIST] = 0;
-    base[OSP_STATS_DEFENCES] = 0;
-    base[OSP_STATS_RETURNS] = 0;
-    base[OSP_STATS_TIME] = 0;
+    base[OSP_STATS_CAPS] = cl->ps.persistant[PERS_CAPTURES];
+    base[OSP_STATS_ASSIST] = cl->ps.persistant[PERS_ASSIST_COUNT];
+    base[OSP_STATS_DEFENCES] = cl->ps.persistant[PERS_DEFEND_COUNT];
+    base[OSP_STATS_RETURNS] = 0; // flag returns (ctf)
+    base[OSP_STATS_TIME] = 0; // flag time (ctf)
 
     base[OSP_STATS_MH] = cl->healthMegaCount;
-    base[OSP_STATS_GA] = cl->armorShardCount; /* best approximation */
+    base[OSP_STATS_GA] = cl->armorGACount;
     base[OSP_STATS_RA] = cl->armorRACount;
     base[OSP_STATS_YA] = cl->armorYACount;
 
-    /* Weapon mask 1..9; pick the first included weapon for special packing */
     weaponMask = 0u;
-    firstW = -1;
-    for (w = WP_GAUNTLET; w <= WP_BFG; ++w) {
-        int used;
-        used = (cl->perWeaponShots[w] != 0) || (cl->perWeaponHits[w] != 0) ||
-               (cl->perWeaponKills[w] != 0) || (cl->perWeaponDeaths[w] != 0) ||
-               (cl->perWeaponPickups[w] != 0) || (cl->perWeaponDrops[w] != 0);
-        if (used && w <= 9) {
+    for (w = 0; w < WP_NUM_WEAPONS; ++w) {
+        int used = (cl->perWeaponShots[w] != 0) || (cl->perWeaponHits[w] != 0) ||
+                  (cl->perWeaponKills[w] != 0) || (cl->perWeaponDeaths[w] != 0) ||
+                  (cl->perWeaponPickups[w] != 0) || (cl->perWeaponDrops[w] != 0);
+        if (used) {
             weaponMask |= (1u << w);
-            if (firstW == -1) {
-                firstW = w;
-            }
         }
     }
     base[OSP_STATS_WEAPON_MASK] = (int)weaponMask;
 
-    /* Fill packed hits/attacks for the first weapon into base[22]/[23] */
-    if (firstW != -1) {
-        base[OSP_STATS_UNKNOWN1] = ((cl->perWeaponDrops[firstW] & 0xFFFF) << 16) | (cl->perWeaponHits[firstW] & 0xFFFF);
-        base[OSP_STATS_UNKNOWN2] = ((cl->perWeaponPickups[firstW] & 0xFFFF) << 16) | (cl->perWeaponShots[firstW] & 0xFFFF);
-    }
+    base[OSP_STATS_UNKNOWN1] = 0;
+    base[OSP_STATS_UNKNOWN2] = 0;
 
-    /* Build the command string */
     len = Com_sprintf(msg, sizeof(msg), "statsinfo");
-    for (i = 0; i < 24; ++i) {
+    for (i = 0; i < 21; ++i) {
         len += Com_sprintf(msg + len, sizeof(msg) - len, " %d", base[i]);
         if (len >= (int)sizeof(msg)) {
             break;
         }
     }
 
-    if (firstW != -1) {
-        /* Append kills/deaths for the first weapon */
-        len += Com_sprintf(msg + len, sizeof(msg) - len, " %u %u",
-                           (unsigned)(cl->perWeaponKills[firstW] & 0xFFFF),
-                           (unsigned)(cl->perWeaponDeaths[firstW] & 0xFFFF));
+    len += Com_sprintf(msg + len, sizeof(msg) - len, "  ");
 
-        /* Append other weapons in ascending order: hitsPacked attsPacked kills deaths */
-        for (w = 1; w <= 9; ++w) {
-            unsigned int hitsPacked;
-            unsigned int attsPacked;
-            unsigned int kills;
-            unsigned int deaths;
-            if (!(weaponMask & (1u << w))) {
-                continue;
-            }
-            if (w == firstW) {
-                continue;
-            }
-            hitsPacked = ((cl->perWeaponDrops[w] & 0xFFFF) << 16) | (cl->perWeaponHits[w] & 0xFFFF);
-            attsPacked = ((cl->perWeaponPickups[w] & 0xFFFF) << 16) | (cl->perWeaponShots[w] & 0xFFFF);
-            kills = (cl->perWeaponKills[w] & 0xFFFF);
-            deaths = (cl->perWeaponDeaths[w] & 0xFFFF);
-            len += Com_sprintf(msg + len, sizeof(msg) - len, " %u %u %u %u",
-                               hitsPacked, attsPacked, kills, deaths);
-            if (len >= (int)sizeof(msg)) {
+    hasWeaponInfo = 0;
+    if (weaponMask != 0) {
+        for (w = 0; w < WP_NUM_WEAPONS; ++w) {
+            if (!(weaponMask & (1u << w))) continue;
+            if (cl->perWeaponHits[w] || cl->perWeaponShots[w] || cl->perWeaponKills[w] || cl->perWeaponDeaths[w] || cl->perWeaponPickups /* || cl->perWeaponDrops */) {
+                hasWeaponInfo = 1;
                 break;
             }
+        }
+    }
+
+    if (hasWeaponInfo) {
+        len += Com_sprintf(msg + len, sizeof(msg) - len, " %d", base[OSP_STATS_WEAPON_MASK]);
+        for (w = 0; w < WP_NUM_WEAPONS; ++w) {
+            if (!(weaponMask & (1u << w))) continue;
+            len += Com_sprintf(msg + len, sizeof(msg) - len, " %d %d %d %d",
+                cl->perWeaponHits[w] + (65536 * cl->perWeaponDrops[w]),
+                cl->perWeaponShots[w] + (65536 * cl->perWeaponPickups[w]),
+                cl->perWeaponKills[w],
+                cl->perWeaponDeaths[w]);
+            if (len >= (int)sizeof(msg)) break;
         }
     }
 
