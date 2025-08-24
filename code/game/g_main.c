@@ -2178,6 +2178,25 @@ static void CheckExitRules( void ) {
 		return;
 	}
 
+	/* Check if we have enough human players if g_requireTwoHumans is enabled */
+	if ( g_gametype.integer != GT_SINGLE_PLAYER && level.warmupTime == 0 ) {
+		int totalHumans = 0;
+		int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+		for ( i = 0; i < level.maxclients; ++i ) {
+			if ( level.clients[i].pers.connected != CON_CONNECTED ) continue;
+			if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+			if ( !(g_entities[i].r.svFlags & SVF_BOT) ) totalHumans++;
+		}
+		if ( requireTwo && totalHumans < 2 ) {
+			level.warmupTime = -1;
+			level.readyCountdownStarted = qfalse;
+			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+			G_LogPrintf( "Warmup:\n" );
+			level.abortedDueToNoPlayers = 1;
+			return;
+		}
+	}
+
 	if ( g_gametype.integer < GT_CTF && g_fraglimit.integer ) {
 		if ( level.teamScores[TEAM_RED] >= g_fraglimit.integer ) {
 			G_BroadcastServerCommand( -1, "print \"Red hit the fraglimit.\n\"" );
@@ -2453,6 +2472,7 @@ Once a frame, check for changes in tournement player state
 =============
 */
 static void CheckTournament( void ) {
+	int i;
 
 	// check because we run 3 game frames before calling Connect and/or ClientBegin
 	// for clients on a map_restart
@@ -2477,6 +2497,25 @@ static void CheckTournament( void ) {
 			return;
 		}
 
+		/* Check if we have enough human players if g_requireTwoHumans is enabled */
+		{
+			int totalHumans = 0;
+			int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+			for ( i = 0; i < level.maxclients; ++i ) {
+				if ( level.clients[i].pers.connected != CON_CONNECTED ) continue;
+				if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+				if ( !(g_entities[i].r.svFlags & SVF_BOT) ) totalHumans++;
+			}
+			if ( requireTwo && totalHumans < 2 ) {
+				if ( level.warmupTime != -1 ) {
+					level.warmupTime = -1;
+					trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+					G_LogPrintf( "Warmup:\n" );
+				}
+				return;
+			}
+		}
+
 		if ( level.warmupTime == 0 ) {
 			return;
 		}
@@ -2490,13 +2529,23 @@ static void CheckTournament( void ) {
 		// if all players have arrived, start the countdown
 		if ( level.warmupTime < 0 ) {
 			if ( level.numPlayingClients == 2 ) {
-				if ( g_warmup.integer > 0 ) {
-					level.warmupTime = level.time + g_warmup.integer * 1000;
-				} else {
-					level.warmupTime = 0;
+				/* Check if we have enough human players if g_requireTwoHumans is enabled */
+				int totalHumans = 0;
+				int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+				for ( i = 0; i < level.maxclients; ++i ) {
+					if ( level.clients[i].pers.connected != CON_CONNECTED ) continue;
+					if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+					if ( !(g_entities[i].r.svFlags & SVF_BOT) ) totalHumans++;
 				}
+				if ( !requireTwo || totalHumans >= 2 ) {
+					if ( g_warmup.integer > 0 ) {
+						level.warmupTime = level.time + g_warmup.integer * 1000;
+					} else {
+						level.warmupTime = 0;
+					}
 
-				trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+					trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
+				}
 			}
 			return;
 		}
@@ -2527,6 +2576,20 @@ static void CheckTournament( void ) {
 			}
 		} else if ( level.numPlayingClients < 2 ) {
 			notEnough = qtrue;
+		}
+		
+		/* Check if we have enough human players if g_requireTwoHumans is enabled */
+		if ( !notEnough ) {
+			int totalHumans = 0;
+			int requireTwo = trap_Cvar_VariableIntegerValue( "g_requireTwoHumans" );
+			for ( i = 0; i < level.maxclients; ++i ) {
+				if ( level.clients[i].pers.connected != CON_CONNECTED ) continue;
+				if ( level.clients[i].sess.sessionTeam == TEAM_SPECTATOR ) continue;
+				if ( !(g_entities[i].r.svFlags & SVF_BOT) ) totalHumans++;
+			}
+			if ( requireTwo && totalHumans < 2 ) {
+				notEnough = qtrue;
+			}
 		}
 		//freeze
 		if (g_freeze.integer)
