@@ -834,9 +834,11 @@ qboolean SetTeamSafe( gentity_t *ent, const char *s ) {
             cl->accuracy_hits = 0;
             cl->accuracy_shots = 0;
             cl->totalDamageGiven = 0;
+            client->teamDamageGiven = 0;
             cl->totalDamageTaken = 0;
             cl->kills = 0;
             cl->deaths = 0;
+            cl->teamKills = 0;
             cl->currentKillStreak = 0;
             cl->armorPickedTotal = 0;
             cl->healthPickedTotal = 0;
@@ -1149,9 +1151,11 @@ qboolean SetTeam( gentity_t *ent, const char *s ) {
             cl->accuracy_hits = 0;
             cl->accuracy_shots = 0;
             cl->totalDamageGiven = 0;
+            client->teamDamageGiven = 0;
             cl->totalDamageTaken = 0;
             cl->kills = 0;
             cl->deaths = 0;
+            cl->teamKills = 0;
             cl->currentKillStreak = 0;
             cl->armorPickedTotal = 0;
             cl->healthPickedTotal = 0;
@@ -2589,6 +2593,9 @@ static void G_PrintStatsForClientTo( gentity_t *ent, gclient_t *cl ) {
     if ( cl->armorYACount > 0 ) {
         Q_strcat( line, sizeof(line), va(" ^2(^7%d ^3YA^2)", cl->armorYACount) );
     }
+    if ( cl->armorGACount > 0 ) {
+        Q_strcat( line, sizeof(line), va(" ^2(^7%d ^2GA^2)", cl->armorGACount) );
+    }
     if ( cl->armorShardCount > 0 ) {
         Q_strcat( line, sizeof(line), va(" ^2(^7%d ^2SH^2)", cl->armorShardCount) );
     }
@@ -3002,7 +3009,7 @@ void Cmd_ScoresText_f( gentity_t *ent ) {
             cl->pers.netname,
             cl->kills,
             cl->deaths,
-            0, /* suicides not tracked */
+            cl->suicides,
             mins,
             fph,
             eff10 / 10,

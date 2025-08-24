@@ -1081,6 +1081,8 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
 		// so usual PERS_HITS increments/decrements could result in ZERO delta
 		if ( OnSameTeam( targ, attacker ) ) {
 			attacker->client->damage.team++;
+            // Записываем урон по союзнику
+            attacker->client->teamDamageGiven += take + asave;
         } else {
             int weaponForStats;
             int weaponFromMod;
@@ -1183,6 +1185,10 @@ void G_Damage( gentity_t *targ, gentity_t *inflictor, gentity_t *attacker,
                 if ( weaponForStats >= 0 && weaponForStats < WP_NUM_WEAPONS ) {
                     attacker->client->perWeaponKills[ weaponForStats ]++;
                 }
+            }
+			// increment team kills
+			if ( attacker && attacker->client && attacker != targ && OnSameTeam(targ, attacker) ) {
+                attacker->client->teamKills++;
             }
             targ->die (targ, inflictor, attacker, take, mod);
 			return;

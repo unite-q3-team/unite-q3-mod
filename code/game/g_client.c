@@ -1525,8 +1525,9 @@ void ClientSpawn(gentity_t *ent) {
 	int		perWeaponDrops[WP_NUM_WEAPONS];
 	int		kills, deaths;
 	int		suicides;
-	int		armorPickedTotal, armorYACount, armorRACount, armorShardCount;
+	int		armorPickedTotal, armorYACount, armorRACount, armorGACount, armorShardCount;
 	int		healthPickedTotal, healthMegaCount, health50Count, health25Count, health5Count;
+	int 	teamDamage, teamKills;
 
 	index = ent - g_entities;
 	client = ent->client;
@@ -1624,6 +1625,7 @@ void ClientSpawn(gentity_t *ent) {
 	// backup extended stats to restore after memset if not first spawn
 	totalDamageGiven = client->totalDamageGiven;
 	totalDamageTaken = client->totalDamageTaken;
+	teamDamage = client->teamDamageGiven;
 	for ( i = 0 ; i < WP_NUM_WEAPONS ; ++i ) {
 		perWeaponDamageGiven[i] = client->perWeaponDamageGiven[i];
 		perWeaponDamageTaken[i] = client->perWeaponDamageTaken[i];
@@ -1636,10 +1638,12 @@ void ClientSpawn(gentity_t *ent) {
 	}
 	kills = client->kills;
 	deaths = client->deaths;
+	teamKills = client->teamKills;
 	suicides = client->suicides;
 	armorPickedTotal = client->armorPickedTotal;
 	armorYACount = client->armorYACount;
 	armorRACount = client->armorRACount;
+	armorGACount = client->armorGACount;
 	armorShardCount = client->armorShardCount;
 	healthPickedTotal = client->healthPickedTotal;
 	healthMegaCount = client->healthMegaCount;
@@ -1668,6 +1672,7 @@ void ClientSpawn(gentity_t *ent) {
 		client->accuracy_shots = accuracy_shots;
 		client->totalDamageGiven = totalDamageGiven;
 		client->totalDamageTaken = totalDamageTaken;
+		client->teamDamageGiven = teamDamage;
 		for ( i = 0 ; i < WP_NUM_WEAPONS ; ++i ) {
 			client->perWeaponDamageGiven[i] = perWeaponDamageGiven[i];
 			client->perWeaponDamageTaken[i] = perWeaponDamageTaken[i];
@@ -1680,10 +1685,12 @@ void ClientSpawn(gentity_t *ent) {
 		}
 		client->kills = kills;
 		client->deaths = deaths;
+		client->teamKills = teamKills;
 		client->suicides = suicides;
 		client->armorPickedTotal = armorPickedTotal;
 		client->armorYACount = armorYACount;
 		client->armorRACount = armorRACount;
+		client->armorGACount = armorGACount;
 		client->armorShardCount = armorShardCount;
 		client->healthPickedTotal = healthPickedTotal;
 		client->healthMegaCount = healthMegaCount;

@@ -407,7 +407,8 @@ int Pickup_Armor( gentity_t *ent, gentity_t *other ) {
         other->client->armorPickedTotal += ent->item->quantity;
         if ( ent->item->quantity == 50 ) other->client->armorYACount++;
         else if ( ent->item->quantity == 100 ) other->client->armorRACount++;
-        else if ( ent->item->quantity == 5 ) other->client->armorShardCount++;
+        else if ( ent->item->quantity == 25 ) other->client->armorGACount++;
+		else if ( ent->item->quantity == 5 ) other->client->armorShardCount++;
     }
     return SpawnTime( ent, qfalse ); // return RESPAWN_ARMOR;
 }
@@ -737,7 +738,14 @@ gentity_t *Drop_Item( gentity_t *ent, gitem_t *item, float angle ) {
 	AngleVectors( angles, velocity, NULL, NULL );
 	VectorScale( velocity, 150, velocity );
 	velocity[2] += 200 + crandom() * 50;
-	
+
+	if ( item->giType == IT_WEAPON && ent->client ) {
+		int weaponIdx = item->giTag;
+		if ( weaponIdx >= 0 && weaponIdx < WP_NUM_WEAPONS ) {
+			ent->client->perWeaponDrops[weaponIdx]++;
+		}
+	}
+
 	return LaunchItem( item, ent->s.pos.trBase, velocity );
 }
 
