@@ -321,10 +321,12 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
 		if ( ent->damage ) {
 			vec3_t	velocity;
 
-            G_Printf("Missile hit: checking accuracy hit for weapon %d, target health: %d, target client: %s\n", 
-                     ent->s.weapon, 
-                     other->client ? other->client->ps.stats[STAT_HEALTH] : -1,
-                     other->client ? "valid" : "NULL");
+            if (g_accLog.integer) {
+                G_Printf("Missile hit: checking accuracy hit for weapon %d, target health: %d, target client: %s\n", 
+                         ent->s.weapon, 
+                         other->client ? other->client->ps.stats[STAT_HEALTH] : -1,
+                         other->client ? "valid" : "NULL");
+            }
             if( LogMissileAccuracyHit( other, &g_entities[ent->r.ownerNum] ) ) {
                 int w = ent->s.weapon;
                 if ( w < 0 || w >= WP_NUM_WEAPONS ) w = WP_NONE;
@@ -332,9 +334,13 @@ void G_MissileImpact( gentity_t *ent, trace_t *trace ) {
                 if ( g_entities[ent->r.ownerNum].client ) {
                     g_entities[ent->r.ownerNum].client->accuracy_hits++;
                     g_entities[ent->r.ownerNum].client->perWeaponHits[ w ]++;
-                    G_Printf("Missile hit: accuracy hit registered for weapon %d\n", w);
+                    if (g_accLog.integer) {
+                        G_Printf("Missile hit: accuracy hit registered for weapon %d\n", w);
+                    }
                 } else {
-                    G_Printf("Missile hit: owner client is NULL\n");
+                    if (g_accLog.integer) {
+                        G_Printf("Missile hit: owner client is NULL\n");
+                    }
                 }
                 hitClient = qtrue;
             } else {
